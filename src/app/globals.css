@@ -1,0 +1,36 @@
+/* ================================================================== */
+/*  Global tokens + reset. Viewer chrome -> viewer/viewer.css,         */
+/*  editor chrome -> editor/editor.css.                                */
+/* ================================================================== */
+
+:root {
+  --ink: #14110e;
+  --paper: #f6f1e7;
+  --gold: #b08d57;
+  --sans: 'Segoe UI', system-ui, Roboto, sans-serif;
+  --serif: 'Georgia', 'Times New Roman', serif;
+  --mono: ui-monospace, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+body {
+  background: #000;
+  color: var(--paper);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-root { position: fixed; inset: 0; background: #000; }
+.app-root canvas { display: block; touch-action: none; }
+
+/* Editor "Preview" — exit pill */
+.pv-exit {
+  position: fixed; top: 16px; right: 16px; z-index: 40;
+  appearance: none; cursor: pointer; padding: 9px 16px; border-radius: 999px;
+  font: 600 12px/1 var(--sans); letter-spacing: 0.02em;
+  color: var(--paper); background: rgba(18, 15, 12, 0.8);
+  border: 1px solid rgba(246, 241, 231, 0.28); backdrop-filter: blur(10px);
+  transition: background 0.15s;
+}
+.pv-exit:hover { background: rgba(18, 15, 12, 0.95); }

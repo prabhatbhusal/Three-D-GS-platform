@@ -1,0 +1,136 @@
+/* ================================================================= */
+/*  New-space uploader — same instrument-panel language as editor.css */
+/*  (CLAUDE.md §10.1). Mounted inside .ed2, so it inherits --ed-* and  */
+/*  the studio's Inter override for free.                             */
+/* ================================================================= */
+
+.up-scrim {
+  position: fixed; inset: 0; z-index: 40;
+  background: rgba(6, 7, 8, 0.72);
+  display: grid; place-items: center;
+}
+
+.up-panel {
+  width: min(640px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+  background: var(--ed-panel);
+  border: 1px solid var(--ed-line);
+  padding: 18px 20px 20px;
+}
+
+.up-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 4px;
+}
+.up-head h2 {
+  margin: 0; font: 600 15px var(--sans, sans-serif); color: var(--ed-text);
+}
+.up-x {
+  appearance: none; border: 0; cursor: pointer; background: transparent;
+  color: var(--ed-text-dim); font-size: 14px; padding: 4px 6px;
+}
+.up-x:hover { color: var(--ed-text); }
+
+.up-sub { margin: 0 0 16px; color: var(--ed-text-dim); font-size: 12px; line-height: 1.5; }
+
+.up-field { display: block; margin-bottom: 16px; }
+.up-field span {
+  display: block; margin-bottom: 6px;
+  font: 700 9px var(--sans, sans-serif); letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--ed-text-dim);
+}
+.up-field input {
+  width: 100%; padding: 10px 11px; color: var(--ed-text);
+  background: var(--ed-well); border: 1px solid var(--ed-line);
+  font: 500 13px var(--sans, sans-serif);
+}
+.up-field input:focus { outline: none; border-color: var(--ed-signal); }
+
+/* sign-in — the studio's only login surface (one shared password) */
+.up-signin { border: 1px solid var(--ed-line); background: var(--ed-well); padding: 12px; }
+.up-signin .up-slot-hint { margin-bottom: 10px; }
+.up-signin code {
+  background: rgba(255, 255, 255, 0.05); padding: 1px 4px;
+  font-family: var(--mono, ui-monospace, monospace); color: var(--ed-text);
+}
+.up-signin-row { display: flex; gap: 6px; }
+.up-signin-row input {
+  flex: 1; padding: 9px 11px; color: var(--ed-text);
+  background: var(--ed-panel); border: 1px solid var(--ed-line);
+  font: 500 12.5px var(--sans, sans-serif);
+}
+.up-signin-row input:focus { outline: none; border-color: var(--ed-signal); }
+.up-signin-row button {
+  appearance: none; cursor: pointer; padding: 9px 16px;
+  font: 700 10.5px var(--sans, sans-serif); letter-spacing: 0.06em; text-transform: uppercase;
+  color: #101214; background: var(--ed-signal); border: 1px solid var(--ed-signal);
+}
+.up-signin-row button:disabled { opacity: 0.35; cursor: default; }
+
+.up-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+@media (max-width: 560px) { .up-slots { grid-template-columns: 1fr; } }
+
+.up-slot {
+  border: 1px dashed var(--ed-line); background: var(--ed-well);
+  padding: 12px; min-height: 108px;
+  display: flex; flex-direction: column; gap: 6px;
+  transition: border-color 0.12s, background 0.12s;
+}
+.up-slot-over { border-color: var(--ed-signal); background: rgba(232, 197, 71, 0.06); }
+.up-slot-done { border-style: solid; border-color: var(--ed-line); }
+.up-slot-error { border-style: solid; border-color: var(--ed-danger); }
+
+.up-slot-top { display: flex; align-items: center; justify-content: space-between; }
+.up-slot-label {
+  font: 700 10px var(--sans, sans-serif); letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--ed-text);
+}
+.up-slot-ok { font: 600 10px var(--sans, sans-serif); color: var(--ed-signal); }
+
+.up-slot-hint { margin: 0; font-size: 11px; line-height: 1.4; color: var(--ed-text-dim); }
+
+.up-browse-row { display: flex; flex-direction: column; gap: 4px; margin-top: auto; }
+.up-browse {
+  appearance: none; cursor: pointer;
+  padding: 8px 10px; text-align: center;
+  font: 600 10.5px var(--sans, sans-serif);
+  color: var(--ed-text); background: transparent; border: 1px solid var(--ed-line);
+}
+.up-browse:hover { border-color: var(--ed-text-dim); background: rgba(255, 255, 255, 0.04); }
+.up-browse-zip {
+  appearance: none; cursor: pointer; border: 0; background: transparent;
+  padding: 2px; font: 500 10px var(--sans, sans-serif); color: var(--ed-text-dim);
+  text-decoration: underline;
+}
+.up-browse-zip:hover { color: var(--ed-text); }
+
+.up-relink {
+  appearance: none; border: 0; padding: 0; cursor: pointer;
+  color: var(--ed-signal); background: transparent; font: 600 11px var(--sans, sans-serif);
+  text-decoration: underline;
+}
+
+.up-progress { margin-top: auto; }
+.up-progress-track { height: 4px; background: var(--ed-line); }
+.up-progress-bar { height: 100%; background: var(--ed-signal); transition: width 0.15s; }
+.up-progress-txt {
+  margin: 6px 0 0; font: 400 10.5px var(--mono, monospace); font-variant-numeric: tabular-nums;
+  color: var(--ed-text-dim);
+}
+
+.up-slot-error-text, .up-slot-error { color: var(--ed-danger); font-size: 11px; margin: 0; }
+
+.up-error {
+  margin: 14px 0 0; padding: 8px 10px; font-size: 11.5px;
+  color: var(--ed-danger); background: rgba(217, 123, 108, 0.1); border: 1px solid var(--ed-danger);
+}
+
+.up-create {
+  appearance: none; cursor: pointer; width: 100%; margin-top: 16px;
+  padding: 11px; font: 700 11px var(--sans, sans-serif); letter-spacing: 0.06em; text-transform: uppercase;
+  color: #101214; background: var(--ed-signal); border: 1px solid var(--ed-signal);
+  transition: filter 0.12s, opacity 0.12s;
+}
+.up-create:hover:not(:disabled) { filter: brightness(1.08); }
+.up-create:disabled { opacity: 0.35; cursor: default; }

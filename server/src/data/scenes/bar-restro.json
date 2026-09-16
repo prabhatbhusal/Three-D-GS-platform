@@ -1,0 +1,45 @@
+{
+  "id": "bar-restro",
+  "version": 1,
+  "title": "Bar & Restaurant",
+  "tagline": "Ground floor · all-day dining",
+  "splat": { "meta": "assets/rooms/bar-restro/meta.lcc2", "format": "lcc2" },
+  "spawn": { "position": [-3.08, 2.42, -0.92], "yaw": 0, "eyeHeight": 1.65 },
+  "camera": { "fov": 60, "near": 0.25, "far": 300, "mode": "viewpoint" },
+  "waypoints": [],
+  "hotspots": [],
+  "tracks": [
+    {
+      "id": "bar-entrance",
+      "label": "Walk in",
+      "loop": false,
+      "keyframes": [
+        { "t": 0, "position": [0, 1.7, 6], "target": [0, 1.5, 0], "easing": "easeInOutCubic" },
+        { "t": 1, "position": [0, 1.7, 2.5], "target": [-2, 1.4, -2], "easing": "easeInOutCubic" },
+        { "t": 2, "position": [-1.5, 1.65, 0], "target": [-3, 1.3, -3], "easing": "easeInOutCubic" }
+      ]
+    },
+    {
+      "id": "bar-counter",
+      "label": "The bar",
+      "loop": false,
+      "keyframes": [
+        { "t": 0, "position": [-1.5, 1.65, 0], "target": [-4, 1.4, -1], "easing": "easeInOutCubic" },
+        { "t": 1, "position": [-3.2, 1.6, -1.2], "target": [-5, 1.3, -2], "easing": "easeInOutCubic" }
+      ]
+    },
+    {
+      "id": "bar-window",
+      "label": "Window seats",
+      "loop": false,
+      "keyframes": [
+        { "t": 0, "position": [-1.5, 1.65, 0], "target": [2, 1.4, -3], "easing": "easeInOutCubic" },
+        { "t": 1, "position": [1.5, 1.6, -2], "target": [3.5, 1.3, -4], "easing": "easeInOutCubic" }
+      ]
+    }
+  ],
+  "theme": { "accent": "#b08d57", "logoUrl": "", "font": "" },
+  "neighbours": [],
+  "unitScale": 1,
+  "outdoor": false
+}

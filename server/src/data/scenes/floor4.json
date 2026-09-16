@@ -1,0 +1,52 @@
+{
+  "id": "floor4",
+  "version": 2,
+  "propertyId": null,
+  "title": "Floor4",
+  "splat": {
+    "format": "lcc2",
+    "variants": {
+      "high": {
+        "assetId": "ast_f12f2fbed0a0",
+        "meta": "Floor4/Floor4_Madan.lcc2"
+      }
+    }
+  },
+  "transform": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "scale": 1
+  },
+  "unitScale": 1,
+  "spawn": {
+    "position": [
+      0,
+      1.7,
+      3
+    ],
+    "yaw": 0,
+    "eyeHeight": 1.65
+  },
+  "camera": {
+    "fov": 60,
+    "near": 0.25,
+    "far": 300,
+    "mode": "viewpoint"
+  },
+  "viewpoints": [],
+  "hotspots": [],
+  "tracks": [],
+  "audio": null,
+  "cta": null,
+  "theme": null,
+  "neighbours": [],
+  "status": "draft"
+}

@@ -1,0 +1,52 @@
+{
+  "id": "floor1",
+  "version": 2,
+  "propertyId": null,
+  "title": "Floor1",
+  "splat": {
+    "format": "lcc2",
+    "variants": {
+      "high": {
+        "assetId": "ast_d38761d22e70",
+        "meta": "Floor3_Madan/Floor3_Madan.lcc2"
+      }
+    }
+  },
+  "transform": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "scale": 1
+  },
+  "unitScale": 1,
+  "spawn": {
+    "position": [
+      0,
+      1.7,
+      3
+    ],
+    "yaw": 0,
+    "eyeHeight": 1.65
+  },
+  "camera": {
+    "fov": 60,
+    "near": 0.25,
+    "far": 300,
+    "mode": "viewpoint"
+  },
+  "viewpoints": [],
+  "hotspots": [],
+  "tracks": [],
+  "audio": null,
+  "cta": null,
+  "theme": null,
+  "neighbours": [],
+  "status": "draft"
+}
