@@ -3,10 +3,14 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { useSceneManager } from '../lib/useSceneManager';
+import { useSceneManager, LCC_MODEL_MATRIX } from '../lib/useSceneManager';
+import { Gizmo, useSceneTransform } from './Gizmo';
+import { transformFor, setTransform, IDENTITY } from '../lib/transform';
+import { walkerCfg } from '../lib/walkerConfig';
+import { findFloorBelow } from '../lib/collision';
 import { useCameraDirector } from '../lib/useCameraDirector';
 import { useLccWalker } from '../lib/useLccWalker';
-import { spawnFor, setSessionSpawn, hydrateScenes, DEFAULT_SCENE, SCENE_BY_ID } from '../lib/scenes';
+import { spawnFor, setSessionSpawn, hydrateScenes, SCENE_BY_ID, firstScene, isPublicTour } from '../lib/scenes';
 import { hasWebGL2 } from '../lib/deviceTier';
 import { tierProfile, detectTier } from '../lib/lccConfig';
 import { EnquiryPanel } from './EnquiryPanel';
@@ -18,7 +22,7 @@ import {
 } from '../lib/viewpoints';
 import {
   hotspotsFor, addHotspot, updateHotspot, removeHotspot,
-  placeHotspotAtCamera, exportSceneJSON
+  placeHotspotAtCamera, exportSceneJSON, loadSceneDoc
 } from '../lib/sceneDoc';
 import { projected } from '../lib/hotspotProjector';
 import { resetNavMode } from '../lib/navMode';
@@ -26,6 +30,7 @@ import { touch, isTouchDevice } from '../lib/mobileInput';
 import { Viewer } from './Viewer';
 import { EditorShell } from './EditorShell';
 import { editorActive } from '../lib/editorActive';
+import { useUiConfig } from '../lib/uiConfig';
 import { getScenes } from '../lib/api';
 import type { EditorApi, ViewerState } from '../@types/app.types';
 import type { Viewpoint } from '../@types/viewpoint.types';
@@ -63,6 +68,10 @@ function Stage({ onState, viewerMode }: StageProps) {
   walkerRef.current = walker;
 
   useEffect(() => subscribeViewpoints(bumpVp), []);
+  // Saved tracks, hotspots and placement for whichever space is open.
+  // The public tour reads the published copy; the studio (and its Preview) the draft.
+  useEffect(() => { loadSceneDoc(mgr.activeId, isPublicTour() ? 'published' : 'draft'); }, [mgr.activeId]);
+  useSceneTransform(mgr.renderer, mgr.activeId, mgr.unitScale, LCC_MODEL_MATRIX);
 
   const playViewport = useCallback(
     (vp: Viewpoint) => { setFlying(true); play(vp, { onDone: () => setFlying(false) }); },
@@ -160,7 +169,21 @@ function Stage({ onState, viewerMode }: StageProps) {
         camera.updateMatrixWorld();
         walkerRef.current?.adoptCameraOrientation();
       },
-      exportScene: () => exportSceneJSON(mgr.activeId)
+      exportScene: () => exportSceneJSON(mgr.activeId),
+      // --- model placement (§7.2) ---
+      resetTransform: () => setTransform(mgr.activeId, IDENTITY),
+      dropToFloor: () => {
+        if (!mgr.renderer) return 'The model is still loading.';
+        const shape = { eyeHeight: walkerCfg.eyeHeight, radius: walkerCfg.radius };
+        const p = camera.position;
+        const at = findFloorBelow(mgr.renderer, p.x, p.z, p.y, p.y - 40 * (walkerCfg.unitScale || 1), shape);
+        if (!at) return 'No floor under this view. Move over the floor and try again.';
+        const floorY = at.y - shape.eyeHeight;
+        const t = transformFor(mgr.activeId);
+        setTransform(mgr.activeId, { position: [t.position[0], t.position[1] - floorY, t.position[2]] });
+        camera.position.y -= floorY; // keep the same view of the model
+        return `Floor moved to 0 m (it was at ${floorY.toFixed(2)} m).`;
+      }
     };
   }, [camera, gl, scene, mgr.activeId, play, playViewport, playSequence, stop]);
 
@@ -185,7 +208,12 @@ function Stage({ onState, viewerMode }: StageProps) {
     mgr.ready, mgr.unitScale, mgr.select, flying, vpTick, playViewport, stopFly, editor, onState
   ]);
 
-  return <HotspotProjector sceneId={mgr.activeId} />;
+  return (
+    <>
+      <HotspotProjector sceneId={mgr.activeId} />
+      {!viewerMode && <Gizmo sceneId={mgr.activeId} />}
+    </>
+  );
 }
 
 /** Projects the active scene's hotspots to screen pixels each frame for the
@@ -227,9 +255,16 @@ export default function App() {
   // CLAUDE.md §3 constraint 5 / §8.1 rule 1: no WebGL2, no splat attempt at
   // all — checked once, synchronously, before the SDK gets anywhere near it.
   const [webgl2] = useState(() => hasWebGL2());
+  // --- MAX-GRAPHICS OVERRIDE (temporary, requested 2026-09-17) ---
+  // Native devicePixelRatio, uncapped, instead of the tier table's dpr ceiling
+  // (high tier caps at 1.5 — CLAUDE.md §8). To revert, delete this line and
+  // uncomment the one below.
+  const [nativeDpr] = useState(() => (typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1));
+  // The visitor's HD toggle drops to 1× for weak devices or a hot laptop.
+  const dpr = useUiConfig().hd === false ? 1 : nativeDpr;
   // Tier decides dpr (CLAUDE.md §8 table) — resolved once, same cached value
   // useSceneManager reads, so the Canvas and the loader never disagree.
-  const [dpr] = useState(() => tierProfile(detectTier()).dpr);
+  // const [dpr] = useState(() => tierProfile(detectTier()).dpr);
 
   useEffect(() => { touch.enabled = isTouch; }, [isTouch]);
 
@@ -237,7 +272,9 @@ export default function App() {
   // frame (the SDK is already loading off the static list by the time this
   // resolves), and quietly no-ops if the API is down or unreachable.
   useEffect(() => {
-    getScenes().then(hydrateScenes).catch(() => {});
+    // The public tour was already hydrated from published docs by /tour —
+    // draft metadata here would leak unpublished edits to visitors.
+    if (!isPublicTour()) getScenes().then(hydrateScenes).catch(() => {});
   }, []);
 
   const onState = useMemo(() => (s: ViewerState) => setState(s), []);
@@ -247,7 +284,7 @@ export default function App() {
   // work. Skip the Canvas entirely rather than let it fail deep inside the
   // SDK — this stays a plain, fast, indexable page.
   if (!webgl2) {
-    const conf = SCENE_BY_ID[DEFAULT_SCENE];
+    const conf = SCENE_BY_ID[firstScene()];
     return (
       <div className="app-root">
         <div className="vw-enter">
@@ -261,7 +298,7 @@ export default function App() {
             </p>
           </div>
         </div>
-        <EnquiryPanel sceneId={DEFAULT_SCENE} sceneName={conf?.name} />
+        <EnquiryPanel sceneId={firstScene()} sceneName={conf?.name} />
       </div>
     );
   }

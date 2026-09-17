@@ -132,6 +132,15 @@ export function guessTier(): Tier {
 /* ------------------------------------------------------------------ */
 
 export function resolveInitialTier(): TierResolution {
+  // --- MAX-GRAPHICS OVERRIDE (temporary, requested 2026-09-17) ---
+  // Forces every session to `high`, skipping detection entirely — no low/medium
+  // tier ever gets resolved while this is active. This deliberately breaks
+  // CLAUDE.md §3's "5s TTFF on the low tier" budget for any visitor on a real
+  // low-end device; it's meant for local preview only, not for a deployed tour.
+  // To revert: delete this early return and uncomment the block below.
+  return { tier: 'high', guessed: 'high', source: 'manual' };
+
+  /*
   if (!hasWebGL2()) return { tier: 'low', guessed: 'low', source: 'no-webgl2' };
 
   const manual = readStorage(STORAGE_PREFIX + 'manual');
@@ -147,6 +156,7 @@ export function resolveInitialTier(): TierResolution {
     return { tier: persisted.tier, guessed, source: 'measured', deviceStorageKey: key };
   }
   return { tier: guessed, guessed, source: 'guess', deviceStorageKey: key };
+  */
 }
 
 export function persistMeasuredTier(deviceStorageKey: string | undefined, tier: Tier) {

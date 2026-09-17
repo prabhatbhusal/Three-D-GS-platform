@@ -1,0 +1,125 @@
+{
+  "id": "canteen",
+  "version": 2,
+  "propertyId": null,
+  "title": "Canteen",
+  "splat": {
+    "format": "lcc2",
+    "variants": {
+      "high": {
+        "assetId": "ast_608270a2391a",
+        "meta": "Canteen/Canteen.lcc2"
+      }
+    }
+  },
+  "transform": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "scale": 1
+  },
+  "unitScale": 1,
+  "spawn": {
+    "position": [
+      0.12,
+      0.83,
+      1.64
+    ],
+    "yaw": -0.39,
+    "eyeHeight": 1.65
+  },
+  "camera": {
+    "fov": 60,
+    "near": 0.25,
+    "far": 300,
+    "mode": "viewpoint"
+  },
+  "viewpoints": [],
+  "hotspots": [],
+  "tracks": [
+    {
+      "id": "vp-canteen-1",
+      "label": "Track 1",
+      "loop": false,
+      "autoplayOnLoad": false,
+      "keyframes": [
+        {
+          "t": 0,
+          "position": [
+            0.12,
+            0.83,
+            1.64
+          ],
+          "target": [
+            1.37,
+            -0.61,
+            -0.67
+          ],
+          "easing": "easeInOutCubic"
+        }
+      ],
+      "cues": [],
+      "audio": null
+    },
+    {
+      "id": "vp-canteen-2",
+      "label": "Track 2",
+      "loop": false,
+      "autoplayOnLoad": false,
+      "keyframes": [
+        {
+          "t": 0,
+          "position": [
+            5.27,
+            0.85,
+            -4.21
+          ],
+          "target": [
+            3.96,
+            0.25,
+            -1.58
+          ],
+          "easing": "easeInOutCubic"
+        }
+      ],
+      "cues": [],
+      "audio": null
+    },
+    {
+      "id": "vp-canteen-3",
+      "label": "Track 3",
+      "loop": false,
+      "autoplayOnLoad": false,
+      "keyframes": [
+        {
+          "t": 0,
+          "position": [
+            -1.8,
+            0.86,
+            -2.6
+          ],
+          "target": [
+            1.02,
+            0.31,
+            -1.71
+          ],
+          "easing": "easeInOutCubic"
+        }
+      ],
+      "cues": [],
+      "audio": null
+    }
+  ],
+  "audio": null,
+  "cta": null,
+  "theme": null,
+  "neighbours": [],
+  "status": "draft"
+}

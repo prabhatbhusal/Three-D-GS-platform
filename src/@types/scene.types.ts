@@ -52,6 +52,10 @@ export interface Track {
   keyframes: TrackKeyframe[];
   cues: unknown[];
   audio: null;
+  /** Total flight time. Absent on docs saved before 2026-09-17 → 4 s. */
+  seconds?: number;
+  /** Filmstrip thumbnail (data URL). Absent → none. */
+  thumb?: string | null;
 }
 
 export interface SplatVariant {

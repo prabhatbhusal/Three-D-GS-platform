@@ -1,9 +1,8 @@
 /**
  * Editor session auth. CLAUDE.md: "session auth for the editor, signed
- * short-lived tokens for embeds" — this is the session half. There is no user
- * database yet (Postgres "not started"), so it checks one shared editor
- * password from the environment and issues a signed, httpOnly session cookie.
- * Swap this for real per-user sessions once accounts exist.
+ * short-lived tokens for embeds" — this is the session half. A signed,
+ * httpOnly cookie carrying the account (routes/auth.js, usersStore.js), or
+ * no account for the legacy shared-password sign-in.
  */
 import jwt from 'jsonwebtoken';
 
@@ -16,8 +15,10 @@ function secret() {
   return s;
 }
 
-export function issueSession(res) {
-  const token = jwt.sign({ role: 'editor' }, secret(), { expiresIn: SESSION_TTL });
+/** `user` is null for the legacy shared-password sign-in. */
+export function issueSession(res, user = null) {
+  const claims = user ? { role: 'editor', sub: user.id, name: user.name, email: user.email } : { role: 'editor' };
+  const token = jwt.sign(claims, secret(), { expiresIn: SESSION_TTL });
   res.cookie(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',

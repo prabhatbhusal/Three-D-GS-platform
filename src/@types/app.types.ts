@@ -27,6 +27,10 @@ export interface EditorApi {
   placeHotspotAtCamera: (id: string) => void;
   lookAtHotspot: (id: string) => void;
   exportScene: () => string;
+  resetTransform: () => void;
+  /** Moves the model so the floor under the camera sits at y = 0. Returns a
+   *  sentence for the inspector to show. */
+  dropToFloor: () => string;
 }
 
 /** The state object App.jsx's <Stage> reports up to Viewer / EditorShell. */

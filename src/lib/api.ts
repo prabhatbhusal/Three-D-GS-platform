@@ -47,14 +47,69 @@ export const getScene = (id: string) => request<SceneDoc>(`/api/scenes/${id}`);
 export const saveScene = (id: string, doc: SceneDoc) =>
   request(`/api/scenes/${id}`, { method: 'PUT', body: JSON.stringify(doc) });
 
-/** One shared editor password (server/.env EDITOR_PASSWORD) until real
- *  accounts exist — there is nothing to sign *up* for. */
-export const login = (password: string) =>
-  request<{ authenticated: boolean }>('/api/auth/login', { method: 'POST', body: JSON.stringify({ password }) });
+/* ---- publishing (§7.5) ---- */
+
+/** What visitors see. Resolves null when the space isn't published. */
+export const getPublishedScene = (id: string) =>
+  request<SceneDoc>(`/api/scenes/${id}/published`).catch((err: Error) => {
+    if (/not published/i.test(err.message)) return null;
+    throw err;
+  });
+
+export interface PublishState {
+  status: 'draft' | 'published';
+  publishedVersion: number | null;
+  publishedAt: string | null;
+  blockers: string[];
+  warnings: string[];
+}
+export interface PublishResult {
+  published: boolean;
+  version?: number;
+  publishedAt?: string;
+  blockers?: string[];
+  warnings: string[];
+}
+export interface GalleryItem {
+  id: string;
+  title: string;
+  tagline: string | null;
+  publishedAt: string;
+  version: number;
+  trackCount: number;
+  thumb: string | null;
+}
+
+export const getPublishState = (id: string) => request<PublishState>(`/api/scenes/${id}/publish`);
+
+/** Resolves with the blockers instead of throwing when publish is refused. */
+export async function publishSceneNow(id: string): Promise<PublishResult> {
+  const res = await send(`/api/scenes/${id}/publish`, { method: 'POST', credentials: 'include' });
+  const body = await res.json().catch(() => ({}));
+  if (res.ok || res.status === 422) return body as PublishResult;
+  throw new Error(body.error || `${res.status} ${res.statusText}`);
+}
+export const unpublishScene = (id: string) => request(`/api/scenes/${id}/unpublish`, { method: 'POST' });
+export const revertScene = (id: string) => request<SceneDoc>(`/api/scenes/${id}/revert`, { method: 'POST' });
+export const getGallery = () => request<GalleryItem[]>('/api/gallery');
+/** For server components, which have no browser cookies or CORS to worry about. */
+export const API_BASE_URL = API_BASE;
+
+export interface SessionUser { id: string; name: string; email: string }
+interface SessionReply { authenticated: boolean; user: SessionUser | null }
+
+/** `email` omitted = the legacy shared editor password (server/.env
+ *  EDITOR_PASSWORD), still used by the uploader's inline sign-in. */
+export const login = (password: string, email?: string) =>
+  request<SessionReply>('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+
+/** Needs the team access code — see server/src/routes/auth.js for why. */
+export const signup = (fields: { name: string; email: string; password: string; accessCode: string }) =>
+  request<SessionReply>('/api/auth/signup', { method: 'POST', body: JSON.stringify(fields) });
 
 export const logout = () => request('/api/auth/logout', { method: 'POST' });
 
-export const getSession = () => request<{ authenticated: boolean }>('/api/auth/session');
+export const getSession = () => request<SessionReply>('/api/auth/session');
 
 /** A short-lived token an embedding client's own server can hand to the
  *  viewer (CLAUDE.md: "signed short-lived tokens for embeds"). Not yet

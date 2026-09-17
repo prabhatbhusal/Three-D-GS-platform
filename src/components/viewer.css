@@ -87,141 +87,154 @@
   background: var(--gold); transition: width 0.3s ease;
 }
 
-/* ---- brand mark ------------------------------------------- */
-.vw-brand {
-  position: fixed; top: 18px; left: 22px; z-index: 10;
-  display: flex; align-items: center; gap: 9px;
-  font: 400 16px/1 var(--serif, Georgia, serif); letter-spacing: 0.02em;
-  color: rgba(246, 241, 231, 0.94); text-shadow: 0 2px 16px rgba(0, 0, 0, 0.7);
-  pointer-events: none; animation: vw-fade 0.7s ease 0.2s both;
+/* ---- chrome: icon buttons ---------------------------------- */
+/* Light, small and square, like a camera app — the room stays the subject.
+ * No backdrop blur: it costs frames on the phones that matter (§10.2). */
+.vw-tl, .vw-tr {
+  position: fixed; top: 16px; z-index: 10;
+  display: flex; gap: 8px; animation: vw-fade 0.4s var(--ease) both;
 }
-.vw-brand::before {
-  content: ''; width: 7px; height: 7px; background: var(--gold);
-  transform: rotate(45deg); flex: 0 0 auto;
+.vw-tl { left: 16px; flex-direction: column; }
+.vw-tr { right: 16px; align-items: center; }
+.vw-ib, .vw-hd {
+  appearance: none; cursor: pointer; display: grid; place-items: center;
+  width: 38px; height: 38px; border-radius: 10px; padding: 0;
+  color: #1c1814; background: rgba(246, 241, 231, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+  transition: background 0.15s, transform 0.15s, color 0.15s;
 }
+.vw-ib:hover, .vw-hd:hover { background: #fff; transform: translateY(-1px); }
+.vw-ib.on { color: var(--paper); background: rgba(20, 17, 14, 0.86); border-color: rgba(246, 241, 231, 0.3); }
+.vw-ib svg, .vw-tb svg, .vw-exit svg {
+  width: 18px; height: 18px; fill: none; stroke: currentColor;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+.vw-hd { width: auto; padding: 0 10px; font: 800 11px/1 var(--sans); letter-spacing: 0.04em; color: rgba(28, 24, 20, 0.45); }
+.vw-hd.on { color: #1c1814; }
+.vw-exit {
+  display: inline-flex; align-items: center; gap: 8px; margin-left: 4px;
+  height: 38px; padding: 0 16px; border-radius: 10px; text-decoration: none;
+  font: 700 13px/1 var(--sans); color: #14110e; background: #fff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22); transition: transform 0.15s;
+}
+.vw-exit:hover { transform: translateY(-1px); }
 
-/* ---- scene switch (top center) -------------------------- */
-.vw-scenes {
-  position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 10;
-  display: flex; gap: 3px; padding: 4px;
-  background: var(--glass); border: 1px solid var(--line);
-  border-radius: 999px;
-  animation: vw-fade 0.5s ease 0.15s both;
+/* place name, top centre */
+.vw-place {
+  position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  text-align: center; pointer-events: none; text-shadow: 0 1px 12px rgba(0, 0, 0, 0.55);
+  animation: vw-fade 0.5s var(--ease) both;
 }
-.vw-scenes button {
-  appearance: none; border: 0; cursor: pointer; padding: 9px 18px;
-  border-radius: 999px; font: 600 12px/1 var(--sans); letter-spacing: 0.01em;
-  color: rgba(246, 241, 231, 0.6); background: transparent;
-  transition: color 0.18s, background 0.18s, box-shadow 0.25s;
-}
-.vw-scenes button:hover:not(:disabled) { color: var(--paper); }
-.vw-scenes button.on {
-  color: #14110e; background: var(--paper);
-  box-shadow: 0 0 22px rgba(176, 141, 87, 0.4);
-}
-.vw-scenes button:disabled { opacity: 0.5; cursor: default; }
+.vw-place-brand { font: 600 10.5px/1 var(--sans); letter-spacing: 0.08em; opacity: 0.8; }
+.vw-place-name { font: 400 22px/1.15 var(--serif); }
 
-/* ---- "take a walk" toggle (top right) ----------------- */
-.vw-walk {
-  position: fixed; top: 16px; right: 16px; z-index: 10;
-  display: flex; align-items: center; gap: 8px;
-  appearance: none; cursor: pointer; padding: 9px 15px 9px 13px;
-  border-radius: 999px; border: 1px solid var(--line);
-  font: 600 12px/1 var(--sans); letter-spacing: 0.01em; color: var(--paper);
-  background: var(--glass);
-  animation: vw-fade 0.5s ease 0.2s both;
-  transition: transform 0.16s, border-color 0.2s, background 0.2s;
+/* ---- bottom: tray, transport, segmented progress ------------- */
+.vw-bottom {
+  position: fixed; left: 16px; right: 16px; bottom: 14px; z-index: 10;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
+  pointer-events: none;
 }
-.vw-walk:hover { transform: translateY(-1px); border-color: rgba(246, 241, 231, 0.4); }
-.vw-walk.on {
-  color: #14110e; background: var(--gold); border-color: var(--gold);
-  box-shadow: 0 0 24px rgba(176, 141, 87, 0.5);
-}
-.vw-walk-ic { font-size: 14px; line-height: 1; }
+.vw-bottom > * { pointer-events: auto; }
 
-/* ---- viewpoint dock — thumbnail film strip ------------- */
-.vw-dock {
-  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 9;
-  max-width: min(820px, calc(100vw - 28px));
-  animation: vw-rise 0.6s var(--ease) 0.1s both;
+.vw-tray {
+  display: flex; gap: 8px; padding: 8px; max-width: min(100%, 980px);
+  overflow-x: auto; scrollbar-width: none; border-radius: 16px;
+  background: rgba(20, 17, 14, 0.72); border: 1px solid var(--line);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.35);
+  animation: vw-up 0.35s var(--ease) both;
 }
-.vw-strip {
-  display: flex; gap: 8px; padding: 8px;
-  background: var(--glass-2); border: 1px solid var(--line);
-  border-radius: 20px;
-  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.45);
-  overflow-x: auto; scrollbar-width: none;
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 22px, #000 calc(100% - 22px), transparent);
-          mask-image: linear-gradient(90deg, transparent, #000 22px, #000 calc(100% - 22px), transparent);
-}
-.vw-strip::-webkit-scrollbar { display: none; }
+.vw-tray::-webkit-scrollbar { display: none; }
 .vw-card {
-  position: relative; flex: 0 0 auto; width: 138px; height: 84px;
-  padding: 0; border: 0; border-radius: 13px; overflow: hidden; cursor: pointer;
-  background: #1c1712; box-shadow: inset 0 0 0 1px rgba(246, 241, 231, 0.06);
-  transition: transform 0.2s var(--ease), box-shadow 0.2s;
+  position: relative; flex: 0 0 auto; width: 152px; height: 86px; padding: 0;
+  border: 0; border-radius: 10px; overflow: hidden; cursor: pointer;
+  background: #2a241e; transition: transform 0.2s var(--ease), box-shadow 0.2s;
 }
-.vw-card:hover { transform: translateY(-4px); }
-.vw-card.on { box-shadow: inset 0 0 0 2px var(--gold), 0 8px 24px rgba(176, 141, 87, 0.35); }
+.vw-card:hover { transform: translateY(-3px); }
+.vw-card.on { box-shadow: inset 0 0 0 2px var(--paper), 0 6px 18px rgba(0, 0, 0, 0.4); }
 .vw-card-img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .vw-card-ph {
-  display: grid; place-items: center; width: 100%; height: 100%;
-  background: linear-gradient(135deg, #2c2219, #14110e);
+  display: block; width: 100%; height: 100%;
+  background: radial-gradient(120% 90% at 30% 20%, #5a4a3a, #1f1a15);
 }
 .vw-card-ph::after {
-  content: attr(data-l); font: 400 30px var(--serif, Georgia, serif);
-  color: rgba(246, 241, 231, 0.22);
+  content: attr(data-l); position: absolute; top: 10px; left: 12px;
+  font: 400 26px/1 var(--serif); color: rgba(246, 241, 231, 0.35);
 }
-.vw-card-play {
-  position: absolute; top: 50%; left: 50%; width: 34px; height: 34px;
-  margin: -17px 0 0 -17px; border-radius: 50%;
-  display: grid; place-items: center; font-size: 11px; color: #14110e;
-  background: rgba(246, 241, 231, 0.94);
-  opacity: 0; transform: scale(0.7); transition: opacity 0.18s, transform 0.18s var(--ease);
-}
-.vw-card:hover .vw-card-play { opacity: 1; transform: scale(1); }
 .vw-card-nm {
-  position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 10px 7px;
-  font: 600 11px/1.2 var(--sans); text-align: left; color: #fff;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 10px 8px;
+  text-align: left; font: 700 12px/1.2 var(--sans); color: #fff;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.78));
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-.vw-stop {
-  display: flex; align-items: center; gap: 10px;
-  appearance: none; cursor: pointer; padding: 13px 26px; border-radius: 16px;
-  font: 600 12px/1 var(--sans); letter-spacing: 0.06em; text-transform: uppercase;
-  color: var(--gold); background: var(--glass-2);
-  border: 1px solid rgba(176, 141, 87, 0.45);
-  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.4);
+.vw-bar { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+.vw-transport { display: flex; align-items: center; gap: 6px; }
+.vw-tb {
+  appearance: none; cursor: pointer; display: grid; place-items: center;
+  width: 34px; height: 34px; padding: 0; border-radius: 9px;
+  color: var(--paper); background: rgba(20, 17, 14, 0.7); border: 1px solid var(--line);
+  transition: background 0.15s;
 }
-.vw-stop:hover { background: rgba(176, 141, 87, 0.16); }
-.vw-stop-ic {
-  width: 9px; height: 9px; background: currentColor; border-radius: 2px;
-  animation: vw-pulse 1.6s ease-out infinite;
+.vw-tb:hover { background: rgba(20, 17, 14, 0.92); }
+.vw-tb-main { width: 40px; color: #14110e; background: var(--paper); border-color: transparent; }
+.vw-tb-main:hover { background: #fff; }
+.vw-tb-main svg { fill: currentColor; stroke-width: 1.2; }
+.vw-now {
+  margin-left: 6px; font: 600 13px/1 var(--sans); color: #fff;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.6);
 }
 
-/* ---- tour bar (preview) ------------------------------- */
-.vw-tour {
-  display: flex; align-items: center; gap: 14px; padding: 10px 18px;
-  background: var(--glass-2); border: 1px solid var(--line);
-  border-radius: 999px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+.vw-segs { display: flex; gap: 6px; width: 100%; }
+.vw-seg {
+  position: relative; flex: 1; appearance: none; cursor: pointer;
+  padding: 7px 0; border: 0; background: none;
 }
-.vw-tour button {
-  appearance: none; border: 0; cursor: pointer; width: 34px; height: 34px;
-  border-radius: 50%; font-size: 12px; color: var(--paper);
-  background: rgba(246, 241, 231, 0.08); transition: background 0.15s, transform 0.15s;
+.vw-seg::before {
+  content: ''; display: block; height: 4px; border-radius: 4px;
+  background: rgba(246, 241, 231, 0.34); transition: background 0.15s, transform 0.15s;
 }
-.vw-tour button:hover { background: rgba(246, 241, 231, 0.18); transform: scale(1.08); }
-.vw-tour-play { background: var(--gold) !important; color: #14110e !important; }
-.vw-tour-seg { display: flex; gap: 5px; }
-.vw-tour-seg span {
-  width: 28px; height: 4px; border-radius: 2px; cursor: pointer;
-  background: rgba(246, 241, 231, 0.22); transition: background 0.25s, transform 0.2s;
+.vw-seg:hover::before { background: rgba(246, 241, 231, 0.6); transform: scaleY(1.5); }
+.vw-seg-fill {
+  position: absolute; left: 0; top: 7px; height: 4px; width: 0;
+  border-radius: 4px; background: #fff; pointer-events: none;
 }
-.vw-tour-seg span:hover { transform: scaleY(1.6); }
-.vw-tour-seg span.on { background: var(--gold); }
+.vw-seg-fill.done { width: 100%; }
+.vw-seg-fill.live { animation: vw-fill var(--dur, 4s) linear forwards; }
+@keyframes vw-fill { from { width: 0 } to { width: 100% } }
+
+/* ---- popovers: spaces, controls ------------------------------ */
+.vw-pop {
+  position: fixed; top: 16px; z-index: 12; width: 280px; padding: 14px;
+  border-radius: 16px; background: rgba(20, 17, 14, 0.92); border: 1px solid var(--line);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45); animation: vw-up 0.25s var(--ease) both;
+}
+.vw-pop-spaces { left: 66px; }
+.vw-pop-help { right: 16px; top: 64px; }
+.vw-pop-title { margin: 0 0 10px; font: 400 20px/1 var(--serif); }
+.vw-space {
+  appearance: none; cursor: pointer; width: 100%; display: flex; align-items: center; gap: 12px;
+  padding: 8px; margin-top: 2px; border-radius: 10px; border: 1px solid transparent;
+  text-align: left; color: var(--paper); background: transparent;
+}
+.vw-space:hover:not(:disabled) { background: rgba(246, 241, 231, 0.08); }
+.vw-space.on { border-color: var(--line); background: rgba(246, 241, 231, 0.1); }
+.vw-space:disabled { opacity: 0.5; cursor: default; }
+.vw-space-tile {
+  width: 40px; height: 40px; flex: 0 0 auto; border-radius: 8px; display: grid; place-items: center;
+  font: 400 20px/1 var(--serif); color: #14110e; background: var(--gold);
+}
+.vw-space-txt { display: flex; flex-direction: column; min-width: 0; }
+.vw-space-nm { font: 600 13.5px/1.3 var(--sans); }
+.vw-space-sub { font-size: 12px; color: rgba(246, 241, 231, 0.6); }
+.vw-help-row { display: flex; justify-content: space-between; gap: 12px; margin: 8px 0 0; font-size: 13px; }
+.vw-help-k { font-weight: 700; }
+.vw-pop-close {
+  appearance: none; cursor: pointer; width: 100%; margin-top: 14px; padding: 9px;
+  border-radius: 9px; border: 1px solid var(--line); background: transparent;
+  font: 600 12.5px var(--sans); color: var(--paper);
+}
 
 /* ---- crosshair + first-run hint --------------------- */
 .vw-cross {
@@ -366,22 +379,27 @@
 
 /* ---- mobile ----------------------------------------- */
 @media (max-width: 760px), (pointer: coarse) {
-  .vw-scenes { top: 12px; }
-  .vw-scenes button { padding: 8px 14px; font-size: 12px; }
-  .vw-dock { bottom: calc(150px + 56px + env(safe-area-inset-bottom, 0px)); max-width: calc(100vw - 20px); }
-  .vw-card { width: 116px; height: 72px; }
   .vw-hint { display: none; }
-  /* Bottom bar CTA — reserves its own strip so the joystick (below it, per
-   * the tc-zone/tc-btns offset here) is never covered, per CLAUDE.md §10.2. */
+  .vw-place { top: 64px; }
+  .vw-place-name { font-size: 18px; }
+  .vw-card { width: 116px; height: 72px; }
+  /* Bottom bar CTA reserves its own strip; the views bar sits above it and
+   * the joystick zone above that, so none of the three cover each other
+   * (§6.4, §10.2). */
   .vw-cta-btn {
     left: 0; right: 0; bottom: 0; border-radius: 0;
     justify-content: center; padding: calc(15px + env(safe-area-inset-bottom, 0px)) 16px 15px;
   }
-  .tc-zone { bottom: 56px; height: calc(42% - 56px); }
-  .tc-btns { bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
+  .vw-bottom { left: 10px; right: 10px; bottom: calc(56px + env(safe-area-inset-bottom, 0px)); }
+  .tc-zone { bottom: 150px; height: calc(42% - 150px); }
+  .tc-btns { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (max-width: 520px) {
-  .vw-brand { display: none; }
-  .vw-walk-nm { display: none; }
-  .vw-walk { padding: 10px; }
+  .vw-exit span { display: none; }
+  .vw-exit { padding: 0 11px; }
+  .vw-pop { left: 10px; right: 10px; width: auto; }
+}
+/* desktop: lift the enquiry pill above the progress bar */
+@media (min-width: 761px) and (pointer: fine) {
+  .vw-cta-btn { bottom: 64px; }
 }

@@ -22,6 +22,8 @@ export interface UiConfig {
   labelAlign: 'left' | 'center' | 'right';
   accent: string;
   background: string;
+  /** Visitor's HD toggle: false renders at 1× pixel ratio. Remembered per browser. */
+  hd?: boolean;
 }
 
 export interface NavModeState {

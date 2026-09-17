@@ -1,16 +1,22 @@
 'use client';
 
-import { useEffect, useReducer, useState } from 'react';
-import { SCENES } from '../lib/scenes';
+import { useEffect, useReducer, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { transformFor, setTransform, subscribeTransform, gizmo, setGizmoMode } from '../lib/transform';
+import { SCENES, SCENE_BY_ID, renameScene, setSessionSpawn } from '../lib/scenes';
 import { walkerCfg } from '../lib/walkerConfig';
 import { subscribeViewpoints } from '../lib/viewpoints';
-import { hotspotsFor, subscribeDoc, sceneDocFor } from '../lib/sceneDoc';
+import { hotspotsFor, subscribeDoc, sceneDocFor, loadSceneDoc, markSaved, hasUnsavedChanges } from '../lib/sceneDoc';
 import { uiConfig, setUiConfig, useUiConfig } from '../lib/uiConfig';
-import { saveScene } from '../lib/api';
+import {
+  saveScene, getSession, logout, getPublishState, publishSceneNow, unpublishScene, revertScene
+} from '../lib/api';
+import type { SessionUser, PublishState } from '../lib/api';
 import { HotspotMarkers } from './HotspotMarkers';
 import { Uploader } from './Uploader';
 import type { ViewerState, EditorApi } from '../@types/app.types';
 import type { Hotspot, HotspotType } from '../@types/hotspot.types';
+import type { Scene } from '../@types/scene.types';
 import type { Viewpoint } from '../@types/viewpoint.types';
 import './editor.css';
 
@@ -63,15 +69,20 @@ export function EditorShell({ state, onPreview }: { state: ViewerState | null; o
     const h = ed.addHotspot(type);
     if (h?.id) setSel({ type: 'hotspot', id: h.id });
   };
+  // Session-only, like every other studio edit (§19) — "Save to server" writes
+  // it, because sceneDocFor() reads `title` off the same object.
+  const doRename = (sceneId: string, name: string) => {
+    if (renameScene(sceneId, name)) bump();
+  };
 
   return (
     <div className="ed2">
-      <TopBar onPreview={onPreview} />
+      <TopBar onPreview={onPreview} sceneId={state.activeId} />
 
       <SceneTree
         state={state} tracks={tracks} hotspots={hotspots} sel={sel}
         onSelect={setSel} onAddTrack={addTrack} onAddHotspot={addHotspot}
-        onNewSpace={() => setUploaderOpen(true)}
+        onNewSpace={() => setUploaderOpen(true)} onRename={doRename}
       />
 
       {uploaderOpen && (
@@ -129,7 +140,7 @@ export function EditorShell({ state, onPreview }: { state: ViewerState | null; o
 
 /* ----------------------------- top bar ---------------------------- */
 
-function TopBar({ onPreview }: { onPreview: () => void }) {
+function TopBar({ onPreview, sceneId }: { onPreview: () => void; sceneId: string }) {
   return (
     <div className="ed2-top">
       <div className="ed2-brand">
@@ -141,11 +152,244 @@ function TopBar({ onPreview }: { onPreview: () => void }) {
         />
       </div>
       <button className="ed2-preview" onClick={onPreview}>▶ Preview</button>
+      <SaveToServerButton sceneId={sceneId} />
+      <PublishButton sceneId={sceneId} />
+      <Account />
+    </div>
+  );
+}
+
+/* ----------------------------- publish ---------------------------- */
+
+const EMBED_SIZES = [
+  { label: 'Responsive', w: '100%', h: '600' },
+  { label: '1280 × 720', w: '1280', h: '720' },
+  { label: '800 × 500', w: '800', h: '500' }
+] as const;
+
+function PublishButton({ sceneId }: { sceneId: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button className="ed2-pubbtn" onClick={() => setOpen(true)}>Publish</button>
+      {/* Portalled: the top bar is its own stacking context, so a dialog inside
+       *  it could sit under the inspector. The .ed2 wrapper keeps the tokens. */}
+      {open && createPortal(
+        <div className="ed2"><PublishPanel sceneId={sceneId} onClose={() => setOpen(false)} /></div>,
+        document.body
+      )}
+    </>
+  );
+}
+
+/** §7.5: publish snapshots the saved draft; visitors only ever see a
+ *  published version, so editing never changes a live tour. */
+function PublishPanel({ sceneId, onClose }: { sceneId: string; onClose: () => void }) {
+  const [info, setInfo] = useState<PublishState | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [note, setNote] = useState('');
+  const [size, setSize] = useState(0);
+  const [copied, setCopied] = useState('');
+
+  const refresh = () => getPublishState(sceneId).then(setInfo).catch((e: Error) => setError(e.message));
+  useEffect(() => { refresh(); }, [sceneId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const run = async (label: string, fn: () => Promise<string | void>) => {
+    setBusy(label); setError(''); setNote('');
+    try {
+      const msg = await fn();
+      if (msg) setNote(msg);
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'That didn’t work. Try again.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const publish = () => run('publish', async () => {
+    if (hasUnsavedChanges(sceneId)) {
+      await loadSceneDoc(sceneId);
+      const sent = sceneDocFor(sceneId);
+      await saveScene(sceneId, sent);
+      markSaved(sceneId, sent);
+    }
+    const r = await publishSceneNow(sceneId);
+    if (!r.published) throw new Error(r.blockers?.join(' ') || 'Publish was refused.');
+    return `Published version ${r.version}. Visitors see it now.`;
+  });
+  const unpublish = () => run('unpublish', async () => {
+    await unpublishScene(sceneId);
+    return 'Unpublished. The link now shows a "not published" page.';
+  });
+  const revert = () => {
+    if (!confirm('Throw away every change since the last publish?')) return;
+    run('revert', async () => {
+      const doc = await revertScene(sceneId);
+      if (doc) {
+        await loadSceneDoc(sceneId, 'draft', { force: true });
+        renameScene(sceneId, doc.title);
+        const p = doc.spawn?.position;
+        if (Array.isArray(p) && p.length === 3) setSessionSpawn(sceneId, p as [number, number, number], doc.spawn.yaw ?? 0);
+      }
+      return 'Reverted to the published version.';
+    });
+  };
+
+  const url = `${location.origin}/tour?space=${encodeURIComponent(sceneId)}`;
+  const s = EMBED_SIZES[size];
+  const snippet = `<iframe src="${url}&embed=1" width="${s.w}" height="${s.h}" style="border:0" allow="fullscreen; xr-spatial-tracking" allowfullscreen loading="lazy" title="3D tour"></iframe>`;
+  const copy = (what: string, text: string) => {
+    navigator.clipboard?.writeText(text).then(() => { setCopied(what); setTimeout(() => setCopied(''), 1600); });
+  };
+
+  const live = info?.status === 'published';
+  const when = info?.publishedAt ? new Date(info.publishedAt).toLocaleString() : '';
+
+  return (
+    <div className="up-scrim" onClick={onClose}>
+      <div className="up-panel pub-panel" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Publish">
+        <header className="up-head">
+          <h2>Publish {SCENE_BY_ID[sceneId]?.name ?? sceneId}</h2>
+          <button className="up-x" onClick={onClose} aria-label="Close">✕</button>
+        </header>
+
+        {!info && !error && <p className="up-sub">Checking…</p>}
+        {info && (
+          <p className={`pub-status ${live ? 'is-live' : ''}`}>
+            <span className="ed2-save-dot" aria-hidden />
+            {live
+              ? `Live: visitors see version ${info.publishedVersion}, published ${when}. Edits stay private until you publish again.`
+              : 'Not published. Visitors can’t open this space.'}
+          </p>
+        )}
+
+        {!!info?.blockers.length && (
+          <ul className="pub-list is-block">{info.blockers.map((b) => <li key={b}>{b}</li>)}</ul>
+        )}
+        {!!info?.warnings.length && (
+          <ul className="pub-list is-warn">{info.warnings.map((w) => <li key={w}>{w}</li>)}</ul>
+        )}
+
+        <div className="pub-actions">
+          <button className="up-create" onClick={publish} disabled={!!busy || !info || info.blockers.length > 0}>
+            {busy === 'publish' ? 'Publishing…' : live ? 'Publish changes' : 'Publish space'}
+          </button>
+          {live && (
+            <>
+              <button className="pub-secondary" onClick={revert} disabled={!!busy}>
+                {busy === 'revert' ? 'Reverting…' : 'Revert to published'}
+              </button>
+              <button className="pub-secondary is-danger" onClick={unpublish} disabled={!!busy}>
+                {busy === 'unpublish' ? 'Unpublishing…' : 'Unpublish'}
+              </button>
+            </>
+          )}
+        </div>
+        {note && <p className="pub-note">{note}</p>}
+        {error && <p className="up-error">{error}</p>}
+
+        {live && (
+          <div className="pub-share">
+            <p className="pub-label">Link</p>
+            <div className="pub-copyrow">
+              <input readOnly value={url} onFocus={(e) => e.target.select()} />
+              <button onClick={() => copy('link', url)}>{copied === 'link' ? 'Copied' : 'Copy'}</button>
+              <a href={url} target="_blank" rel="noreferrer">Open</a>
+            </div>
+
+            <p className="pub-label">Embed on a website</p>
+            <div className="pub-sizes">
+              {EMBED_SIZES.map((o, i) => (
+                <button key={o.label} className={i === size ? 'on' : ''} onClick={() => setSize(i)}>{o.label}</button>
+              ))}
+            </div>
+            <div className="pub-copyrow">
+              <textarea readOnly rows={3} value={snippet} onFocus={(e) => e.target.select()} />
+              <button onClick={() => copy('embed', snippet)}>{copied === 'embed' ? 'Copied' : 'Copy'}</button>
+            </div>
+            <p className="up-slot-hint">
+              Paste this into the client&apos;s page. It needs no build step. Embed tokens aren&apos;t enforced yet, so anyone with the link can view it.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Who's signed in, and the way out. Absent for the legacy shared-password
+ *  session, which has no person attached. */
+function Account() {
+  const [user, setUser] = useState<SessionUser | null>(null);
+  useEffect(() => { getSession().then((s) => setUser(s?.user ?? null)).catch(() => {}); }, []);
+
+  const signOut = async () => {
+    await logout().catch(() => {});
+    location.assign('/login');
+  };
+
+  return (
+    <div className="ed2-account">
+      {user && (
+        <span className="ed2-user" title={user.email}>
+          <span className="ed2-avatar" aria-hidden>{user.name.trim().charAt(0).toUpperCase()}</span>
+          {user.name}
+        </span>
+      )}
+      <button className="ed2-signout" onClick={signOut}>Sign out</button>
     </div>
   );
 }
 
 /* --------------------------- scene tree -------------------------- */
+
+/** One scene in the tree. Double-click (or F2 when it has focus) turns the row
+ *  into a field; Enter or blur commits, Escape puts the old name back. */
+function SceneRow({ scene, active, onSelect, onRename }: {
+  scene: Scene;
+  active: boolean;
+  onSelect: () => void;
+  onRename: (sceneId: string, name: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(scene.name);
+
+  const open = () => { setDraft(scene.name); setEditing(true); };
+
+  if (editing) {
+    const commit = () => { onRename(scene.id, draft); setEditing(false); };
+    return (
+      <input
+        className="ed2-tree-rename"
+        value={draft}
+        autoFocus
+        aria-label={`Rename ${scene.name}`}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit();
+          else if (e.key === 'Escape') setEditing(false);
+        }}
+        onFocus={(e) => e.target.select()}
+      />
+    );
+  }
+
+  return (
+    <button
+      className={`ed2-tree-row ${active ? 'on' : ''}`}
+      onClick={onSelect}
+      onDoubleClick={open}
+      onKeyDown={(e) => { if (e.key === 'F2') { e.preventDefault(); open(); } }}
+      title="Double-click to rename"
+    >
+      <span className="ed2-tree-ic">◈</span>
+      <span className="ed2-tree-nm">{scene.name}</span>
+    </button>
+  );
+}
 
 interface SceneTreeProps {
   state: ViewerState;
@@ -156,9 +400,10 @@ interface SceneTreeProps {
   onAddTrack: () => void;
   onAddHotspot: (type: HotspotType) => void;
   onNewSpace: () => void;
+  onRename: (sceneId: string, name: string) => void;
 }
 
-function SceneTree({ state, tracks, hotspots, sel, onSelect, onAddTrack, onAddHotspot, onNewSpace }: SceneTreeProps) {
+function SceneTree({ state, tracks, hotspots, sel, onSelect, onAddTrack, onAddHotspot, onNewSpace, onRename }: SceneTreeProps) {
   const [addOpen, setAddOpen] = useState(false);
   return (
     <div className="ed2-left">
@@ -167,13 +412,13 @@ function SceneTree({ state, tracks, hotspots, sel, onSelect, onAddTrack, onAddHo
         <span className="ed2-tree-add" onClick={onNewSpace} title="New space">＋</span>
       </div>
       {SCENES.map((s) => (
-        <button
+        <SceneRow
           key={s.id}
-          className={`ed2-tree-row ${s.id === state.activeId ? 'on' : ''}`}
-          onClick={() => state.select(s.id)}
-        >
-          <span className="ed2-tree-ic">◈</span>{s.name}
-        </button>
+          scene={s}
+          active={s.id === state.activeId}
+          onSelect={() => state.select(s.id)}
+          onRename={onRename}
+        />
       ))}
 
       <div className="ed2-tree-grp">
@@ -228,6 +473,8 @@ function WorldInspector({ state, pose, onBump }: { state: ViewerState; pose: Pos
 
   return (
     <>
+      <PlacementSection state={state} />
+
       <Section title="Background">
         <div className="ed2-row">
           <input
@@ -285,7 +532,6 @@ function WorldInspector({ state, pose, onBump }: { state: ViewerState; pose: Pos
         <button className="ed2-export" onClick={() => state.editor.exportScene()}>
           ⧉ Copy scene JSON
         </button>
-        <SaveToServerButton sceneId={state.activeId} />
       </div>
     </>
   );
@@ -295,16 +541,35 @@ function WorldInspector({ state, pose, onBump }: { state: ViewerState; pose: Pos
  *  PUT /api/scenes/:id). Requires an editor session cookie — there's no
  *  sign-in screen yet, so until one exists this only works once something
  *  (curl, a future login form) has called POST /api/auth/login. */
+/** Saves the OPEN space only, and says exactly what went to the server. */
 function SaveToServerButton({ sceneId }: { sceneId: string }) {
-  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [status, setStatus] = useState<'idle' | 'saving' | 'error'>('idle');
   const [message, setMessage] = useState('');
+  const [lastSaved, setLastSaved] = useState<{ at: Date; summary: string } | null>(null);
+  const dirty = hasUnsavedChanges(sceneId);
+
+  useEffect(() => { setLastSaved(null); setStatus('idle'); }, [sceneId]);
+  useEffect(() => {
+    if (!lastSaved) return;
+    const t = setTimeout(() => setLastSaved(null), 6000);
+    return () => clearTimeout(t);
+  }, [lastSaved]);
 
   const save = async () => {
     setStatus('saving');
     try {
-      await saveScene(sceneId, sceneDocFor(sceneId));
-      setStatus('saved');
-      setTimeout(() => setStatus('idle'), 2000);
+      // Read the saved doc first: saving blind would overwrite fields the
+      // studio doesn't edit (uploaded variants, transform, status).
+      await loadSceneDoc(sceneId);
+      const sent = sceneDocFor(sceneId);
+      await saveScene(sceneId, sent);
+      markSaved(sceneId, sent);
+      const n = (k: number, one: string) => `${k} ${one}${k === 1 ? '' : 's'}`;
+      setLastSaved({
+        at: new Date(),
+        summary: `"${sent.title}": ${n(sent.tracks.length, 'camera track')}, ${n(sent.hotspots.length, 'hotspot')}, start view, name`
+      });
+      setStatus('idle');
     } catch (err) {
       setStatus('error');
       setMessage(err instanceof Error ? err.message : 'Save failed.');
@@ -312,12 +577,25 @@ function SaveToServerButton({ sceneId }: { sceneId: string }) {
   };
 
   return (
-    <span className="ed2-row">
-      <button className="ed2-export" onClick={save} disabled={status === 'saving'}>
-        {status === 'saving' ? 'Saving…' : status === 'saved' ? '✓ Saved' : '💾 Save to server'}
+    <div className="ed2-save">
+      <span
+        className={`ed2-save-state ${dirty ? 'is-dirty' : 'is-clean'}`}
+        title="Saves only the space that's open. Other spaces keep their changes until you open and save them."
+      >
+        <span className="ed2-save-dot" aria-hidden />
+        {dirty ? 'Unsaved changes' : 'All changes saved'}
+      </span>
+      <button className="ed2-savebtn" onClick={save} disabled={status === 'saving' || !dirty}>
+        {status === 'saving' ? 'Saving…' : 'Save space'}
       </button>
-      {status === 'error' && <span className="ed2-muted ed2-fine">{message}</span>}
-    </span>
+      {(lastSaved || status === 'error') && (
+        <p className={`ed2-save-toast ${status === 'error' ? 'is-err' : ''}`} role="status">
+          {status === 'error'
+            ? `Not saved: ${message}`
+            : `Saved at ${lastSaved!.at.toLocaleTimeString()}. ${lastSaved!.summary}.`}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -514,6 +792,151 @@ function Filmstrip({ vps, selId, onSelect, onPlay, onAdd }: FilmstripProps) {
 }
 
 /* --------------------------- primitives ----------------------- */
+
+/* ------------------------ model placement ------------------------ */
+
+const MOVE_STEPS = [0.01, 0.1, 1] as const;
+const TURN_STEPS = [1, 15, 90] as const;
+
+/** Move / rotate / scale the model (§7.2): gizmo tool, exact numbers, and
+ *  ‹ › steppers that repeat while held. Numbers are the saved transform. */
+function PlacementSection({ state }: { state: ViewerState }) {
+  const [, bump] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => subscribeTransform(bump), []);
+  const [moveStep, setMoveStep] = useState<number>(0.1);
+  const [turnStep, setTurnStep] = useState<number>(15);
+  const [note, setNote] = useState('');
+  const id = state.activeId;
+  const t = transformFor(id);
+
+  const setAxis = (key: 'position' | 'rotation', i: number, value: number) => {
+    const next = [...t[key]] as [number, number, number];
+    next[i] = value;
+    setTransform(id, { [key]: next });
+  };
+
+  return (
+    <Section title="Model placement">
+      <Segmented
+        value={gizmo.mode}
+        options={[['off', 'Off'], ['translate', 'Move'], ['rotate', 'Rotate'], ['scale', 'Scale']] as const}
+        onChange={(m) => setGizmoMode(m)}
+      />
+      <p className="ed2-muted ed2-fine">
+        Drag the handles in the view. <b>G</b> move, <b>R</b> rotate, <b>T</b> scale, <b>Esc</b> off. Hold <b>Ctrl</b> to snap.
+      </p>
+
+      <div className="ed2-xform-head">
+        <span>Position</span>
+        <StepSize value={moveStep} options={MOVE_STEPS} unit="m" onChange={setMoveStep} />
+      </div>
+      {(['X', 'Y', 'Z'] as const).map((axis, i) => (
+        <Stepper key={axis} axis={axis} value={t.position[i]} step={moveStep} digits={3} unit="m"
+          onChange={(v) => setAxis('position', i, v)} />
+      ))}
+
+      <div className="ed2-xform-head">
+        <span>Rotation</span>
+        <StepSize value={turnStep} options={TURN_STEPS} unit="°" onChange={setTurnStep} />
+      </div>
+      {(['X', 'Y', 'Z'] as const).map((axis, i) => (
+        <Stepper key={axis} axis={axis} value={t.rotation[i]} step={turnStep} digits={1} unit="°"
+          onChange={(v) => setAxis('rotation', i, v)} />
+      ))}
+
+      <div className="ed2-xform-head"><span>Scale</span></div>
+      <Stepper axis="S" value={t.scale} step={0.01} digits={3} unit="×"
+        onChange={(v) => setTransform(id, { scale: v })} />
+
+      <div className="ed2-row">
+        <button onClick={() => setNote(state.editor.dropToFloor())}>Floor to 0 m</button>
+        <button onClick={() => { state.editor.resetTransform(); setNote('Placement reset.'); }}>Reset</button>
+      </div>
+      {note && <p className="ed2-muted ed2-fine">{note}</p>}
+      <p className="ed2-muted ed2-fine">
+        Place the model first. Moving it later doesn&apos;t move tracks, hotspots or the start view you already set.
+      </p>
+    </Section>
+  );
+}
+
+function StepSize({ value, options, unit, onChange }: {
+  value: number; options: readonly number[]; unit: string; onChange: (v: number) => void;
+}) {
+  return (
+    <span className="ed2-stepsize" role="group" aria-label="Step size">
+      {options.map((o) => (
+        <button key={o} className={o === value ? 'on' : ''} onClick={() => onChange(o)}>{o}{unit}</button>
+      ))}
+    </span>
+  );
+}
+
+/** A number field with ‹ › buttons. Press and hold a button to keep stepping. */
+function Stepper({ axis, value, step, digits, unit, onChange }: {
+  axis: 'X' | 'Y' | 'Z' | 'S'; value: number; step: number; digits: number; unit: string;
+  onChange: (v: number) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const valueRef = useRef(value);
+  valueRef.current = value;
+
+  const stop = () => { if (timer.current) clearTimeout(timer.current); timer.current = null; };
+  useEffect(() => stop, []);
+
+  const nudge = (dir: 1 | -1) => {
+    const next = Number((valueRef.current + dir * step).toFixed(6));
+    valueRef.current = next;
+    onChange(next);
+  };
+  const hold = (dir: 1 | -1) => {
+    nudge(dir);
+    const repeat = (delay: number) => {
+      timer.current = setTimeout(() => { nudge(dir); repeat(Math.max(40, delay * 0.85)); }, delay);
+    };
+    repeat(350);
+  };
+  const btn = (dir: 1 | -1, label: string) => (
+    <button
+      className="ed2-step-btn"
+      aria-label={`${dir < 0 ? 'Decrease' : 'Increase'} ${axis} by ${step}${unit}`}
+      onPointerDown={(e) => { e.preventDefault(); hold(dir); }}
+      onPointerUp={stop}
+      onPointerLeave={stop}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); nudge(dir); } }}
+    >{label}</button>
+  );
+
+  return (
+    <div className={`ed2-step ed2-step-${axis.toLowerCase()}`}>
+      <span className="ed2-step-axis">{axis}</span>
+      {btn(-1, '‹')}
+      <input
+        className="ed2-step-num"
+        inputMode="decimal"
+        value={draft ?? value.toFixed(digits)}
+        onFocus={(e) => { setDraft(value.toFixed(digits)); e.target.select(); }}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          const v = parseFloat(e.target.value);
+          if (Number.isFinite(v)) onChange(v);
+        }}
+        onBlur={() => setDraft(null)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+          if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            nudge(e.key === 'ArrowUp' ? 1 : -1);
+            setDraft(null);
+          }
+        }}
+      />
+      {btn(1, '›')}
+      <span className="ed2-step-unit">{unit}</span>
+    </div>
+  );
+}
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (

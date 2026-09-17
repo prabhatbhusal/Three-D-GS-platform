@@ -34,3 +34,15 @@ body {
   transition: background 0.15s;
 }
 .pv-exit:hover { background: rgba(18, 15, 12, 0.95); }
+
+/* /tour when there's nothing a visitor may open (published-only, §7.5) */
+.tour-msg {
+  position: fixed; inset: 0; display: grid; place-content: center; gap: 12px;
+  padding: 24px; text-align: center; background: #0d0b09; color: var(--paper);
+}
+.tour-msg h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--serif); }
+.tour-msg p { margin: 0 auto; max-width: 30rem; color: rgba(246, 241, 231, 0.65); }
+.tour-msg a {
+  justify-self: center; margin-top: 10px; padding: 11px 22px; border-radius: 999px;
+  color: #14110e; background: var(--paper); text-decoration: none; font: 600 14px var(--sans);
+}

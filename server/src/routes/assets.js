@@ -215,10 +215,21 @@ assetsRouter.post('/:assetId/finalize', requireEditorSession, async (req, res, n
     // exactly as it would for a dropped folder — one code path either way.
     const zipRelPath = relPaths.length === 1 && relPaths[0].toLowerCase().endsWith('.zip') ? relPaths[0] : null;
     if (zipRelPath) {
-      await extractZipToStaging(assetId, zipRelPath);
+      try {
+        await extractZipToStaging(assetId, zipRelPath);
+      } catch {
+        // Don't leak yauzl's raw error text (§11: no exception strings), and
+        // don't leave a half-extracted zip's files sitting in staging forever
+        // — every other rejection path below cleans up before returning.
+        await fs.rm(path.join(STAGING_DIR, assetId), { recursive: true, force: true });
+        return res.status(400).json({ error: 'That zip looks corrupt or unreadable — re-export it and try again.' });
+      }
       await fs.rm(stagingFile(assetId, zipRelPath), { force: true });
       relPaths = await listStagedFiles(assetId);
-      if (!relPaths.length) return res.status(400).json({ error: 'The zip file was empty.' });
+      if (!relPaths.length) {
+        await fs.rm(path.join(STAGING_DIR, assetId), { recursive: true, force: true });
+        return res.status(400).json({ error: 'The zip file was empty.' });
+      }
     }
 
     // The index is NOT reliably called meta.lcc2 — Lixel Studio names it after

@@ -8,11 +8,31 @@ import { navMode } from './navMode';
 import { dropWaypoint, closeViewpoint, exportViewpoints } from './viewpoints';
 import { addHotspot } from './sceneDoc';
 import { findFloorBelow, findStandingSpot } from './collision';
+import { gizmo } from './transform';
 
 // Angular only — these do NOT scale with the scene, unlike everything in
 // walkerConfig.js (which is in world units and set from the scan's size).
 const LOOK = 0.0022; // mouse: rad per px
 const TOUCH_LOOK = 0.005; // touch drag: rad per px
+
+/**
+ * True when a keystroke belongs to a text field rather than the camera.
+ *
+ * The listeners here are on `window`, so without this every character typed
+ * anywhere in the studio also drove the walker: WASD walked, N flipped
+ * walk/fly, B/H/V dropped scene objects, and `Space` was preventDefault-ed —
+ * which meant a space could not be typed into any input at all.
+ *
+ * Guard keydown with this, never keyup: a key held down over the canvas and
+ * released after focus moved into a field must still be cleared, or it stays
+ * in `keys` and the visitor walks forever.
+ */
+export function isTypingTarget(t: EventTarget | null): boolean {
+  const el = t as HTMLElement | null;
+  if (!el || typeof el.tagName !== 'string') return false;
+  return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'
+    || el.tagName === 'SELECT' || el.isContentEditable;
+}
 
 /**
  * Camera controller. `walkerCfg.mode` picks one:
@@ -95,6 +115,7 @@ export function useLccWalker({
     };
 
     const onKeyDown = (e: KeyboardEvent) => {
+      if (isTypingTarget(e.target)) return; // typing a name must not walk the camera
       keys.current.add(e.code);
       if (e.code === 'Space') e.preventDefault();
 
@@ -139,6 +160,8 @@ export function useLccWalker({
     // to look, like an orbit tool — no capture, panels stay clickable.
     const onMouseDown = (e: MouseEvent) => {
       if (e.button !== 0 || touch.enabled) return;
+      // The gizmo's pointerdown runs first and has already claimed this drag.
+      if (gizmo.dragging) return;
       if (pointerLockRef.current) { el.requestPointerLock(); return; }
       dragging.current = true;
       dragX = e.clientX; dragY = e.clientY;

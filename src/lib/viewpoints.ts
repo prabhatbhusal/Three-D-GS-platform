@@ -24,6 +24,7 @@
 
 import * as THREE from 'three';
 import type { PathWaypoint, Viewpoint } from '../@types/viewpoint.types';
+import type { Track } from '../@types/scene.types';
 
 export const VIEWPOINTS: Record<string, Viewpoint[]> = {
   'bar-restro': [
@@ -87,7 +88,15 @@ export const VIEWPOINTS: Record<string, Viewpoint[]> = {
 
 let waypointBuf: PathWaypoint[] = []; // the keyboard (B/V) fly-through buffer
 const sessionVPs: Record<string, Viewpoint[]> = {}; // sceneId -> [viewpoint] (saved this session, live in the dock)
-let vpSeq = 0; // monotonic, so ids never collide after a delete + re-add
+let vpSeq = 0;
+// A counter alone restarts at 0 on every page load and collides with ids
+// already saved to the server, so the id carries the time as well.
+const newVpId = (sceneId: string) => `vp-${sceneId}-${Date.now().toString(36)}${(++vpSeq).toString(36)}`;
+
+// Scenes whose saved tracks have been read from the server. For those, the
+// saved list IS the list — the hand-written VIEWPOINTS above were only ever
+// the starting point, and a saved doc already contains whatever survived.
+const loadedScenes = new Set<string>();
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const _fwd = new THREE.Vector3();
@@ -104,7 +113,7 @@ const emit = () => listeners.forEach((fn) => fn());
  *  entries carry `session:true` so the editor knows which are editable. */
 export function liveViewpoints(sceneId: string): Viewpoint[] {
   return [
-    ...(VIEWPOINTS[sceneId] ?? []),
+    ...(loadedScenes.has(sceneId) ? [] : VIEWPOINTS[sceneId] ?? []),
     ...(sessionVPs[sceneId] ?? []).map((v) => ({ ...v, session: true }))
   ];
 }
@@ -138,7 +147,7 @@ export function closeViewpoint(
   if (!waypointBuf.length) dropWaypoint(camera);
   const n = (sessionVPs[sceneId]?.length ?? 0) + 1;
   const entry: Viewpoint = {
-    id: `vp-${sceneId}-${(++vpSeq).toString(36)}`,
+    id: newVpId(sceneId),
     label: label?.trim() || `Viewpoint ${n}`,
     seconds: Number(seconds) || 4,
     path: waypointBuf.slice()
@@ -170,7 +179,7 @@ export function newSessionViewpoint(
 ): Viewpoint {
   const n = (sessionVPs[sceneId]?.length ?? 0) + 1;
   const entry: Viewpoint = {
-    id: `vp-${sceneId}-${(++vpSeq).toString(36)}`,
+    id: newVpId(sceneId),
     label: label?.trim() || `View ${n}`,
     seconds: Number(seconds) || 4,
     path: path?.length ? path.map((w) => ({ pos: [...w.pos], look: [...w.look] })) : [],
@@ -219,4 +228,26 @@ export function exportViewpoints(): string {
     () => {}
   );
   return json;
+}
+
+/**
+ * Adopt the tracks saved in a scene document. They become ordinary editable
+ * tracks. Anything created locally before the load finished is kept.
+ */
+export function loadTracks(sceneId: string, tracks: Track[], { replace = false }: { replace?: boolean } = {}) {
+  const loaded: Viewpoint[] = tracks.map((t) => ({
+    id: t.id,
+    label: t.label,
+    seconds: typeof t.seconds === 'number' && t.seconds > 0 ? t.seconds : 4,
+    path: t.keyframes.map((k) => ({
+      pos: k.position as [number, number, number],
+      look: k.target as [number, number, number]
+    })),
+    thumb: t.thumb ?? undefined
+  }));
+  const ids = new Set(loaded.map((v) => v.id));
+  const localOnly = replace ? [] : (sessionVPs[sceneId] ?? []).filter((v) => !ids.has(v.id));
+  sessionVPs[sceneId] = [...loaded, ...localOnly];
+  loadedScenes.add(sceneId);
+  emit();
 }

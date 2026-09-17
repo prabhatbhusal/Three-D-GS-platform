@@ -25,8 +25,10 @@ Thumbs.db
 # Legacy Vite build output
 dist/
 
-# Runtime data — uploaded splat assets, in-progress uploads, and leads (PII).
-# server/src/data/scenes/*.json stays tracked as seed content.
+# Runtime data — uploaded splat assets, in-progress uploads, leads (PII) and
+# accounts (PII + password hashes). server/src/data/scenes/*.json stays
+# tracked as seed content.
 server/src/data/assets/
 server/src/data/uploads-staging/
 server/src/data/leads/
+server/src/data/users/

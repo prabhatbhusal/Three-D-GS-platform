@@ -185,6 +185,12 @@ the task is wrong.
   disk today, S3-compatible + CDN later (§9). The NAS is for masters and
   processing only — never serve clients from it.
 - **Auth:** session cookie for the studio, signed short-lived tokens for embeds.
+  Studio accounts are per person `[built]` (`server/src/usersStore.js`,
+  scrypt from `node:crypto`, file-backed under `data/users/`, gitignored).
+  **Creating an account needs the team access code** — today that is
+  `EDITOR_PASSWORD`. The studio session can upload and overwrite scenes, so
+  open public sign-up would hand that to anyone. Do not remove the code check
+  without a replacement (invites, or an admin approving accounts).
 
 Frontend runtime deps are exactly: `next`, `@react-three/fiber`, `react`,
 `react-dom`, `three` (r164), plus the vendored SDK. `@react-three/drei` is
@@ -192,11 +198,13 @@ approved **for `TransformControls` only** (§7.2) — a genuine need, not a
 convenience.
 
 Backend runtime deps are exactly: `express`, `cors`, `cookie-parser`,
-`jsonwebtoken`, `dotenv`.
+`jsonwebtoken`, `dotenv`, `yauzl`. `yauzl` is approved **for zip-upload
+extraction only** (§7.1) — streaming, no native bindings, entries read one at
+a time so a multi-GB export never sits in server memory (§7.1's own rule).
 
 Deps the new work will need, **not approved — ask in the task that first needs
-one**: multipart/chunked upload handling, zip extraction for scan folders, email
-delivery for leads. Propose one, with its size and what it replaces.
+one**: email delivery for leads. Propose one, with its size and what it
+replaces.
 
 No state-management libraries, component libraries, CSS frameworks or ORMs.
 Audio uses the Web Audio API directly — no audio library. The team maintaining
@@ -324,6 +332,9 @@ Every new schema field needs a migration path. v1 → v2:
 | `camera.mode: "avatar"` | `"walk"`, logged once |
 | `transform` absent | identity |
 | `tracks[].cues` absent | `[]` |
+| `tracks[].seconds` absent | 4 (docs saved before 2026-09-17 never stored it; their keyframe `t` was an index, not seconds) |
+| `tracks[].thumb` absent | none |
+| `transform.rotation` | degrees, YXZ order — every doc before the gizmo had `[0,0,0]`, so no conversion |
 | `tracks[].audio`, `audio` absent | `null` |
 | `cta`, `theme` absent | `null`, meaning inherit |
 
@@ -455,10 +466,12 @@ behind a collapsed "Numbers" disclosure, for debugging.
 
 ### 7.1 Upload a model `[built]`
 
-1. Studio → **New space** → drop the Lixel Studio export folder. It must
-   contain `meta.lcc2` and its tiled `.sog` set. (Zip upload is `[ask]` —
-   extracting a dropped zip needs a real dependency not yet approved, §4;
-   folder drop/browse only for now.)
+1. Studio → **New space** → drop the Lixel Studio export folder, or a single
+   `.zip` of it. It must contain `meta.lcc2` and its tiled `.sog` set. A zip
+   is extracted server-side on finalize (`yauzl`, approved §4) before the
+   same validate-and-move path a dropped folder takes — one code path either
+   way, and a corrupt or empty zip is rejected with staging cleaned up, not
+   left half-extracted.
 2. The server validates that `meta.lcc2` is present and non-empty, stores the
    set under a new asset id, and returns `{ assetId, bytes, fileCount }`.
    No `bbox`/`splatCount` in that response: `meta.lcc2` has no documented
@@ -499,7 +512,19 @@ Requirements:
 The same path handles hero video, thumbnails, hotspot media and audio — smaller,
 same driver, same asset ids.
 
-### 7.2 Place the model — transform gizmo `[build]`
+### 7.2 Place the model — transform gizmo `[built]`
+
+**As built (2026-09-17):** `src/lib/transform.ts` + `src/components/Gizmo.tsx`,
+three.js r164's own `TransformControls` (no drei). Keys are **`G` / `R` / `T`**,
+not `G / R / S` — `S` already walks backwards. `Esc` turns the tool off.
+Handles appear ~2.5 m in front of the camera when the tool is switched on, and
+a drag is applied to the model *around* them (a 3D-cursor pivot); the model's
+own origin is usually off-screen. The Scene panel's "Model placement" section
+has X/Y/Z number fields with ‹ › steppers (hold to repeat) and step presets.
+Rotation is stored in **degrees, YXZ order**; scale is uniform. "Drop to floor"
+is labelled **Floor to 0 m**: it moves the model so the floor under the camera
+sits at y = 0. The placement is applied in the tour too, not only the studio.
+Not built: a separate "numbers" disclosure (the numbers are always visible).
 
 A three-mode gizmo on the splat root: **move / rotate / scale**, keys `G` / `R`
 / `S`, with:
@@ -569,7 +594,23 @@ A visual timeline, bottom of the studio. No coordinate entry.
 A creator should be able to produce a decent 45-second flythrough of a hotel
 lobby, with music, in under five minutes without reading anything.
 
-### 7.5 Publish `[build]`
+### 7.5 Publish `[built]` for spaces
+
+**As built (2026-09-17):** the studio top bar has **Publish**, opening a panel
+with status, blockers/warnings, Publish / Revert to published / Unpublish,
+the link and an iframe snippet (three size presets). Server:
+`server/src/store.js` (`publishScene`, `unpublishScene`, `revertToPublished`,
+`getPublishedScene`, `listPublished`) and routes `GET|POST
+/api/scenes/:id/publish`, `POST …/unpublish`, `POST …/revert`, `GET
+…/published` (public), `GET /api/gallery` (public). Snapshots are
+`scenes/<id>@<n>.json`, written with `wx` so one is never overwritten, and
+kept after unpublish as history. Publish state (`status`, `publishedVersion`,
+`publishedAt`) is owned by these routes — a normal save keeps whatever is on
+disk, so a stale studio tab can't unpublish a space. Publish saves unsaved
+edits first. The public tour (`/tour`) and gallery read published copies only.
+Not built: **Publish property**, the extent-mismatch blocker (no bbox data,
+§7.1), and embed-token enforcement — the snippet points at
+`/tour?space=<id>&embed=1`, which anyone with the link can open.
 
 **Publish** on a space, **Publish property** on the hub.
 
@@ -591,6 +632,28 @@ lobby, with music, in under five minutes without reading anything.
 ---
 
 ## 8. Quality tiers `[build]`
+
+> **Active override, 2026-09-17 — tier detection is currently disabled.**
+> Every session is forced to `high` with `dpr` uncapped to native
+> `devicePixelRatio`, for local/internal preview of maximum visual fidelity.
+> Requested explicitly, after being told this breaks constraint 1 below for
+> any real visitor on a real low-end device — **do not publish or deploy a
+> tour while this is active.** It is not a fix to anything; it is a
+> deliberate, temporary hole in constraint 1 and 2.
+>
+> What's disabled, and where, each commented out in place (not deleted) so a
+> revert is one block per file:
+> - `src/lib/deviceTier.ts` — `resolveInitialTier()` short-circuits to
+>   `{ tier: 'high', ... }` before its real body (still present, commented).
+> - `src/lib/useSceneManager.ts` — the runtime measured-FPS downgrade
+>   (`createFpsMonitor`/`onDowngrade`) is commented out, so a session can't
+>   drop out of `high` even if the frame rate craters.
+> - `src/components/App.tsx` — the Canvas `dpr` reads native
+>   `window.devicePixelRatio` instead of `tierProfile(detectTier()).dpr`.
+>
+> **To revert:** in each file above, delete the override and uncomment the
+> original block directly beneath it. No other file changed. Once reverted,
+> §8 below is accurate again as written.
 
 Three tiers, resolved once per session **before the SDK loads**, because the
 tier decides which asset the loader fetches.
@@ -726,26 +789,43 @@ budget for it when sizing the hosting plan.
 
 Two surfaces, deliberately opposite. Do not use one design system for both.
 
-### 10.1 Studio — instrument, not app
+### 10.1 Studio — floating panels over the viewport
 
-Vernacular is survey and measurement equipment, because that is what this
-company does. Total stations, hi-vis field gear, spirit levels, measurement
-ticks.
+**Revised 2026-09-17.** This section previously specified the opposite — a
+survey-instrument look: flat panels docked to the screen edge, hairline rules,
+hi-vis survey yellow, "no card shadows, no rounded panel stacks, no gradient
+anything", density over comfort. That was deliberately replaced, on request,
+with the modern-SaaS idiom below. The old text is preserved in this paragraph
+so nobody re-derives it from the code and thinks the change was an accident.
+
+Every pane is a rounded island floating in a gutter, with the **live 3D
+viewport showing through between them** — the scene is the ground, so no panel
+paints a backdrop over it. Tokens live at the top of `src/components/editor.css`
+and `uploader.css` inherits them.
 
 - Dark by necessity: the viewport shows photographic 3D content, and light
-  chrome destroys colour judgement. Cool graphite greys, not tinted near-black.
-  Base `#16181B`, panels `#1D2024`, hairlines `#2A2E34`.
-- One signal colour: hi-vis survey yellow, `#E8C547`-ish, used **only** for
-  active selection and the current keyframe. If a second accent appears, delete
-  it. Gizmo axis colours are the one exception — red/green/blue axes are a
-  convention, not decoration.
+  chrome destroys colour judgement. Deep blue-black, not neutral graphite.
+  Ground `#080B10`, panel `#10151D`, card `#161D28`, well `#0B0F15`, border
+  `#1E2631`.
+- Surfaces are rounded (`--ed-r` 12px panels, `--ed-r-sm` 8px controls) with a
+  soft border and a soft ambient shadow plus a lit top edge. Not hairlines.
+- One accent, `--ed-signal`, for **active selection and the current keyframe
+  only** — currently cyan `#4FC3D9`. It is one line to change; the earlier
+  survey yellow was `#E8C547`. If a second accent appears, delete it. Gizmo
+  axis colours are the one exception — red/green/blue axes are a convention,
+  not decoration.
+- Object kinds are told apart by a small tinted icon tile on the row, not by
+  colouring the row itself.
 - Numeric readouts (coordinates, FOV, eye height, splat count, frame time,
-  transform values, byte sizes) in a monospace face with tabular figures. These
-  are measurements and must not jitter as they update.
-- Hairline rules and tick marks carry structure. No card shadows, no rounded
-  panel stacks, no gradient anything.
-- Density over comfort. Three users, hours a day. Tight rows, keyboard shortcuts
-  for every tool, no onboarding chrome.
+  transform values, byte sizes) stay in a monospace face with tabular figures.
+  These are measurements and must not jitter as they update. **This one did not
+  change and must not.**
+- Comfort over density now: generous padding, two-line list items, rounded
+  filled rows. Keyboard shortcuts for every tool still matter — three users,
+  hours a day — but the chrome no longer optimises purely for tight rows.
+- §10.2's "Avoid" list (rounded cards, soft shadows, `·`-joined meta strings,
+  `→` on buttons) governs **the tour only**. The studio deliberately uses the
+  first two.
 
 ### 10.2 Tour — the room is the interface
 
@@ -807,16 +887,25 @@ npm run dev            # http://localhost:3000
 npm run build && npm start
 ```
 
-Routes `[build]` — these replace the current single-route `?edit` / `?view`
-switch. Keep `src/lib/editorActive.js` working until the routes land, then
-delete it.
+Routes. `editorActive.ts` now decides by path (`/studio` = editor); delete it
+once `/studio/<property>/<space>` exists.
+
+| Route | What | Status |
+|---|---|---|
+| `/` | Marketing home — static, server-rendered | `[built]` |
+| `/login` | Sign in / create account (`?mode=signup`, `?next=` same-site paths only) | `[built]` |
+| `/studio` | The editor. Signed-out visitors are sent to `/login`; if the API is unreachable it opens anyway (writes are still refused server-side) | `[built]` |
+| `/tour` | Visitor viewer, **published spaces only**. `?space=<id>` picks one (default: newest published); `?embed=1` hides Exit 3D. Unpublished or unknown → a message, and the 3D never mounts. **Interim**, until `/t/<property>/<space>` exists | `[built]` |
+| `/gallery` | Every published space, rendered per request | `[built]` |
+
+Still to build:
 
 | Route | What |
 |---|---|
 | `/t/<property>` | Hub page |
 | `/t/<property>/<space>` | Detail page — full experience + CTA |
 | `/embed/<property>/<space>` | Chromeless embed, token-gated |
-| `/studio` | Space list (session required) |
+| `/studio` | Becomes a space list; the editor moves to the route below |
 | `/studio/<property>/<space>` | The editor |
 
 The tour works with the API stopped — it falls back to scenes baked into
@@ -837,7 +926,11 @@ for ambient declarations).
 
 | File | Job |
 |---|---|
-| `src/lib/scenes.ts` | Scene list: id, name, tagline, spawn. `setSessionSpawn` / `spawnFor` back the studio's spawn override. `hydrateScenes()` merges metadata from the API, best-effort. |
+| `src/lib/transform.ts` | Scene transform store (degrees, YXZ, uniform scale), `applyToRenderer()` (§17), gizmo tool state. `[built]` |
+| `src/components/Gizmo.tsx` | Move / rotate / scale handles (`G`/`R`/`T`, Ctrl snaps) and `useSceneTransform()`, which applies placement in studio and tour. `[built]` |
+| `src/components/SiteNav.tsx`, `src/app/gallery/page.tsx` | Marketing nav; public gallery of published spaces. |
+| `src/app/tour/page.tsx` | Decides which published space opens and hydrates the scene list from published docs before the 3D mounts (`limitTour()` in scenes.ts). |
+| `src/lib/scenes.ts` | Scene list: id, name, tagline, spawn. `setSessionSpawn` / `spawnFor` back the studio's spawn override. `renameScene()` retitles a scene (double-click its tree row) — label only, never the `id`, which addresses the asset. `hydrateScenes()` merges metadata from the API, best-effort. |
 | `src/lib/viewpoints.ts` | **Misnamed** — holds *tracks*, not viewpoints (§0.2). Rename to `src/lib/tracks.ts` when the timeline lands, and update the studio's "Copy tracks JSON" target. |
 | `src/lib/walkerConfig.ts` | Live tunable movement + camera settings (mode, eye height, radius, near plane, speed), in world units. Scene manager fills scale-derived defaults; studio sliders write here; walker reads it every frame. |
 | `src/lib/uiConfig.ts` | Visitor-facing presentation (brand, labels, accent) driven by the Look tab. |
@@ -850,20 +943,25 @@ for ambient declarations).
 | `src/lib/editorActive.ts` | Dev or `?edit` → studio; `?view` forces viewer. **Retire once routes land.** |
 | `src/lib/lccConfig.ts` | Device tiering + SDK load options. **Extend for the three tiers (§8), don't duplicate.** |
 | `src/lib/api.ts` | Client for the Node API. Every call best-effort; the app never blocks on it. Also the asset-upload endpoints (create/init/chunk/finalize/delete, §7.1). |
-| `src/lib/upload.ts` | Chunked resumable upload engine — folder walking (drag-and-drop + `webkitdirectory` browse), 8 MB chunks, resume-from-server-offset. No zip support (§7.1). |
+| `src/lib/upload.ts` | Chunked resumable upload engine — folder walking (drag-and-drop + `webkitdirectory` browse), 8 MB chunks, resume-from-server-offset. A lone `.zip` passes through untouched; the server extracts it on finalize (§7.1). |
 | `src/components/App.tsx` | Canvas + shell + preview + hotspot projection. Owns the `dpr` cap — now tier-driven. |
-| `src/components/Viewer.tsx` | Visitor experience — enter gate, space switch, viewpoint dock, hotspot markers + panel, mobile joystick, crosshair. Reused as the studio's Preview. **Add the sound toggle and the quality control. The enter gate is where the `AudioContext` resumes (§6.3).** |
+| `src/components/Viewer.tsx` | Visitor experience — enter gate ("Enter immersive 3D view"); top-left icon column (Spaces, Views, Walk); place name; top-right HD toggle (1× vs native pixel ratio, remembered per browser), controls help, fullscreen, Exit 3D (to `/gallery`); bottom view tray + prev / play / next + a segmented progress bar that fills per track; hotspots; joystick. Reused as the studio's Preview. **Still to add: the sound toggle. The enter gate is where the `AudioContext` resumes (§6.3).** |
 | `src/components/TouchControls.tsx` | Floating mobile thumb-stick + Run/Jump. Writes `mobileInput.ts`. |
 | `src/components/HotspotMarkers.tsx` + `hotspots.css` | DOM hotspot markers and the slide-up content panel. |
 | `src/components/EditorShell.tsx` + `editor.css` | Studio UI — top bar, left scene tree, right inspector, bottom filmstrip. Inter (`next/font/google`) is scoped here via `--sans` (§10.1) — the tour keeps its own theme font. |
 | `src/components/Uploader.tsx` + `uploader.css` | New-space upload panel — high/medium/low slots, live progress, validation errors naming the missing file (§7.1). Opened from the Scenes group's ＋ in `EditorShell`. |
 | `src/components/EnquiryPanel.tsx` | Persistent CTA + enquiry panel over the scene (§6.4). |
-| `src/app/layout.tsx`, `src/app/page.tsx` | Root layout (loads Inter as `--font-inter`) + the single route loading `App.tsx` via `next/dynamic({ ssr: false })`. |
-| `server/src/routes/scenes.js` | Scene list / get (public) / save (session only). |
-| `server/src/routes/auth.js` | Studio session login/logout — one shared password until real accounts exist. |
+| `src/app/layout.tsx` | Root layout — Inter (`--font-inter`) and Instrument Serif (`--font-display`, marketing site only). |
+| `src/app/page.tsx` + `src/components/site.css` | Marketing home (§12). `site.css` also styles `/login`; `.site` is its own scroll container because `globals.css` locks `body` for the 3D app. |
+| `src/app/login/page.tsx` + `src/components/AuthPanel.tsx` | Sign in / create account. |
+| `src/app/studio/page.tsx`, `src/app/tour/page.tsx` | Mount `App.tsx` via `next/dynamic({ ssr: false })`; the studio page gates on the session first. |
+| `src/components/SplatField.tsx` | Hero illustration — a procedural lounge as LiDAR points turning into splats under a scan sweep. 2D canvas, no WebGL. Honours reduced motion (static final frame) and pauses off-screen. |
+| `server/src/routes/scenes.js` | Scene list / get (public) / save (session only), plus publish / unpublish / revert (session) and the published read + `galleryRouter` (public), §7.5. |
+| `server/src/routes/auth.js` | `/signup` (needs team access code), `/login` (email + password, or legacy shared password alone), `/logout`, `/session` (returns the user). Rate-limited per IP. |
+| `server/src/usersStore.js` | Accounts — one JSON per user named by an email hash; scrypt + timingSafeEqual. |
 | `server/src/routes/embed.js` | Issues + verifies signed short-lived embed tokens. |
-| `server/src/routes/assets.js` | Upload create/init/chunk/finalize (session-only) + range-capable public read (§7.1, §9). No zip extraction. |
-| `server/src/store.js` | File-backed scene storage — the seam to swap for Postgres. |
+| `server/src/routes/assets.js` | Upload create/init/chunk/finalize (session-only) + range-capable public read (§7.1, §9). Finalize extracts a single `.zip` upload in place via `yauzl` before validating. |
+| `server/src/store.js` | File-backed scene storage — the seam to swap for Postgres. Drafts are `<id>.json`, published snapshots `<id>@<n>.json` (never listed as scenes). |
 | `server/src/storage.js` | Asset driver seam (§9) — local disk today. `put`/`get`/`stat`/`url`/`remove`, exactly the interface below. |
 | `server/src/migrate.js` | Schema migrations on read (§5.3). |
 
@@ -873,12 +971,10 @@ everything else in `src/`; backend additions stay plain JavaScript per §4):
 | File | Job |
 |---|---|
 | `src/lib/propertyDoc.ts` | Property document load/save, space list, CTA + theme inheritance. |
-| `src/lib/transform.ts` | Scene transform ⇄ `modelMatrix`, and the collision-matrix sync of §7.2. |
 | `src/lib/audio.ts` | One `AudioContext`, gain nodes per layer, gesture unlock, ducking, mute persistence, visibility pause. |
 | `src/lib/leads.ts` | Client-side submit, validation, retry, source-space/hotspot attribution. |
 | `src/components/Hub.tsx` | Hub page (server-rendered shell + client bits). |
 | `src/components/SoundToggle.tsx` | Mute/unmute + quality control. |
-| `src/components/Gizmo.tsx` | Transform gizmo + numeric readout. |
 | `src/components/Timeline.tsx` | Shots, gaps, holds, cue chips, audio lane, scrub. |
 | `server/src/routes/properties.js` | Property CRUD, publish/unpublish. |
 | `server/src/routes/leads.js` | Public lead intake + delivery. Rate-limited. |
@@ -932,8 +1028,20 @@ Checked against `src/vendor/README.md` and `src/vendor/examples/three.html`:
   doesn't exist.
 - **Render order matches** — walker frame → `LCCRender.update()` → R3F's auto
   `gl.render()`.
-- `modelMatrix`, `renderLib: THREE`, `renderer`, `canvas` all as documented. The
-  gizmo writes `modelMatrix`; nothing else should.
+- `modelMatrix`, `renderLib: THREE`, `renderer`, `canvas` all as documented.
+  `modelMatrix` is only the fixed Z-up → Y-up base (`LCC_MODEL_MATRIX`).
+- **Undocumented, used on purpose:** the renderer's `root` (a `THREE.Group`).
+  The bundle's `createRenderer()` decomposes `modelMatrix` onto it, and
+  `intersectsCapsule` reads its `matrixWorld`, so moving `root` moves render
+  and collision together. The author transform (§7.2) is applied there, live —
+  `modelMatrix` is load-time only. Verified 2026-09-17 on bar-restro: after a
+  50 m move, a 90° turn and a ×2 scale, collision matched at the transformed
+  positions (72/72 sample points for move and turn). **Re-run that check after
+  any SDK upgrade** (`src/lib/transform.ts` has the details). Only
+  `applyToRenderer()` should write `root`.
+- `src/vendor/examples/three.html`, cited above and in §8.2, **is not in the
+  repo**; the vendored README documents no load options. Vendor the examples
+  folder with the next SDK drop.
 
 ## 18. Troubleshooting
 
@@ -978,10 +1086,25 @@ before `context.resume()` loses the gesture.
 - ESLint shows ref/mutation warnings from `eslint-plugin-react-hooks` — same
   patterns as the original demo; build and dev are unaffected.
 - `no appKey` console warning from the SDK is expected for now.
-- No sign-in screen for the studio yet — sign in via `POST /api/auth/login`.
+- Accounts have no password reset, no email verification and no admin list —
+  a forgotten password means deleting the user file by hand.
+- The home page says quality adapts to the device; while the §8 max-graphics
+  override is active, that is not true.
 - Embed tokens are issued but not enforced by the viewer.
-- Everything the studio makes is session-only until *Save to server*.
+- Studio edits (tracks, hotspots, placement, start view, name) are unsaved until
+  **Save space** in the top bar, which saves the open space only and shows what
+  it wrote. Tracks and hotspots saved before 2026-09-17 were never read back on
+  load — that is fixed; those tracks also lost their durations (now 4 s).
+- `sceneDocFor()` used to write `splat.variants.high` as `local:<id>` on every
+  save, which cut uploaded spaces off from their model (canteen was repaired
+  by hand). It now keeps the saved `splat`. If another uploaded space shows
+  `local:` in its JSON, find its `ast_*` folder and repoint it.
+- The tour's place name shows the studio-wide brand from the Look tab, not a
+  per-property one (the property document isn't built).
 - `src/lib/viewpoints.js` holds tracks, not viewpoints (§13).
+- **Quality-tier detection is currently forced off — see the override note at
+  the top of §8.** Every session loads at `high`, uncapped dpr. Revert before
+  publishing anything.
 
 ## 20. Backlog — proposed, not approved `[ask]`
 

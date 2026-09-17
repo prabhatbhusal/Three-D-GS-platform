@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import { scenesRouter } from './routes/scenes.js';
+import { scenesRouter, galleryRouter } from './routes/scenes.js';
 import { authRouter } from './routes/auth.js';
 import { embedRouter } from './routes/embed.js';
 import { leadsRouter } from './routes/leads.js';
@@ -20,6 +20,7 @@ app.use(express.json({ limit: '2mb' })); // scene JSON docs are small; thumbs ar
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.use('/api/scenes', scenesRouter);
+app.use('/api/gallery', galleryRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/embed', embedRouter);
 app.use('/api/leads', leadsRouter);

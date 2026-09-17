@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { LCCRender } from '../vendor/sdk/lcc-web-sdk.js';
-import { SCENE_BY_ID, DEFAULT_SCENE, metaPath, spawnFor } from './scenes';
+import { SCENE_BY_ID, metaPath, spawnFor, firstScene } from './scenes';
 import { buildLoadOptions, tuneCameraForRoom, resolveTier } from './lccConfig';
 import { persistMeasuredTier, createFpsMonitor, logTierLine } from './deviceTier';
 import { walkerCfg, scaleWalkerCfg } from './walkerConfig';
@@ -78,7 +78,7 @@ export function useSceneManager({ dev = false, appKey = null }: { dev?: boolean;
   const fpsMonitor = useRef<ReturnType<typeof createFpsMonitor> | null>(null);
 
   const current = useRef<SceneEntry | null>(null);
-  const [activeId, setActiveId] = useState(DEFAULT_SCENE);
+  const [activeId, setActiveId] = useState(firstScene);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [ready, setReady] = useState(false);
@@ -159,6 +159,11 @@ export function useSceneManager({ dev = false, appKey = null }: { dev?: boolean;
           // measured-downgrade monitor (sampled in the useFrame below) unless
           // this load IS the downgrade (nothing lower than 'low' to fall to).
           logTierLine({ tier, guessed: resolved.guessed, downgraded: downgradedRef.current, variant: tier });
+          // --- MAX-GRAPHICS OVERRIDE (temporary, requested 2026-09-17) ---
+          // Runtime measured-FPS downgrade disabled so a session never drops
+          // out of "high" once it's forced there (deviceTier.ts). To revert,
+          // uncomment this block (and revert deviceTier.ts's resolveInitialTier).
+          /*
           fpsMonitor.current = createFpsMonitor({
             tier,
             onDowngrade: (nextTier: typeof tier, medianFps: number) => {
@@ -169,6 +174,7 @@ export function useSceneManager({ dev = false, appKey = null }: { dev?: boolean;
               load(sceneId); // once — createFpsMonitor won't fire a second time
             }
           });
+          */
 
           if (dev) {
             window.__LCC = LCCRender;
@@ -216,7 +222,7 @@ export function useSceneManager({ dev = false, appKey = null }: { dev?: boolean;
 
   // Initial load + teardown.
   useEffect(() => {
-    load(DEFAULT_SCENE);
+    load(firstScene());
     return () => {
       LCCRender.dispose();
       current.current = null;

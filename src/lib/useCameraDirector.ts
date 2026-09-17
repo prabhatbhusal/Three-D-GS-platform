@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
+import { isTypingTarget } from './useLccWalker';
 import type { Viewpoint } from '../@types/viewpoint.types';
 
 /**
@@ -114,13 +115,17 @@ export function useCameraDirector({ onArrive }: { onArrive?: () => void } = {}) 
   // Abort on any manual input while a flight is running.
   useEffect(() => {
     const abort = () => stop();
+    // §6.2's "any visitor input interrupts the track" means camera input.
+    // Typing a name into a studio field is not that, and killing the flight
+    // mid-word would make the timeline unusable while authoring.
+    const abortOnKey = (e: KeyboardEvent) => { if (!isTypingTarget(e.target)) stop(); };
     const opts = { passive: true };
-    window.addEventListener('keydown', abort);
+    window.addEventListener('keydown', abortOnKey);
     window.addEventListener('pointerdown', abort, opts);
     window.addEventListener('wheel', abort, opts);
     window.addEventListener('touchstart', abort, opts);
     return () => {
-      window.removeEventListener('keydown', abort);
+      window.removeEventListener('keydown', abortOnKey);
       window.removeEventListener('pointerdown', abort);
       window.removeEventListener('wheel', abort);
       window.removeEventListener('touchstart', abort);

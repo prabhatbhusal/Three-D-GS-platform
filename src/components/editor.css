@@ -1,12 +1,12 @@
 /* ================================================================= */
-/*  Studio shell — instrument, not app (CLAUDE.md §10.1).             */
+/*  Studio shell (CLAUDE.md §10.1).                                   */
 /*                                                                    */
-/*  This used to share the viewer's warm gold/brown "floating glass"  */
-/*  look (rounded cards, drop shadows, blur, gradients). §10.1 asks   */
-/*  for the opposite: cool graphite, hairline structure, ONE signal   */
-/*  colour reserved for selection/current-keyframe, monospace         */
-/*  tabular numerics. Panels dock flat to the screen edges — no       */
-/*  rounded islands — the way a total station's control surface does. */
+/*  Deep blue-black ground; every pane floats above it as a rounded   */
+/*  panel with a soft border rather than docking flat to the screen   */
+/*  edge. Colour stays scarce — one accent for selection, small tinted */
+/*  icon tiles to tell object kinds apart, nothing else. Numeric       */
+/*  readouts keep monospace tabular figures: they are measurements    */
+/*  and must not jitter as they update.                               */
 /* ================================================================= */
 
 .ed2, .ed2 * { box-sizing: border-box; }
@@ -22,192 +22,301 @@
    * sets (§10.2); this scopes Inter to the instrument-panel surface only. */
   --sans: var(--font-inter), 'Segoe UI', system-ui, sans-serif;
 
-  --ed-panel: #1D2024;      /* CLAUDE.md §10.1 */
-  --ed-line: #2A2E34;       /* hairlines carry structure, not shadows */
-  --ed-signal: #E8C547;     /* the ONE accent — selection + current keyframe only */
-  --ed-text: #E4E6E9;       /* cool near-white, not warm paper */
-  --ed-text-dim: #868D96;
-  --ed-danger: #D97B6C;
-  --ed-well: #0F1113;       /* recessed field / readout background */
+  --ed-bg: #080B10;         /* the ground the panels float on */
+  --ed-panel: #10151D;      /* a floating pane */
+  --ed-raise: #161D28;      /* a card/tile sitting on a pane */
+  --ed-well: #0B0F15;       /* recessed field / readout background */
+  --ed-line: #1E2631;       /* soft border, not a hairline rule */
+  --ed-line-lit: #2C3846;   /* the same border, hovered */
+
+  --ed-text: #E6EDF3;
+  --ed-text-dim: #8A94A3;
+
+  /* One accent, for selection and active state only. Swap this single line
+   * back to #E8C547 for the earlier hi-vis survey yellow. */
+  --ed-signal: #4FC3D9;
+  --ed-signal-ink: #06222B; /* text placed on top of the accent */
+  --ed-signal-soft: rgba(79, 195, 217, 0.12);
+  --ed-danger: #E5787A;
+
+  --ed-r: 12px;             /* panel radius */
+  --ed-r-sm: 8px;           /* control / card radius */
+  --ed-gap: 10px;           /* the gutter panels float in */
+  --ed-top: 66px;           /* gap + top bar (46) + gap — where side panes start */
 }
 .ed2 > * { pointer-events: auto; }
 /* panels sit above the hotspot marker layer (z-index 8) */
 .ed2-top, .ed2-left, .ed2-inspector, .ed2-strip, .ed2-hint-strip { z-index: 20; }
 
+/* Keyboard focus IS active selection, so it gets the one signal colour. Every
+ * tool here has a shortcut (§10.1), which makes a visible focus ring load-
+ * bearing rather than decorative. */
+.ed2 :focus-visible { outline: 1px solid var(--ed-signal); outline-offset: 2px; }
+
+/* One scrollbar treatment for every scrolling pane, not three. */
+.ed2-left, .ed2-inspector, .ed2-strip {
+  scrollbar-width: thin; scrollbar-color: var(--ed-line) transparent;
+}
+.ed2-left::-webkit-scrollbar,
+.ed2-inspector::-webkit-scrollbar,
+.ed2-strip::-webkit-scrollbar { width: 8px; height: 8px; }
+.ed2-left::-webkit-scrollbar-thumb,
+.ed2-inspector::-webkit-scrollbar-thumb,
+.ed2-strip::-webkit-scrollbar-thumb { background: var(--ed-line); }
+
+/* Rendered OUTSIDE .ed2 (EditorShell returns it before the shell mounts), so
+ * the --ed-* tokens are not in scope here — these need literal fallbacks. */
 .ed2-boot {
   position: fixed; inset: 0; z-index: 30; display: grid; place-items: center;
-  background: #0F1113; color: var(--ed-text-dim);
+  background: var(--ed-bg, #080B10); color: var(--ed-text-dim, #8A94A3);
   font: 400 13px var(--sans, sans-serif);
 }
 
-/* Panels fade in — no slide/scale, that reads as "app chrome" not instrument. */
 @keyframes ed2in { from { opacity: 0; } to { opacity: 1; } }
-.ed2-top, .ed2-left, .ed2-inspector, .ed2-strip { animation: ed2in 0.15s linear both; }
+
+/* Every pane is a rounded island floating in a gutter, with the live viewport
+ * showing through between them — the 3D is the ground, so no panel paints a
+ * backdrop over it. Elevation is a soft ambient shadow plus a lit top edge,
+ * not a hard drop shadow. */
+.ed2-top, .ed2-left, .ed2-inspector, .ed2-strip {
+  animation: ed2in 0.15s linear both;
+  background: var(--ed-panel);
+  border: 1px solid var(--ed-line);
+  border-radius: var(--ed-r);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
 
 /* --------------------------- top bar ---------------------------- */
-/* Docked full-width to the top edge — flat, no radius, hairline below only. */
 .ed2-top {
-  position: fixed; top: 0; left: 0; right: 0; height: 44px;
-  display: flex; align-items: center; gap: 14px; padding: 0 10px;
-  background: var(--ed-panel); border-bottom: 1px solid var(--ed-line);
+  position: fixed; top: var(--ed-gap); left: var(--ed-gap); right: var(--ed-gap); height: 46px;
+  display: flex; align-items: center; gap: 14px; padding: 0 12px;
 }
-.ed2-brand { display: flex; align-items: center; gap: 8px; min-width: 180px; }
+.ed2-brand { display: flex; align-items: center; gap: 10px; min-width: 180px; }
+/* The brand mark — a rounded tile, like the reference's logo chip. */
 .ed2-dot {
-  width: 8px; height: 8px; flex: 0 0 auto;
-  background: var(--ed-signal);
+  width: 22px; height: 22px; flex: 0 0 auto; border-radius: 7px;
+  background: linear-gradient(150deg, var(--ed-signal), #2E7F97);
 }
 .ed2-proj {
-  background: transparent; border: 0; color: var(--ed-text);
-  font: 600 12.5px var(--sans, sans-serif); width: 100%; padding: 4px 2px;
+  background: transparent; border: 1px solid transparent; border-radius: var(--ed-r-sm);
+  color: var(--ed-text);
+  font: 600 12.5px var(--sans, sans-serif); width: 100%; padding: 6px 8px;
+  transition: background 0.12s, border-color 0.12s;
 }
-.ed2-proj:focus { outline: none; background: rgba(255, 255, 255, 0.04); }
+.ed2-proj:hover { background: var(--ed-raise); }
+.ed2-proj:focus { outline: none; background: var(--ed-well); border-color: var(--ed-line-lit); }
 
 .ed2-preview {
-  appearance: none; cursor: pointer; padding: 8px 18px;
-  font: 700 11px var(--sans, sans-serif); letter-spacing: 0.08em; text-transform: uppercase;
-  color: #101214; border: 1px solid var(--ed-signal); background: var(--ed-signal);
+  appearance: none; cursor: pointer; padding: 9px 18px; border-radius: 999px;
+  font: 600 11.5px var(--sans, sans-serif); letter-spacing: 0.01em;
+  color: var(--ed-signal-ink); border: 1px solid var(--ed-signal); background: var(--ed-signal);
   transition: filter 0.12s;
 }
 .ed2-preview:hover { filter: brightness(1.08); }
 
+.ed2-account { display: flex; align-items: center; gap: 10px; padding-left: 14px; border-left: 1px solid var(--ed-line); }
+.ed2-user { display: flex; align-items: center; gap: 8px; font: 500 12.5px var(--sans); color: var(--ed-text); }
+.ed2-avatar {
+  width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  font: 700 11px var(--sans); color: var(--ed-signal-ink);
+  background: linear-gradient(145deg, #6FD6E8, #2A7F95);
+}
+.ed2-signout {
+  appearance: none; cursor: pointer; padding: 7px 14px; border-radius: 999px;
+  font: 600 11.5px var(--sans); color: var(--ed-text-dim);
+  background: transparent; border: 1px solid var(--ed-line);
+  transition: color 0.12s, border-color 0.12s;
+}
+.ed2-signout:hover { color: var(--ed-text); border-color: var(--ed-line-lit); }
+
 /* --------------------------- left pane / scene tree ----------- */
-/* Docked to the left edge, full height below the top bar. */
 .ed2-left {
-  position: fixed; top: 44px; left: 0; bottom: 0; width: 216px;
-  overflow-y: auto;
-  background: var(--ed-panel); border-right: 1px solid var(--ed-line);
-  padding: 6px; scrollbar-width: thin;
+  position: fixed; top: var(--ed-top); left: var(--ed-gap); bottom: var(--ed-gap); width: 232px;
+  overflow-y: auto; padding: 8px;
 }
 .ed2-tree-grp {
   display: flex; align-items: center; gap: 6px;
-  font: 700 9px/1 var(--sans); letter-spacing: 0.15em; text-transform: uppercase;
-  color: var(--ed-text-dim); padding: 12px 8px 6px;
-  border-top: 1px solid var(--ed-line); margin-top: 6px;
+  font: 600 10.5px/1 var(--sans); letter-spacing: 0.02em;
+  color: var(--ed-text-dim); padding: 16px 8px 8px;
 }
-.ed2-tree-grp:first-child { border-top: 0; margin-top: 0; }
+.ed2-tree-grp:first-child { padding-top: 8px; }
 .ed2-tree-n {
-  font: 400 10px/1 var(--mono, monospace); font-variant-numeric: tabular-nums;
+  font: 500 10px/1 var(--mono, monospace); font-variant-numeric: tabular-nums;
   letter-spacing: 0; color: var(--ed-text-dim);
+  padding: 3px 6px; border-radius: 999px; background: var(--ed-raise);
 }
 .ed2-tree-add {
-  margin-left: auto; cursor: pointer; width: 18px; height: 18px;
+  margin-left: auto; cursor: pointer; width: 22px; height: 22px;
   display: grid; place-items: center; font-size: 13px;
-  color: var(--ed-text-dim);
+  border-radius: 6px; color: var(--ed-text-dim);
+  transition: background 0.12s, color 0.12s;
 }
-.ed2-tree-add:hover { color: var(--ed-text); }
+.ed2-tree-add:hover { color: var(--ed-text); background: var(--ed-raise); }
+
+/* Rows are rounded rects that fill when active, with a small tinted tile
+ * carrying the object's kind — the reference's list idiom. */
 .ed2-tree-row {
-  display: flex; align-items: center; gap: 8px; width: 100%;
-  padding: 6px 8px; margin-bottom: 1px;
-  border: 0; border-left: 2px solid transparent; background: transparent;
-  cursor: pointer; text-align: left;
-  color: rgba(228, 230, 233, 0.78); font: 500 12px var(--sans);
-  transition: background 0.1s, border-color 0.1s;
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 7px 9px; margin-bottom: 2px;
+  border: 1px solid transparent; border-radius: var(--ed-r-sm);
+  background: transparent; cursor: pointer; text-align: left;
+  color: var(--ed-text-dim); font: 500 12.5px var(--sans);
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
-.ed2-tree-row:hover { background: rgba(255, 255, 255, 0.04); }
-/* The ONE place selection colour appears in the tree: a left tick + text, not a filled pill. */
+.ed2-tree-row:hover { background: var(--ed-raise); color: var(--ed-text); }
 .ed2-tree-row.on {
-  background: rgba(232, 197, 71, 0.1); border-left-color: var(--ed-signal); color: var(--ed-text);
+  background: var(--ed-signal-soft); border-color: var(--ed-line-lit); color: var(--ed-text);
 }
-.ed2-tree-row.on .ed2-tree-ic { color: var(--ed-signal); }
-.ed2-tree-ic { color: var(--ed-text-dim); font-size: 11px; width: 12px; flex: 0 0 auto; text-align: center; }
+.ed2-tree-row.on .ed2-tree-ic { color: var(--ed-signal); border-color: var(--ed-signal); }
+.ed2-tree-ic {
+  display: grid; place-items: center; flex: 0 0 auto;
+  width: 22px; height: 22px; border-radius: 6px;
+  background: var(--ed-well); border: 1px solid var(--ed-line);
+  color: var(--ed-text-dim); font-size: 11px;
+}
 .ed2-tree-nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Inline rename — same box metrics as .ed2-tree-row so the row doesn't jump
+ * when it swaps between button and field. */
+.ed2-tree-rename {
+  display: block; width: 100%;
+  /* row = 7 + 22px icon tile + 7 + borders; text starts where the name does */
+  height: 38px; padding: 0 9px 0 40px; margin-bottom: 2px;
+  border: 1px solid var(--ed-signal); border-radius: var(--ed-r-sm);
+  background: var(--ed-well); color: var(--ed-text);
+  font: 500 12.5px var(--sans);
+}
+.ed2-tree-rename:focus { outline: none; }
+/* A status chip, like the reference's "FREE" badge. */
 .ed2-tree-lock {
-  margin-left: auto; font: 700 8px var(--sans); text-transform: uppercase;
-  color: var(--ed-text-dim);
+  margin-left: auto; flex: 0 0 auto;
+  padding: 3px 7px; border-radius: 999px;
+  font: 600 9.5px/1 var(--sans); text-transform: capitalize; letter-spacing: 0.02em;
+  color: var(--ed-text-dim); background: var(--ed-well); border: 1px solid var(--ed-line);
 }
 .ed2-tree-empty { padding: 4px 10px 8px; font-size: 11px; color: var(--ed-text-dim); }
 .ed2-tree-empty b { color: var(--ed-text); }
 .ed2-tree-addmenu {
-  display: flex; flex-direction: column; gap: 1px; padding: 2px;
-  margin: 2px 4px 4px; background: var(--ed-well); border: 1px solid var(--ed-line);
+  display: flex; flex-direction: column; gap: 2px; padding: 4px;
+  margin: 2px 4px 4px; background: var(--ed-well);
+  border: 1px solid var(--ed-line); border-radius: var(--ed-r-sm);
 }
 .ed2-tree-addmenu button {
   appearance: none; border: 0; cursor: pointer; text-align: left;
-  padding: 7px 9px; text-transform: capitalize;
-  font: 500 11.5px var(--sans); color: rgba(228, 230, 233, 0.85); background: transparent;
+  padding: 7px 9px; text-transform: capitalize; border-radius: 6px;
+  font: 500 11.5px var(--sans); color: var(--ed-text); background: transparent;
 }
-.ed2-tree-addmenu button:hover { background: rgba(255, 255, 255, 0.05); }
+.ed2-tree-addmenu button:hover { background: var(--ed-raise); }
 
-/* inspector pane tabs (shown when nothing is selected) */
+/* inspector pane tabs — a rounded segmented control, not an underline. */
 .ed2-panetabs {
-  display: flex; gap: 0; margin: 10px 0 2px; border-bottom: 1px solid var(--ed-line);
+  display: flex; gap: 2px; margin: 10px 0 4px; padding: 3px;
+  background: var(--ed-well); border: 1px solid var(--ed-line); border-radius: var(--ed-r-sm);
 }
 .ed2-inspector .ed2-panetabs button {
-  flex: 1; appearance: none; border: 0; cursor: pointer; padding: 8px;
-  font: 600 10.5px var(--sans); letter-spacing: 0.06em; text-transform: uppercase;
+  flex: 1; appearance: none; border: 0; cursor: pointer; padding: 7px;
+  border-radius: 6px;
+  font: 600 11.5px var(--sans); letter-spacing: 0.01em;
   color: var(--ed-text-dim); background: transparent;
-  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: background 0.12s, color 0.12s;
 }
-.ed2-inspector .ed2-panetabs button.on { color: var(--ed-text); border-bottom-color: var(--ed-signal); }
+.ed2-inspector .ed2-panetabs button:hover { color: var(--ed-text); }
+.ed2-inspector .ed2-panetabs button.on { color: var(--ed-text); background: var(--ed-raise); }
 
 /* select + textarea inside the inspector */
 .ed2-inspector select.ed2-name { appearance: none; text-transform: capitalize; }
 .ed2-area { resize: vertical; min-height: 64px; line-height: 1.4; font-family: var(--sans); }
 
 /* ------------------------- inspector -------------------------- */
-/* Docked to the right edge, full height below the top bar. */
 .ed2-inspector {
-  position: fixed; top: 44px; right: 0; bottom: 0; width: 300px;
-  overflow-y: auto;
-  background: var(--ed-panel); border-left: 1px solid var(--ed-line);
-  padding: 4px 14px 14px;
-  scrollbar-width: thin; scrollbar-color: var(--ed-line) transparent;
+  position: fixed; top: var(--ed-top); right: var(--ed-gap); bottom: var(--ed-gap); width: 312px;
+  overflow-y: auto; padding: 6px 16px 16px;
 }
-.ed2-inspector::-webkit-scrollbar { width: 8px; }
-.ed2-inspector::-webkit-scrollbar-thumb { background: var(--ed-line); }
 
-.ed2-sect { padding: 14px 0; border-bottom: 1px solid var(--ed-line); }
-.ed2-sect:last-child { border-bottom: 0; }
+/* Each inspector group is its own rounded card on the pane, the way the
+ * reference stacks its settings panels. */
+.ed2-sect {
+  padding: 14px; margin-top: 10px;
+  background: var(--ed-raise); border: 1px solid var(--ed-line);
+  border-radius: var(--ed-r-sm);
+}
 .ed2-lbl {
   display: flex; align-items: center; gap: 6px;
-  font: 700 9px/1 var(--sans, sans-serif); letter-spacing: 0.15em;
-  text-transform: uppercase; color: var(--ed-text-dim); margin-bottom: 10px;
+  font: 600 11.5px/1 var(--sans, sans-serif); letter-spacing: 0.01em;
+  color: var(--ed-text); margin-bottom: 10px;
 }
-/* a measurement tick before every section label — the survey-gear nod */
-.ed2-lbl::before { content: ''; width: 8px; height: 1px; background: var(--ed-line); flex: 0 0 auto; }
 .ed2-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
 .ed2-muted { color: var(--ed-text-dim); margin: 8px 0 0; }
 .ed2-fine { font-size: 10.5px; }
 .ed2-muted code, .ed2-fine code {
-  background: var(--ed-well); padding: 1px 5px;
+  background: var(--ed-well); padding: 2px 6px; border-radius: 5px;
   font-family: var(--mono, ui-monospace, monospace);
 }
 /* numeric readouts: monospace, tabular figures, NOT the signal colour — these
  * are measurements, not selection state (CLAUDE.md §10.1). */
 .ed2-pose {
-  margin: 0; padding: 7px 9px; background: var(--ed-well); color: var(--ed-text);
-  font: 400 11px/1.3 var(--mono, ui-monospace, monospace); font-variant-numeric: tabular-nums;
-  white-space: pre-wrap; border: 1px solid var(--ed-line);
+  margin: 0; padding: 9px 11px; background: var(--ed-well); color: var(--ed-text);
+  font: 400 11px/1.4 var(--mono, ui-monospace, monospace); font-variant-numeric: tabular-nums;
+  white-space: pre-wrap; border: 1px solid var(--ed-line); border-radius: var(--ed-r-sm);
 }
 
 /* plain buttons inside the inspector */
 .ed2-inspector button {
-  appearance: none; cursor: pointer; padding: 8px 12px;
-  font: 600 11px var(--sans, sans-serif); color: var(--ed-text);
-  background: transparent; border: 1px solid var(--ed-line);
+  appearance: none; cursor: pointer; padding: 8px 13px; border-radius: var(--ed-r-sm);
+  font: 600 11.5px var(--sans, sans-serif); color: var(--ed-text);
+  background: var(--ed-raise); border: 1px solid var(--ed-line);
   transition: border-color 0.12s, background 0.12s;
 }
-.ed2-inspector button:hover:not(:disabled) { border-color: var(--ed-text-dim); background: rgba(255, 255, 255, 0.04); }
-.ed2-inspector button:disabled { opacity: 0.4; cursor: default; }
+.ed2-inspector button:hover:not(:disabled) { border-color: var(--ed-line-lit); background: #1B232F; }
+/* Not-yet, not broken — dim the label, keep the control's edges legible. */
+.ed2-inspector button:disabled {
+  color: var(--ed-text-dim); background: transparent;
+  border-color: var(--ed-line); cursor: default;
+}
 /* segmented / toggle live in the inspector too — undo the plain look */
 .ed2-inspector .ed2-seg button, .ed2-inspector .ed2-seg-mini button,
 .ed2-inspector .ed2-toggle {
   background: transparent; border: 0; padding: 8px 6px;
 }
-.ed2-play { color: #101214 !important; background: var(--ed-signal) !important; border-color: var(--ed-signal) !important; }
+.ed2-play { color: var(--ed-signal-ink) !important; background: var(--ed-signal) !important; border-color: var(--ed-signal) !important; }
 .ed2-del { color: var(--ed-danger) !important; }
 .ed2-export { width: 100%; margin-top: 10px; }
+
+/* Save lives in the top bar so it's visible whatever the inspector shows. */
+.ed2-save { position: relative; margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.ed2-save-state { display: flex; align-items: center; gap: 7px; font: 600 11.5px var(--sans); white-space: nowrap; cursor: help; }
+.ed2-save-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.is-dirty { color: #F2C46D; }
+.is-dirty .ed2-save-dot { background: #F2C46D; box-shadow: 0 0 0 3px rgba(242, 196, 109, 0.18); }
+.is-clean { color: var(--ed-text-dim); }
+.is-clean .ed2-save-dot { background: #5BBF86; }
+.ed2-savebtn {
+  appearance: none; cursor: pointer; padding: 8px 16px; border-radius: 999px;
+  font: 600 11.5px var(--sans); white-space: nowrap;
+  color: var(--ed-signal-ink); background: var(--ed-signal); border: 1px solid var(--ed-signal);
+}
+.ed2-savebtn:disabled { cursor: default; color: var(--ed-text-dim); background: transparent; border-color: var(--ed-line); }
+.ed2-save-toast {
+  position: absolute; top: calc(100% + 16px); right: 0; z-index: 25; width: max-content; max-width: 420px;
+  margin: 0; padding: 9px 14px; border-radius: var(--ed-r-sm);
+  font: 500 12px/1.4 var(--sans); color: var(--ed-text);
+  background: var(--ed-panel); border: 1px solid #2E6B4B; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+}
+.ed2-save-toast.is-err { border-color: var(--ed-danger); color: #FFB4B0; }
 .ed2-viewactions { margin-top: 14px; }
 
 /* inputs */
 .ed2-name {
-  width: 100%; padding: 9px 11px; color: var(--ed-text);
-  background: var(--ed-well); border: 1px solid var(--ed-line);
+  width: 100%; padding: 10px 12px; color: var(--ed-text);
+  background: var(--ed-well); border: 1px solid var(--ed-line); border-radius: var(--ed-r-sm);
   font: 500 13px var(--sans, sans-serif);
+  transition: border-color 0.12s;
 }
+.ed2-name::placeholder { color: var(--ed-text-dim); }
+.ed2-name:hover { border-color: var(--ed-line-lit); }
 .ed2-name:focus { outline: none; border-color: var(--ed-signal); }
 .ed2 input[type="color"] {
-  width: 40px; height: 28px; padding: 2px; border: 1px solid var(--ed-line);
+  width: 40px; height: 30px; padding: 2px; border-radius: 6px;
+  border: 1px solid var(--ed-line);
   background: transparent; cursor: pointer;
 }
 
@@ -220,31 +329,32 @@
 }
 .ed2-slider-val { color: var(--ed-text); font-family: var(--mono, monospace); font-size: 11px; font-variant-numeric: tabular-nums; }
 .ed2-slider input[type="range"] {
-  -webkit-appearance: none; appearance: none; width: 100%; height: 2px;
-  background: var(--ed-line); cursor: pointer;
+  -webkit-appearance: none; appearance: none; width: 100%; height: 4px;
+  border-radius: 999px; background: var(--ed-well); cursor: pointer;
+  border: 1px solid var(--ed-line);
 }
 .ed2-slider input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none; width: 13px; height: 13px;
-  border-radius: 50%; background: var(--ed-text); border: 2px solid #101214;
+  border-radius: 50%; background: var(--ed-text); border: 2px solid var(--ed-bg);
 }
 .ed2-slider input[type="range"]::-moz-range-thumb {
   width: 13px; height: 13px; border-radius: 50%; background: var(--ed-text);
-  border: 2px solid #101214;
+  border: 2px solid var(--ed-bg);
 }
 
-/* segmented — choosing among options IS "active selection" (§10.1), so this
- * is the one other place the signal colour is allowed. */
+/* segmented — choosing among options IS active selection, so this is the one
+ * other place the accent is allowed. */
 .ed2-seg, .ed2-seg-mini {
-  display: flex; gap: 1px; padding: 1px; background: var(--ed-well);
-  border: 1px solid var(--ed-line); margin-top: 4px;
+  display: flex; gap: 2px; padding: 3px; background: var(--ed-well);
+  border: 1px solid var(--ed-line); border-radius: var(--ed-r-sm); margin-top: 6px;
 }
 .ed2-seg button, .ed2-seg-mini button {
   flex: 1; appearance: none; border: 0; cursor: pointer; padding: 7px 6px;
-  font: 600 11px var(--sans, sans-serif);
+  border-radius: 6px; font: 600 11.5px var(--sans, sans-serif);
   color: var(--ed-text-dim); background: transparent; transition: all 0.12s;
 }
 .ed2-seg button.on, .ed2-seg-mini button.on {
-  color: #101214; background: var(--ed-signal);
+  color: var(--ed-signal-ink); background: var(--ed-signal);
 }
 .ed2-seg-mini { margin-top: 8px; }
 
@@ -256,70 +366,163 @@
   padding: 8px 0; margin-top: 4px;
 }
 .ed2-toggle-knob {
-  width: 30px; height: 17px; flex: 0 0 auto;
+  width: 34px; height: 20px; flex: 0 0 auto; border-radius: 999px;
   background: var(--ed-well); border: 1px solid var(--ed-line);
-  position: relative; transition: border-color 0.14s;
+  position: relative; transition: background 0.16s, border-color 0.16s;
 }
 .ed2-toggle-knob::after {
-  content: ''; position: absolute; top: 1px; left: 1px; width: 13px; height: 13px;
-  background: var(--ed-text-dim); transition: transform 0.14s, background 0.14s;
+  content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
+  border-radius: 50%; background: var(--ed-text-dim);
+  transition: transform 0.16s, background 0.16s;
 }
-.ed2-toggle.on .ed2-toggle-knob { border-color: var(--ed-text-dim); }
-.ed2-toggle.on .ed2-toggle-knob::after { transform: translateX(13px); background: var(--ed-text); }
+.ed2-toggle.on .ed2-toggle-knob { background: var(--ed-signal); border-color: var(--ed-signal); }
+.ed2-toggle.on .ed2-toggle-knob::after { transform: translateX(14px); background: var(--ed-signal-ink); }
+
+/* ------------------------ model placement ------------------------ */
+.ed2-xform-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 14px 0 6px; font: 600 11px var(--sans); color: var(--ed-text-dim);
+}
+.ed2-inspector .ed2-stepsize { display: flex; gap: 2px; padding: 2px; border-radius: 7px; background: var(--ed-well); border: 1px solid var(--ed-line); }
+.ed2-inspector .ed2-stepsize button {
+  padding: 3px 7px; border: 0; border-radius: 5px; background: transparent;
+  font: 500 10px var(--mono, monospace); font-variant-numeric: tabular-nums; color: var(--ed-text-dim);
+}
+.ed2-inspector .ed2-stepsize button.on { background: var(--ed-raise); color: var(--ed-text); }
+
+.ed2-step { display: grid; grid-template-columns: 22px 30px 1fr 30px 18px; align-items: center; gap: 4px; margin-top: 4px; }
+/* Axis colours are the one sanctioned exception to the single accent (§10.1). */
+.ed2-step-axis {
+  display: grid; place-items: center; height: 26px; border-radius: 6px;
+  font: 700 10.5px var(--sans); color: #0B0F15; background: #8A94A3;
+}
+.ed2-step-x .ed2-step-axis { background: #E86A6A; }
+.ed2-step-y .ed2-step-axis { background: #7CCB6B; }
+.ed2-step-z .ed2-step-axis { background: #5B9BF0; }
+.ed2-inspector .ed2-step-btn {
+  height: 28px; padding: 0; font: 600 15px/1 var(--sans);
+  user-select: none; touch-action: none;
+}
+.ed2-inspector .ed2-step-btn:active { background: var(--ed-signal-soft); border-color: var(--ed-signal); }
+.ed2-step-num {
+  width: 100%; min-width: 0; height: 28px; padding: 0 8px; text-align: right;
+  font: 500 12px var(--mono, monospace); font-variant-numeric: tabular-nums; color: var(--ed-text);
+  background: var(--ed-well); border: 1px solid var(--ed-line); border-radius: 6px;
+}
+.ed2-step-num:focus { outline: none; border-color: var(--ed-signal); }
+.ed2-step-unit { font: 500 11px var(--mono, monospace); color: var(--ed-text-dim); }
 
 /* waypoint list */
-.ed2-wps { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.ed2-wps { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
 .ed2-wps li {
   display: flex; justify-content: space-between; align-items: center; gap: 8px;
-  padding: 5px 8px; background: var(--ed-well);
+  padding: 6px 9px; background: var(--ed-well); border-radius: 6px;
   font: 400 10.5px var(--mono, monospace); font-variant-numeric: tabular-nums;
 }
 .ed2-wps li button { padding: 2px 7px !important; }
 
 /* --------------------------- filmstrip ------------------------ */
-/* Docked full-width to the bottom edge, between the two side panels. */
+/* Floats between the two side panes — offsets track their widths + gutters. */
 .ed2-strip {
-  position: fixed; left: 216px; right: 300px; bottom: 0;
-  display: flex; gap: 1px; padding: 6px;
-  background: var(--ed-panel); border-top: 1px solid var(--ed-line);
-  overflow-x: auto; overflow-y: hidden; scrollbar-width: thin;
+  position: fixed; bottom: var(--ed-gap);
+  left: calc(232px + var(--ed-gap) * 2);
+  right: calc(312px + var(--ed-gap) * 2);
+  display: flex; gap: 6px; padding: 8px;
+  overflow-x: auto; overflow-y: hidden;
 }
 .ed2-tile {
-  position: relative; flex: 0 0 auto; width: 116px; height: 68px;
-  overflow: hidden; cursor: pointer; padding: 0;
+  position: relative; flex: 0 0 auto; width: 118px; height: 70px;
+  overflow: hidden; cursor: pointer; padding: 0; border-radius: var(--ed-r-sm);
   border: 1px solid var(--ed-line); background: var(--ed-well);
   transition: border-color 0.12s;
 }
-.ed2-tile:hover { border-color: var(--ed-text-dim); }
+.ed2-tile:hover { border-color: var(--ed-line-lit); }
 .ed2-tile.on { border-color: var(--ed-signal); box-shadow: inset 0 0 0 1px var(--ed-signal); }
 .ed2-tile img { width: 100%; height: 100%; object-fit: cover; display: block; filter: saturate(0.9); }
-.ed2-tile-ph { display: block; width: 100%; height: 100%; background: var(--ed-well); }
+/* No thumbnail yet: a camera glyph on a faint gradient, not a black hole. */
+.ed2-tile-ph {
+  display: block; width: 100%; height: 100%;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234A5566' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 10l5-3v10l-5-3z'/%3E%3Crect x='3' y='6' width='12' height='12' rx='2'/%3E%3C/svg%3E") center 38% / 22px no-repeat,
+    radial-gradient(120% 90% at 50% 20%, #1A2230, var(--ed-well));
+}
 .ed2-tile-nm {
-  position: absolute; left: 0; right: 0; bottom: 0; padding: 4px 6px;
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 5px 7px;
   font: 600 10px var(--sans, sans-serif); text-align: left; color: var(--ed-text);
-  background: rgba(15, 17, 19, 0.86);
+  background: linear-gradient(to top, rgba(8, 11, 16, 0.92), rgba(8, 11, 16, 0));
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .ed2-tile-add {
-  width: 52px; display: grid; place-items: center; font-size: 20px;
+  width: 56px; display: grid; place-items: center; font-size: 20px;
   color: var(--ed-text-dim); border: 1px dashed var(--ed-line);
-  background: transparent;
+  border-radius: var(--ed-r-sm); background: transparent;
 }
 .ed2-tile-add:hover { color: var(--ed-text); border-color: var(--ed-text-dim); }
 
 .ed2-hint-strip {
-  position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%);
-  padding: 6px 14px; pointer-events: none;
+  position: fixed; left: 50%; bottom: 104px; transform: translateX(-50%);
+  padding: 7px 16px; pointer-events: none; border-radius: 999px;
   background: var(--ed-panel); border: 1px solid var(--ed-line);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
   color: var(--ed-text-dim); font-size: 10.5px; white-space: nowrap;
 }
 
 @media (max-width: 1100px) {
-  .ed2-strip { left: 0; right: 0; }
+  .ed2-strip { left: var(--ed-gap); right: calc(312px + var(--ed-gap) * 2); }
   .ed2-left { display: none; }
 }
 @media (max-width: 760px) {
-  .ed2-inspector { width: auto; left: 0; right: 0; top: auto; bottom: 0; max-height: 46vh; border-left: 0; border-top: 1px solid var(--ed-line); }
-  .ed2-strip { bottom: 46vh; }
+  .ed2-inspector {
+    width: auto; left: var(--ed-gap); right: var(--ed-gap);
+    top: auto; bottom: var(--ed-gap); max-height: 46vh;
+  }
+  .ed2-strip { left: var(--ed-gap); right: var(--ed-gap); bottom: calc(46vh + var(--ed-gap) * 2); }
   .ed2-hint-strip { display: none; }
 }
+
+/* ------------------------------ publish ------------------------------ */
+.ed2-pubbtn {
+  appearance: none; cursor: pointer; padding: 8px 16px; border-radius: 999px;
+  font: 600 11.5px var(--sans); color: var(--ed-text);
+  background: var(--ed-raise); border: 1px solid var(--ed-line-lit);
+}
+.ed2-pubbtn:hover { border-color: var(--ed-signal); }
+.pub-panel { width: min(620px, calc(100vw - 32px)); }
+.pub-status { display: flex; gap: 9px; align-items: flex-start; margin: 4px 0 14px; font-size: 13px; color: var(--ed-text-dim); }
+.pub-status .ed2-save-dot { margin-top: 5px; background: var(--ed-text-dim); }
+.pub-status.is-live { color: var(--ed-text); }
+.pub-status.is-live .ed2-save-dot { background: #5BBF86; box-shadow: 0 0 0 3px rgba(91, 191, 134, 0.2); }
+.pub-list { margin: 0 0 12px; padding: 10px 12px 10px 28px; border-radius: var(--ed-r-sm); font-size: 12.5px; line-height: 1.5; }
+.pub-list li + li { margin-top: 4px; }
+.pub-list.is-block { color: #FFB4B0; background: rgba(229, 120, 122, 0.1); border: 1px solid rgba(229, 120, 122, 0.45); }
+.pub-list.is-warn { color: #F2D29A; background: rgba(242, 196, 109, 0.08); border: 1px solid rgba(242, 196, 109, 0.3); }
+.pub-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.pub-actions .up-create { width: auto; flex: 1 1 200px; margin-top: 4px; }
+.pub-secondary {
+  appearance: none; cursor: pointer; margin-top: 4px; padding: 12px 16px; border-radius: var(--ed-r-sm);
+  font: 600 12.5px var(--sans); color: var(--ed-text); background: var(--ed-raise); border: 1px solid var(--ed-line);
+}
+.pub-secondary:hover:not(:disabled) { border-color: var(--ed-line-lit); }
+.pub-secondary.is-danger { color: var(--ed-danger); }
+.pub-secondary:disabled { opacity: 0.5; cursor: default; }
+.pub-note { margin: 12px 0 0; font-size: 12.5px; color: #8FD9AE; }
+.pub-share { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--ed-line); }
+.pub-label { margin: 14px 0 7px; font: 600 12px var(--sans); color: var(--ed-text); }
+.pub-label:first-child { margin-top: 0; }
+.pub-copyrow { display: flex; gap: 6px; align-items: stretch; }
+.pub-copyrow input, .pub-copyrow textarea {
+  flex: 1; min-width: 0; padding: 9px 11px; resize: none; border-radius: var(--ed-r-sm);
+  font: 400 11.5px/1.45 var(--mono, monospace); color: var(--ed-text);
+  background: var(--ed-well); border: 1px solid var(--ed-line);
+}
+.pub-copyrow button, .pub-copyrow a {
+  display: grid; place-items: center; padding: 0 14px; border-radius: var(--ed-r-sm); cursor: pointer;
+  font: 600 12px var(--sans); color: var(--ed-signal-ink); background: var(--ed-signal); border: 0; text-decoration: none;
+}
+.pub-copyrow a { color: var(--ed-text); background: var(--ed-raise); border: 1px solid var(--ed-line); }
+.pub-sizes { display: flex; gap: 4px; margin-bottom: 8px; }
+.pub-sizes button {
+  appearance: none; cursor: pointer; padding: 6px 11px; border-radius: 999px;
+  font: 500 11.5px var(--sans); color: var(--ed-text-dim); background: transparent; border: 1px solid var(--ed-line);
+}
+.pub-sizes button.on { color: var(--ed-text); border-color: var(--ed-signal); background: var(--ed-signal-soft); }

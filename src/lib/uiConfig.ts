@@ -12,7 +12,10 @@ export const uiConfig: UiConfig = {
   showLabels: true,
   labelAlign: 'left',
   accent: '#b08d57',
-  background: '#000000'
+  background: '#000000',
+  hd: (() => {
+    try { return typeof localStorage === 'undefined' || localStorage.getItem('threedview.hd') !== '0'; } catch { return true; }
+  })()
 };
 
 const listeners = new Set<() => void>();

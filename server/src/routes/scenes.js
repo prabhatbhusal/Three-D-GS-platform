@@ -1,8 +1,55 @@
 import { Router } from 'express';
-import { listScenes, getScene, saveScene } from '../store.js';
+import {
+  listScenes, getScene, saveScene, publishChecks, publishScene, unpublishScene,
+  getPublishedScene, revertToPublished, listPublished
+} from '../store.js';
 import { requireEditorSession } from '../middleware/auth.js';
 
 export const scenesRouter = Router();
+export const galleryRouter = Router();
+
+const wrap = (fn) => (req, res, next) => fn(req, res).catch(next);
+const notFound = (res, id) => res.status(404).json({ error: `Scene "${id}" not found.` });
+
+// Public: every published space, for the gallery page.
+galleryRouter.get('/', wrap(async (req, res) => { res.json(await listPublished()); }));
+
+// Public: what visitors see. Never the draft (§7.5, constraint 6).
+scenesRouter.get('/:id/published', wrap(async (req, res) => {
+  const doc = await getPublishedScene(req.params.id);
+  if (!doc) return res.status(404).json({ error: 'This space is not published.' });
+  res.json(doc);
+}));
+
+// Studio: publish state + what would block or warn, without publishing.
+scenesRouter.get('/:id/publish', requireEditorSession, wrap(async (req, res) => {
+  const draft = await getScene(req.params.id);
+  if (!draft) return notFound(res, req.params.id);
+  res.json({
+    status: draft.status ?? 'draft',
+    publishedVersion: draft.publishedVersion ?? null,
+    publishedAt: draft.publishedAt ?? null,
+    ...publishChecks(draft)
+  });
+}));
+
+scenesRouter.post('/:id/publish', requireEditorSession, wrap(async (req, res) => {
+  const result = await publishScene(req.params.id);
+  if (!result) return notFound(res, req.params.id);
+  res.status(result.published ? 200 : 422).json(result);
+}));
+
+scenesRouter.post('/:id/unpublish', requireEditorSession, wrap(async (req, res) => {
+  const result = await unpublishScene(req.params.id);
+  if (!result) return notFound(res, req.params.id);
+  res.json(result);
+}));
+
+scenesRouter.post('/:id/revert', requireEditorSession, wrap(async (req, res) => {
+  const doc = await revertToPublished(req.params.id);
+  if (!doc) return res.status(404).json({ error: 'Nothing to revert to — this space is not published.' });
+  res.json(doc);
+}));
 
 // Visitor-facing: the scene menu. No auth — this is public, embeddable data.
 scenesRouter.get('/', async (req, res, next) => {

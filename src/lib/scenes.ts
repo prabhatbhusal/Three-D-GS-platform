@@ -56,6 +56,43 @@ export const DEFAULT_SPAWN: [number, number, number] = [0, 1.7, 3];
 
 export const SCENE_BY_ID: Record<string, Scene> = Object.fromEntries(SCENES.map((s) => [s.id, s]));
 
+/* --- the public tour's limits, set by /tour before the 3D mounts --- */
+let startScene: string | null = null;
+let tourIds: Set<string> | null = null;
+
+/** Visitors may only open published spaces (§7.5); `start` is the one to
+ *  load first, so the renderer never begins streaming anything else. */
+export function limitTour(ids: string[], start: string) {
+  tourIds = new Set(ids);
+  startScene = start;
+}
+export const firstScene = () => startScene ?? DEFAULT_SCENE;
+/** True on the public tour — its documents come from the published copy. */
+export const isPublicTour = () => tourIds !== null;
+export const visibleScenes = () => (tourIds ? SCENES.filter((s) => tourIds!.has(s.id)) : SCENES);
+
+/**
+ * Rename a scene's display title.
+ *
+ * The `id` is deliberately left alone. It addresses the asset, the property's
+ * `spaces[].sceneId`, other scenes' `neighbours` and any URL already handed to
+ * a client (CLAUDE.md §2) — a rename must never move it. Only the label the
+ * studio and the tour show changes.
+ *
+ * Persisting is the caller's job: `sceneDocFor()` reads `title` straight off
+ * this object, so `saveScene(id, sceneDocFor(id))` writes it, and
+ * `hydrateScenes()` reads it back on the next load.
+ *
+ * Returns false when there was nothing to do, so the caller can skip the save.
+ */
+export function renameScene(sceneId: string, name: string): boolean {
+  const s = SCENE_BY_ID[sceneId];
+  const next = name.trim();
+  if (!s || !next || next === s.name) return false;
+  s.name = next;
+  return true;
+}
+
 /* --- session spawn overrides, set from the editor panel --- */
 const sessionSpawn: Record<string, SpawnState> = {};
 
