@@ -2,4 +2,4 @@
 :HL["/Three-D-GS-platform/_next/static/media/e4af272ccee01ff0-s.p.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
 :HL["/Three-D-GS-platform/_next/static/media/e6099e249fd938cc-s.p.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
 :HL["/Three-D-GS-platform/_next/static/css/4781e7b03694e6cc.css","style"]
-0:{"tree":{"name":"","param":null,"prefetchHints":4176,"slots":{"children":{"name":"tour","param":null,"prefetchHints":4192,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":4256,"slots":null}}}}},"staleTime":300,"buildId":"72o_rivo8OM_biKeU3jv4"}
+0:{"tree":{"name":"","param":null,"prefetchHints":4176,"slots":{"children":{"name":"tour","param":null,"prefetchHints":4192,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":4256,"slots":null}}}}},"staleTime":300,"buildId":"UJZawJRb2U82Ha8-Q_Eiz"}
