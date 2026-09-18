@@ -1,13 +1,27 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { getSession, login, signup } from '../lib/api';
 
 type Mode = 'signin' | 'signup';
 
-export function AuthPanel({ initialMode, next }: { initialMode: Mode; next: string }) {
+/** Only same-site paths — never an absolute or protocol-relative URL, which
+ *  would turn ?next= into an open redirect. */
+function safeNext(v: string | null): string {
+  return v && v.startsWith('/') && !v.startsWith('//') && !v.includes('\\') ? v : '/studio';
+}
+
+/** Reads ?mode= and ?next= itself via useSearchParams() rather than as a
+ *  server-passed prop: the static export build (next.config.ts,
+ *  NEXT_OUTPUT_EXPORT) can't read the request's query string at build time,
+ *  and this is the client-side, hydrate-after-the-fact equivalent (see the
+ *  Suspense boundary in app/login/page.tsx, which useSearchParams requires). */
+export function AuthPanel() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialMode: Mode = searchParams.get('mode') === 'signup' ? 'signup' : 'signin';
+  const next = safeNext(searchParams.get('next'));
   const [mode, setMode] = useState<Mode>(initialMode);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');

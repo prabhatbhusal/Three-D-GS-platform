@@ -10,9 +10,18 @@ export const metadata: Metadata = {
   description: 'Published interactive 3D tours of hotels, halls and spaces.'
 };
 
+// GitHub Pages (next.config.ts, NEXT_OUTPUT_EXPORT) ships no Node host, so
+// there is never a live API to poll — the same "unreachable" state this page
+// already renders for a stopped API, just captured once at build time instead
+// of per request. `cache: 'no-store'` and `connection()` both force per-request
+// dynamic rendering, which `output: 'export'` cannot do at all (static export
+// requires every route to finish at build time) — so neither is safe to use
+// unconditionally.
+const isStaticExport = !!process.env.NEXT_OUTPUT_EXPORT;
+
 async function published(): Promise<GalleryItem[] | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/gallery`, { cache: 'no-store' });
+    const res = await fetch(`${API_BASE_URL}/api/gallery`, { cache: isStaticExport ? 'force-cache' : 'no-store' });
     return res.ok ? await res.json() : null;
   } catch {
     return null;
@@ -21,9 +30,11 @@ async function published(): Promise<GalleryItem[] | null> {
 
 const dateFmt = new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short', year: 'numeric' });
 
-/** Every published space. Rendered per request so a publish shows up at once. */
+/** Every published space. Rendered per request so a publish shows up at once
+ *  — except in the static export build, which has no "per request" to render
+ *  on and prerenders this once instead (see isStaticExport above). */
 export default async function GalleryPage() {
-  await connection();
+  if (!isStaticExport) await connection();
   const items = await published();
 
   return (

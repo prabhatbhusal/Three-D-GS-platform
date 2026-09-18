@@ -1,27 +1,19 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { AuthPanel } from '../../components/AuthPanel';
 import { SplatField } from '../../components/SplatField';
 import '../../components/site.css';
 
 export const metadata: Metadata = { title: 'Sign in' };
 
-/** Only same-site paths — never an absolute or protocol-relative URL, which
- *  would turn ?next= into an open redirect. */
-function safeNext(v: unknown): string {
-  return typeof v === 'string' && v.startsWith('/') && !v.startsWith('//') && !v.includes('\\')
-    ? v
-    : '/studio';
-}
-
-export default async function LoginPage({
-  searchParams
-}: {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
-}) {
-  const q = await searchParams;
-  const mode = q.mode === 'signup' ? 'signup' : 'signin';
-
+/** Fully static now — AuthPanel reads ?mode=/?next= itself via
+ *  useSearchParams(), which is what lets this page prerender at build time
+ *  (needed for the static export build, NEXT_OUTPUT_EXPORT) instead of
+ *  requiring the request's query string up front. useSearchParams() requires
+ *  a Suspense boundary; the fallback only shows for the instant before
+ *  hydration reads the real URL. */
+export default function LoginPage() {
   return (
     <main className="site auth">
       <aside className="auth-art">
@@ -41,7 +33,9 @@ export default async function LoginPage({
 
       <section className="auth-side">
         <Link href="/" className="auth-back">Back to home</Link>
-        <AuthPanel initialMode={mode} next={safeNext(q.next)} />
+        <Suspense fallback={null}>
+          <AuthPanel />
+        </Suspense>
       </section>
     </main>
   );
