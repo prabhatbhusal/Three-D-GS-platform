@@ -45,7 +45,17 @@ const nextConfig: NextConfig = {
       resolve: { fullySpecified: false }
     });
     return config;
-  }
+  },
+
+  // `dev`/`build` in package.json pin `--webpack` on purpose (the rule above
+  // has no documented Turbopack equivalent for a bare resolve override — see
+  // src/vendor/README.md and the Turbopack config reference, neither lists
+  // one, so none is added here per CLAUDE.md's "don't invent an SDK/tool
+  // capability that isn't documented"). This empty block exists only so a
+  // bare `next build`/`next dev` (Turbopack, the Next 16 default) doesn't
+  // hard-error with "using Turbopack with a webpack config and no turbopack
+  // config" — it does not attempt to replicate the webpack rule above.
+  turbopack: {}
 };
 
 export default nextConfig;
