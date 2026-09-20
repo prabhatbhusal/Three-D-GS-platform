@@ -1,5 +1,6 @@
 'use client';
 
+import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { transformFor, setTransform, subscribeTransform, gizmo, setGizmoMode } from '../lib/transform';
@@ -319,26 +320,156 @@ function PublishPanel({ sceneId, onClose }: { sceneId: string; onClose: () => vo
   );
 }
 
-/** Who's signed in, and the way out. Absent for the legacy shared-password
- *  session, which has no person attached. */
+/** Compact account menu on the editor top bar. Profile / Settings open a side
+ *  panel, while Log out keeps the close action in the same menu surface. */
 function Account() {
   const [user, setUser] = useState<SessionUser | null>(null);
-  useEffect(() => { getSession().then((s) => setUser(s?.user ?? null)).catch(() => {}); }, []);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [detailView, setDetailView] = useState<'profile' | 'settings' | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
-  const signOut = async () => {
+  useEffect(() => {
+    let active = true;
+    getSession()
+      .then((s) => { if (active) setUser(s?.user ?? null); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    const onPointerDown = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+        setDetailView(null);
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, []);
+
+  const closeMenu = () => {
+    setMenuOpen(false);
+    setDetailView(null);
+  };
+
+  const openDetail = (view: 'profile' | 'settings') => {
+    setMenuOpen(false);
+    setDetailView(view);
+  };
+
+  const handleLogout = async () => {
+    closeMenu();
     await logout().catch(() => {});
+    setUser(null);
     location.assign('/login');
   };
 
+  const initials = user?.name
+    ? user.name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? '').join('').slice(0, 2)
+    : 'U';
+
+  if (!user) return null;
+
   return (
-    <div className="ed2-account">
-      {user && (
-        <span className="ed2-user" title={user.email}>
-          <span className="ed2-avatar" aria-hidden>{user.name.trim().charAt(0).toUpperCase()}</span>
-          {user.name}
-        </span>
-      )}
-      <button className="ed2-signout" onClick={signOut}>Sign out</button>
+    <div className="ed2-account" ref={menuRef}>
+      <button
+        type="button"
+        className="ed2-user-trigger"
+        onClick={() => setMenuOpen((open) => !open)}
+        aria-expanded={menuOpen}
+        aria-haspopup="menu"
+      >
+        <span className="ed2-avatar" aria-hidden>{initials}</span>
+        <span className="ed2-user-name">{user.name}</span>
+        <svg viewBox="0 0 20 20" className={menuOpen ? 'ed2-caret open' : 'ed2-caret'} aria-hidden>
+          <path d="M5 7.5 10 12.5 15 7.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      <AnimatePresence>
+        {menuOpen && !detailView && (
+          <motion.div
+            className="ed2-user-menu"
+            role="menu"
+            aria-label="User account menu"
+            initial={{ opacity: 0, y: -8, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.96 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+          >
+            <button type="button" className="ed2-user-option" onClick={() => openDetail('profile')}>Profile</button>
+            <button type="button" className="ed2-user-option" onClick={() => openDetail('settings')}>Settings</button>
+            <button type="button" className="ed2-user-option ed2-user-option-danger" onClick={handleLogout}>Log out</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {detailView && (
+          <motion.div
+            className="ed2-account-backdrop"
+            onClick={closeMenu}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+          >
+            <motion.aside
+              className="ed2-account-drawer open"
+              role="dialog"
+              aria-modal="true"
+              aria-label={detailView === 'profile' ? 'Profile panel' : 'Settings panel'}
+              onClick={(event) => event.stopPropagation()}
+              initial={{ x: 42, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 42, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 24 }}
+            >
+              <div className="ed2-account-drawer-header">
+                <div className="ed2-account-drawer-meta">
+                  <span className="ed2-avatar" aria-hidden>{initials}</span>
+                  <div>
+                    <div className="ed2-account-label">{detailView === 'profile' ? 'Profile' : 'Settings'}</div>
+                    <div className="ed2-account-email">{user.email}</div>
+                  </div>
+                </div>
+                <button type="button" className="ed2-account-close" onClick={closeMenu} aria-label="Close panel">×</button>
+              </div>
+
+              <div className="ed2-account-drawer-body">
+                <div className="ed2-sheet-card">
+                  <div className="ed2-sheet-kicker">{detailView === 'profile' ? 'Account' : 'Preferences'}</div>
+                  <h3>{detailView === 'profile' ? user.name : 'Studio settings'}</h3>
+                  <p>
+                    {detailView === 'profile'
+                      ? user.email
+                      : 'Theme, workspace preferences, and session details live here.'}
+                  </p>
+                </div>
+
+                {detailView === 'profile' ? (
+                  <div className="ed2-sheet-list">
+                    <div><span>Name</span><strong>{user.name}</strong></div>
+                    <div><span>Email</span><strong>{user.email}</strong></div>
+                    <div><span>Role</span><strong>Editor</strong></div>
+                  </div>
+                ) : (
+                  <div className="ed2-sheet-list">
+                    <div><span>Theme</span><strong>System default</strong></div>
+                    <div><span>Notifications</span><strong>Enabled</strong></div>
+                    <div><span>Session</span><strong>Secure</strong></div>
+                  </div>
+                )}
+              </div>
+
+              <div className="ed2-account-drawer-footer">
+                <button type="button" className="ed2-account-dismiss" onClick={closeMenu}>Close</button>
+                <button type="button" className="ed2-user-option ed2-user-option-danger" onClick={handleLogout}>Log out</button>
+              </div>
+            </motion.aside>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

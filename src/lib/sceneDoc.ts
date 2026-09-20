@@ -145,21 +145,24 @@ export function sceneDocFor(sceneId: string): SceneDoc {
   const saved = serverDocs[sceneId];
   const { spawn, yaw } = spawnFor(sceneId);
   const tracks: Track[] = liveViewpoints(sceneId).map((v) => {
+    const totalSeconds = Number.isFinite(v.seconds) && v.seconds > 0 ? v.seconds : 4;
     const last = Math.max(1, v.path.length - 1);
+    const keyframes = v.path.map((w, i) => ({
+      t: r3((i / last) * totalSeconds),
+      position: w.pos,
+      target: w.look,
+      easing: 'easeInOutCubic'
+    }));
+    const sorted = [...keyframes].sort((a, b) => a.t - b.t);
     return {
       id: v.id,
       label: v.label,
       loop: false,
       autoplayOnLoad: false,
-      keyframes: v.path.map((w, i) => ({
-        t: r3((i / last) * v.seconds), // §5.2: keyframe time in seconds
-        position: w.pos,
-        target: w.look,
-        easing: 'easeInOutCubic'
-      })),
+      keyframes: sorted,
       cues: [],
       audio: null,
-      seconds: v.seconds,
+      seconds: totalSeconds,
       thumb: v.thumb ?? null
     };
   });

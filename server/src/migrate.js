@@ -7,6 +7,37 @@
 
 const CURRENT_VERSION = 2;
 
+function normalizeTrackTimes(track, fallbackSeconds = 4) {
+  const keyframes = Array.isArray(track?.keyframes) ? track.keyframes : [];
+  if (!keyframes.length) return { ...track, seconds: Number.isFinite(track?.seconds) ? track.seconds : fallbackSeconds, keyframes: [] };
+
+  const totalSeconds = Number.isFinite(track?.seconds) && track.seconds > 0 ? track.seconds : fallbackSeconds;
+  const normalized = keyframes
+    .map((kf, index) => {
+      const rawT = Number(kf?.t);
+      const safeT = Number.isFinite(rawT) ? rawT : index;
+      return { ...kf, t: safeT };
+    })
+    .sort((a, b) => Number(a.t) - Number(b.t));
+
+  const lastTime = Number(normalized[normalized.length - 1]?.t ?? totalSeconds);
+  const duration = lastTime > 0 ? lastTime : totalSeconds;
+  const finalSeconds = Number.isFinite(track?.seconds) && track.seconds > 0 ? track.seconds : duration;
+
+  return {
+    ...track,
+    seconds: finalSeconds,
+    keyframes: normalized
+      .map((kf, index) => {
+        const maxKey = Math.max(1, normalized.length - 1);
+        const t = Number(kf.t);
+        const scaled = maxKey === 1 ? (index / maxKey) * finalSeconds : (t / duration) * finalSeconds;
+        return { ...kf, t: Number.isFinite(scaled) ? Number(scaled.toFixed(3)) : index * (finalSeconds / maxKey) };
+      })
+      .sort((a, b) => Number(a.t) - Number(b.t))
+  };
+}
+
 /** v1 -> v2, per the CLAUDE.md §5.3 table. */
 function v1ToV2(doc) {
   const next = { ...doc, version: 2 };
@@ -49,7 +80,7 @@ function v1ToV2(doc) {
   if (!Array.isArray(doc.tracks)) {
     next.tracks = [];
   } else {
-    next.tracks = doc.tracks.map((t) => ({ cues: [], audio: null, ...t }));
+    next.tracks = doc.tracks.map((t) => normalizeTrackTimes({ cues: [], audio: null, ...t }, 4));
   }
   if (doc.audio === undefined) next.audio = null;
   if (doc.cta === undefined) next.cta = null;
