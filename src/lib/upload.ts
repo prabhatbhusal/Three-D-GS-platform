@@ -11,7 +11,7 @@
  * uploaded as one file and extracted server-side on finalize
  * (server/src/routes/assets.js), so the client never needs to look inside it.
  */
-import { createAsset, initAssetFile, uploadAssetChunk, finalizeAsset } from './api';
+import { createAsset, initAssetFile, uploadAssetChunk, finalizeAsset, finalizeAudio } from './api';
 import type { StagedFile, UploadProgress, UploadResult } from '../@types/upload.types';
 
 const CHUNK_BYTES = 8 * 1024 * 1024; // 8 MB, per §7.1
@@ -169,4 +169,38 @@ export async function uploadVariant(
   const result = await finalizeAsset(assetId);
   if (!result) throw new Error('Upload finished but the server did not confirm it — try again.');
   return result;
+}
+
+/* ------------------------------------------------------------------ */
+/* Audio (§6.3) — one .m4a per hotspot, same chunked path               */
+/* ------------------------------------------------------------------ */
+
+export const AUDIO_MAX_BYTES = 2 * 1024 * 1024;
+
+/** Checked here for instant feedback; the server checks again, including
+ *  that the file really is an MP4 container and not a renamed MP3. */
+export function validateAudio(file: File): string | null {
+  if (!file.name.toLowerCase().endsWith('.m4a')) {
+    return 'Use an AAC .m4a file (mono, 96 kbps). It plays in every browser, including older Safari.';
+  }
+  if (file.size > AUDIO_MAX_BYTES) {
+    return `That file is ${(file.size / 1048576).toFixed(1)} MB. Audio is capped at 2 MB per space: re-encode it mono at 96 kbps, or trim it.`;
+  }
+  if (!file.size) return 'That file is empty.';
+  return null;
+}
+
+/** Uploads one audio file and returns the `asset://` reference a scene
+ *  document stores (§9) — never a URL. */
+export async function uploadAudio(file: File, onProgress: (p: UploadProgress) => void): Promise<string> {
+  const invalid = validateAudio(file);
+  if (invalid) throw new Error(invalid);
+  const created = await createAsset();
+  if (!created?.assetId) throw new Error('Could not start the upload: the server is unreachable.');
+  // Keep the name readable in the inspector, but nothing a path could trip on.
+  const relPath = file.name.replace(/[^A-Za-z0-9._-]+/g, '-');
+  await uploadOneFile(created.assetId, { relPath, file }, (bytesSent) => onProgress({ bytesSent, bytesTotal: file.size }));
+  const result = await finalizeAudio(created.assetId);
+  if (!result) throw new Error('Upload finished but the server did not confirm it. Try again.');
+  return `asset://${result.assetId}/${result.file}`;
 }

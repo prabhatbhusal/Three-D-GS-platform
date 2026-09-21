@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import {
   listScenes, getScene, saveScene, publishChecks, publishScene, unpublishScene,
-  getPublishedScene, revertToPublished, listPublished
+  getPublishedScene, revertToPublished, listPublished, setSceneProperty
 } from '../store.js';
 import { requireEditorSession } from '../middleware/auth.js';
 
@@ -49,6 +49,17 @@ scenesRouter.post('/:id/revert', requireEditorSession, wrap(async (req, res) => 
   const doc = await revertToPublished(req.params.id);
   if (!doc) return res.status(404).json({ error: 'Nothing to revert to — this space is not published.' });
   res.json(doc);
+}));
+
+// Studio: move a space into a property, or out of all of them with null.
+scenesRouter.post('/:id/property', requireEditorSession, wrap(async (req, res) => {
+  const propertyId = req.body?.propertyId ?? null;
+  if (propertyId !== null && typeof propertyId !== 'string') {
+    return res.status(400).json({ error: 'propertyId must be a property id or null.' });
+  }
+  const result = await setSceneProperty(req.params.id, propertyId);
+  if (!result) return notFound(res, req.params.id);
+  res.json(result);
 }));
 
 // Visitor-facing: the scene menu. No auth — this is public, embeddable data.

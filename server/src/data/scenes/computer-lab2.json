@@ -1,7 +1,7 @@
 {
   "id": "computer-lab2",
   "version": 2,
-  "propertyId": null,
+  "propertyId": "demo-project",
   "title": "Computer_lab2",
   "splat": {
     "format": "lcc2",

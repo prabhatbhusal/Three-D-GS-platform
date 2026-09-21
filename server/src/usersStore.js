@@ -8,13 +8,12 @@
  */
 import { promises as fs } from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { randomUUID, randomBytes, scrypt, timingSafeEqual, createHash } from 'crypto';
 import { promisify } from 'util';
+import { DATA_DIR } from './dataDir.js';
 
 const scryptAsync = promisify(scrypt);
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const USERS_DIR = path.join(__dirname, 'data', 'users');
+const USERS_DIR = path.join(DATA_DIR, 'users');
 const KEY_LEN = 64;
 
 const normEmail = (email) => String(email ?? '').trim().toLowerCase();

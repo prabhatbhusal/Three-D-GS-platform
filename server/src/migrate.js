@@ -92,9 +92,21 @@ function v1ToV2(doc) {
 
 const STEPS = { 1: v1ToV2 };
 
-/** Migrates `doc` up to CURRENT_VERSION, applying each step in order. A doc
- *  already current passes through untouched (same reference, so store.js can
- *  cheaply tell whether a write-back is actually needed). */
+/**
+ * Fields added to schema v2 after it shipped. They don't bump the version —
+ * an absent field just means "the doc predates it" — so this runs on every
+ * read, after the version steps, and only fills what is missing.
+ *
+ *   booking  absent -> null   (off; §7.6)
+ */
+function fillLateDefaults(doc) {
+  if (doc.booking !== undefined) return doc;
+  return { ...doc, booking: null };
+}
+
+/** Migrates `doc` up to CURRENT_VERSION, applying each step in order, then
+ *  fills any late v2 defaults. A doc that needs neither passes through
+ *  untouched (same reference). */
 export function migrateScene(doc) {
   let current = doc;
   let version = doc.version ?? 1;
@@ -106,7 +118,7 @@ export function migrateScene(doc) {
     current = step(current);
     version = current.version;
   }
-  return current;
+  return fillLateDefaults(current);
 }
 
 export { CURRENT_VERSION };

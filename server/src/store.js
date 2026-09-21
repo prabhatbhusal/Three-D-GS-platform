@@ -12,11 +12,23 @@
  */
 import { promises as fs } from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { migrateScene, CURRENT_VERSION } from './migrate.js';
+import { DATA_DIR } from './dataDir.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SCENES_DIR = path.join(__dirname, 'data', 'scenes');
+const SCENES_DIR = path.join(DATA_DIR, 'scenes');
+const PROPERTIES_DIR = path.join(DATA_DIR, 'properties');
+
+const badRequest = (msg) => Object.assign(new Error(msg), { status: 400 });
+
+/** A fresh DATA_DIR has no scenes/ yet: read it as empty, create it on write. */
+async function sceneFiles() {
+  try {
+    return await fs.readdir(SCENES_DIR);
+  } catch (err) {
+    if (err.code === 'ENOENT') return [];
+    throw err;
+  }
+}
 
 function sceneFile(id, version) {
   // No path traversal via the id — it becomes a filename.
@@ -29,7 +41,7 @@ function sceneFile(id, version) {
 const isDraftFile = (f) => f.endsWith('.json') && !f.includes('@');
 
 export async function listScenes() {
-  const files = await fs.readdir(SCENES_DIR);
+  const files = await sceneFiles();
   const scenes = await Promise.all(
     files
       .filter(isDraftFile)
@@ -48,7 +60,8 @@ export async function listScenes() {
     // public/assets/rooms/ convention (CLAUDE.md §2, §9).
     assetId: s.splat?.variants?.high?.assetId,
     meta: s.splat?.variants?.high?.meta,
-    neighbours: s.neighbours ?? []
+    neighbours: s.neighbours ?? [],
+    propertyId: s.propertyId ?? null
   }));
 }
 
@@ -87,6 +100,7 @@ export async function saveScene(id, doc) {
     else if (k === 'status') withId.status = 'draft';
     else delete withId[k];
   }
+  await fs.mkdir(SCENES_DIR, { recursive: true });
   await fs.writeFile(sceneFile(id), JSON.stringify(withId, null, 2));
   return withId;
 }
@@ -114,8 +128,22 @@ export function publishChecks(doc) {
     warnings.push('No medium or low variant, so phones load the full model. It still works, just slower to first frame.');
   }
   if (!doc.tracks?.length) warnings.push('No camera tracks, so the tour bar will be empty.');
+
+  // §6.3: spoken content needs a text equivalent for the visitor who never unmutes.
+  for (const h of doc.hotspots ?? []) {
+    if (h.payload?.audio && !String(h.payload.transcript ?? '').trim()) {
+      warnings.push(`Hotspot "${h.label}" has audio but no transcript. Muted visitors will miss what it says.`);
+    }
+  }
+
+  if (doc.booking?.enabled && !isWebUrl(doc.booking.url)) {
+    blockers.push('Book now is switched on but its link is not a web address. Add the booking page URL or switch Book now off.');
+  }
   return { blockers, warnings };
 }
+
+/** Only http(s) links reach a visitor's page — never javascript: or data:. */
+export const isWebUrl = (u) => typeof u === 'string' && /^https?:\/\/\S+$/i.test(u.trim());
 
 export async function publishScene(id) {
   const draft = await getScene(id);
@@ -159,9 +187,117 @@ export async function revertToPublished(id) {
   return snap;
 }
 
+/**
+ * Move a space into a property (or out of all of them, with null). Patches
+ * the draft on disk directly so nothing else in it changes — publish state
+ * included. The published snapshot keeps whatever it had until the next publish.
+ */
+export async function setSceneProperty(id, propertyId) {
+  const raw = await readRaw(sceneFile(id));
+  if (!raw) return null;
+  if (propertyId !== null && !(await getProperty(propertyId))) throw badRequest('That project does not exist.');
+  const next = { ...raw, propertyId };
+  await fs.writeFile(sceneFile(id), JSON.stringify(next, null, 2));
+  return { id, propertyId };
+}
+
+/* ------------------------------------------------------------------ */
+/* Properties (§5.1) — one per client: a hotel, a college, a campus.   */
+/* The studio groups spaces by them. Membership lives on the scene     */
+/* (`propertyId`), not in a list here, so there is one source of truth. */
+/* ------------------------------------------------------------------ */
+
+function propertyFile(id) {
+  if (!/^[a-z0-9-]+$/.test(id)) throw badRequest('invalid property id');
+  return path.join(PROPERTIES_DIR, `${id}.json`);
+}
+
+/** "Basera Boutique Hotel" -> "basera-boutique-hotel". */
+export function propertyIdFor(title) {
+  return String(title).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+}
+
+export async function listProperties() {
+  let files;
+  try {
+    files = await fs.readdir(PROPERTIES_DIR);
+  } catch (err) {
+    if (err.code === 'ENOENT') return [];
+    throw err;
+  }
+  const list = await Promise.all(
+    files.filter((f) => f.endsWith('.json')).map(async (f) => JSON.parse(await fs.readFile(path.join(PROPERTIES_DIR, f), 'utf8')))
+  );
+  return list.sort((a, b) => a.title.localeCompare(b.title));
+}
+
+export async function getProperty(id) {
+  if (typeof id !== 'string' || !/^[a-z0-9-]+$/.test(id)) return null;
+  return readRaw(propertyFile(id));
+}
+
+/** Trimmed, non-empty, at most 80 characters — or a 400. */
+function cleanTitle(title) {
+  const clean = typeof title === 'string' ? title.trim() : '';
+  if (!clean) throw badRequest('Give the project a name.');
+  if (clean.length > 80) throw badRequest('Keep the name under 80 characters.');
+  return clean;
+}
+
+/** Throws 400 on a bad title, 409 if a property with the same id exists. */
+export async function createProperty(title) {
+  const clean = cleanTitle(title);
+  const id = propertyIdFor(clean);
+  if (!id) throw badRequest('Use at least one letter or number in the name.');
+  const doc = { id, version: 1, title: clean, createdAt: new Date().toISOString() };
+  await fs.mkdir(PROPERTIES_DIR, { recursive: true });
+  try {
+    // 'wx': never overwrite a property that already has this id.
+    await fs.writeFile(propertyFile(id), JSON.stringify(doc, null, 2), { flag: 'wx' });
+  } catch (err) {
+    if (err.code === 'EEXIST') {
+      throw Object.assign(new Error(`There is already a project called "${clean}".`), { status: 409 });
+    }
+    throw err;
+  }
+  return doc;
+}
+
+/**
+ * Rename keeps the id: it is what every space's `propertyId` and every studio
+ * URL point at, so only the title a person reads changes (same rule as
+ * renameScene on the client).
+ */
+export async function renameProperty(id, title) {
+  const p = await getProperty(id);
+  if (!p) return null;
+  const next = { ...p, title: cleanTitle(title) };
+  await fs.writeFile(propertyFile(id), JSON.stringify(next, null, 2));
+  return next;
+}
+
+/**
+ * Deleting a property never deletes a space: its spaces go back to "not in a
+ * property yet" (propertyId null) and published tours keep working, since a
+ * tour doesn't read the property. Returns how many spaces were released.
+ */
+export async function deleteProperty(id) {
+  const p = await getProperty(id);
+  if (!p) return null;
+  let released = 0;
+  for (const f of (await sceneFiles()).filter(isDraftFile)) {
+    const raw = await readRaw(path.join(SCENES_DIR, f));
+    if (raw?.propertyId !== id) continue;
+    await fs.writeFile(path.join(SCENES_DIR, f), JSON.stringify({ ...raw, propertyId: null }, null, 2));
+    released += 1;
+  }
+  await fs.rm(propertyFile(id), { force: true });
+  return { id, released };
+}
+
 /** Everything the public gallery shows, newest first. */
 export async function listPublished() {
-  const files = (await fs.readdir(SCENES_DIR)).filter(isDraftFile);
+  const files = (await sceneFiles()).filter(isDraftFile);
   const out = [];
   for (const f of files) {
     const id = f.slice(0, -5);

@@ -25,16 +25,18 @@ import {
   placeHotspotAtCamera, exportSceneJSON, loadSceneDoc
 } from '../lib/sceneDoc';
 import { projected } from '../lib/hotspotProjector';
-import { resetNavMode } from '../lib/navMode';
+import { resetNavMode, navMode, useNavMode } from '../lib/navMode';
 import { touch, isTouchDevice } from '../lib/mobileInput';
 import { Viewer } from './Viewer';
 import { EditorShell } from './EditorShell';
 import { editorActive } from '../lib/editorActive';
 import { useUiConfig } from '../lib/uiConfig';
 import { getScenes } from '../lib/api';
+import { unlockAudio } from '../lib/audio';
 import type { EditorApi, ViewerState } from '../@types/app.types';
 import type { Viewpoint } from '../@types/viewpoint.types';
 import type { ProjectedHotspot } from '../@types/hotspot.types';
+import type { Property } from '../@types/scene.types';
 
 /* ================================================================== */
 /* Inside the Canvas                                                   */
@@ -68,6 +70,66 @@ function Stage({ onState, viewerMode }: StageProps) {
   walkerRef.current = walker;
 
   useEffect(() => subscribeViewpoints(bumpVp), []);
+
+  /**
+   * Fly mode: circle the middle of the space, looking down on it. The middle
+   * is taken from what was authored — every camera-track waypoint, or the
+   * start view — not from the scan's bounds, which stray splats inflate
+   * (§14). The camera is aimed high and far; the walker then pulls it in to
+   * the first wall or ceiling in the way (collision.ts clearOrbitDistance),
+   * so indoors it circles just under the ceiling and outdoors it stays up in
+   * the air. Called on entering Fly, on Reset, and when a new space opens
+   * while flying.
+   */
+  const frameAerial = useCallback((kind: 'fly' | 'orbit' = navMode.orbitEnabled ? 'orbit' : 'fly') => {
+    const pts: THREE.Vector3[] = [];
+    for (const vp of liveViewpoints(mgr.activeId)) for (const w of vp.path) pts.push(new THREE.Vector3(...w.pos));
+    if (!pts.length) pts.push(new THREE.Vector3(...spawnFor(mgr.activeId).spawn));
+    const c = pts.reduce((a, p) => a.add(p), new THREE.Vector3()).multiplyScalar(1 / pts.length);
+    const spread = Math.max(0, ...pts.map((p) => p.distanceTo(c)));
+    const u = walkerCfg.unitScale || 1;
+    if (kind === 'fly') {
+      // Authored points are at eye height; look at the lower half of the room.
+      c.y -= walkerCfg.eyeHeight * 0.6;
+      walkerCfg.orbitDist = Math.max(spread * 1.6, 6 * u);
+    } else {
+      // Orbit: circle the middle at eye height, a step back, level-ish.
+      walkerCfg.orbitDist = Math.max(spread * 1.1, 4 * u);
+    }
+    walkerCfg.orbitTarget = [c.x, c.y, c.z];
+    camera.quaternion.setFromEuler(new THREE.Euler(kind === 'fly' ? -0.62 : -0.15, walkerRef.current?.yaw?.() ?? 0, 0, 'YXZ'));
+    camera.position.copy(c).addScaledVector(new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion), -walkerCfg.orbitDist);
+    camera.updateMatrixWorld();
+    walkerRef.current?.adoptCameraOrientation();
+  }, [camera, mgr.activeId]);
+
+  // Enter Fly or Orbit: remember where the visitor was, then frame the room.
+  // Switch between them: re-frame. Leave both: put them back exactly where they
+  // were (or at the start view, if they changed space meanwhile).
+  const nav = useNavMode();
+  const aerialKind = viewerMode ? (nav.flyEnabled ? 'fly' : nav.orbitEnabled ? 'orbit' : null) : null;
+  const preFly = useRef<{ p: THREE.Vector3; q: THREE.Quaternion } | null>(null);
+  const wasAerial = useRef<'fly' | 'orbit' | null>(null);
+  useEffect(() => {
+    if (aerialKind === wasAerial.current) return;
+    const from = wasAerial.current;
+    wasAerial.current = aerialKind;
+    if (aerialKind) {
+      stop();
+      setFlying(false);
+      if (!from) preFly.current = { p: camera.position.clone(), q: camera.quaternion.clone() };
+      frameAerial(aerialKind);
+    } else if (preFly.current) {
+      camera.position.copy(preFly.current.p);
+      camera.quaternion.copy(preFly.current.q);
+      camera.updateMatrixWorld();
+      walkerRef.current?.adoptCameraOrientation();
+      preFly.current = null;
+    } else {
+      const { spawn, yaw } = spawnFor(mgr.activeId);
+      walkerRef.current?.reset(spawn, yaw);
+    }
+  }, [aerialKind, camera, frameAerial, stop, mgr.activeId]);
   // Saved tracks, hotspots and placement for whichever space is open.
   // The public tour reads the published copy; the studio (and its Preview) the draft.
   useEffect(() => { loadSceneDoc(mgr.activeId, isPublicTour() ? 'published' : 'draft'); }, [mgr.activeId]);
@@ -105,18 +167,22 @@ function Stage({ onState, viewerMode }: StageProps) {
     [play]
   );
 
-  // New scene -> cancel flight, drop the walker at its spawn, and always
-  // reopen in viewpoints mode (CLAUDE.md §6.1 — walk must never carry over
-  // from the space before it, or become the default by accident).
+  // New scene -> cancel flight, drop the walker at its spawn, and reopen in
+  // viewpoints mode (CLAUDE.md §6.1 — walk must never carry over from the
+  // space before it, or become the default by accident). Fly is the one
+  // exception: browsing floors from above (the layers rail) stays aerial.
   useEffect(() => {
     stop();
     setFlying(false);
-    resetNavMode();
+    const stayAerial = viewerMode && (navMode.flyEnabled || navMode.orbitEnabled);
+    if (!stayAerial) resetNavMode();
+    preFly.current = null; // the old space's pose means nothing here
     if (mgr.ready) {
       const { spawn, yaw } = spawnFor(mgr.activeId);
       walkerRef.current?.reset(spawn, yaw);
+      if (stayAerial) frameAerial();
     }
-  }, [mgr.activeId, mgr.ready, stop]);
+  }, [mgr.activeId, mgr.ready, stop]); // eslint-disable-line react-hooks/exhaustive-deps -- frameAerial follows activeId
 
   const editor = useMemo((): EditorApi => {
     const yaw = () => walkerRef.current?.yaw?.() ?? 0;
@@ -201,11 +267,12 @@ function Stage({ onState, viewerMode }: StageProps) {
       select: mgr.select,
       playViewport,
       stopFly,
+      flyReset: () => frameAerial(),
       editor
     });
   }, [
     mgr.activeId, mgr.activeName, mgr.tagline, mgr.loading, mgr.progress,
-    mgr.ready, mgr.unitScale, mgr.select, flying, vpTick, playViewport, stopFly, editor, onState
+    mgr.ready, mgr.unitScale, mgr.select, flying, vpTick, playViewport, stopFly, frameAerial, editor, onState
   ]);
 
   return (
@@ -247,7 +314,9 @@ function HotspotProjector({ sceneId }: { sceneId: string }) {
 /* Root                                                                */
 /* ================================================================== */
 
-export default function App() {
+/** `property` is set on /studio/<property>: the editor works inside that
+ *  client's spaces only (scenes.ts scopeToProperty, called before mount). */
+export default function App({ property }: { property?: Property } = {}) {
   const [state, setState] = useState<ViewerState | null>(null);
   const [isTouch] = useState(() => isTouchDevice());
   const editing = editorActive();
@@ -288,9 +357,8 @@ export default function App() {
     return (
       <div className="app-root">
         <div className="vw-enter">
-          <div className="vw-enter-spot" />
           <div className="vw-enter-in">
-            <p className="vw-enter-kicker">Virtual tour</p>
+            <p className="vw-enter-brand">Virtual tour</p>
             <h1 className="vw-enter-mark">{conf?.name ?? 'This space'}</h1>
             <p className="vw-fallback-note">
               Your browser can&apos;t run the 3D tour, but you can still ask about
@@ -304,7 +372,7 @@ export default function App() {
   }
 
   return (
-    <div className="app-root">
+    <div className="app-root" data-preview={editing && previewing ? '' : undefined}>
       <Canvas
         frameloop="always"
         gl={{
@@ -330,7 +398,10 @@ export default function App() {
       )}
 
       {editing && !previewing && (
-        <EditorShell state={state} onPreview={() => setPreviewing(true)} />
+        <EditorShell state={state} property={property} onPreview={() => {
+          unlockAudio(); // the Preview click is this path's gesture — there is no enter gate
+          setPreviewing(true);
+        }} />
       )}
 
       {editing && previewing && (

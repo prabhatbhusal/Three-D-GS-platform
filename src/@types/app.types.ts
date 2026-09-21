@@ -47,5 +47,7 @@ export interface ViewerState {
   select: (sceneId: string) => void;
   playViewport: (vp: Viewpoint) => void;
   stopFly: () => void;
+  /** Fly mode: re-frame the aerial view on the middle of the space. */
+  flyReset: () => void;
   editor: EditorApi;
 }

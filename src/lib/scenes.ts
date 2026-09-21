@@ -59,6 +59,8 @@ export const SCENE_BY_ID: Record<string, Scene> = Object.fromEntries(SCENES.map(
 /* --- the public tour's limits, set by /tour before the 3D mounts --- */
 let startScene: string | null = null;
 let tourIds: Set<string> | null = null;
+/* --- the studio's property, set by /studio/<property> before the 3D mounts --- */
+let propertyScope: string | null = null;
 
 /** Visitors may only open published spaces (§7.5); `start` is the one to
  *  load first, so the renderer never begins streaming anything else. */
@@ -69,7 +71,19 @@ export function limitTour(ids: string[], start: string) {
 export const firstScene = () => startScene ?? DEFAULT_SCENE;
 /** True on the public tour — its documents come from the published copy. */
 export const isPublicTour = () => tourIds !== null;
-export const visibleScenes = () => (tourIds ? SCENES.filter((s) => tourIds!.has(s.id)) : SCENES);
+export const visibleScenes = () =>
+  SCENES.filter((s) => (!tourIds || tourIds.has(s.id)) && (!propertyScope || s.propertyId === propertyScope));
+
+/** The studio works inside one client's property: only its spaces are listed,
+ *  and the first of them is what the renderer loads. Returns false when the
+ *  property has no spaces yet, so the page can offer an upload instead of
+ *  opening some other client's model. */
+export function scopeToProperty(propertyId: string): boolean {
+  propertyScope = propertyId;
+  const first = visibleScenes()[0];
+  startScene = first?.id ?? null;
+  return !!first;
+}
 
 /**
  * Rename a scene's display title.
@@ -170,5 +184,6 @@ export function hydrateScenes(apiScenes: ApiScene[] | null | undefined) {
       if (typeof s.meta === 'string') existing.meta = s.meta;
     }
     if (Array.isArray(s.neighbours)) existing.neighbours = s.neighbours;
+    if (s.propertyId !== undefined) existing.propertyId = s.propertyId;
   }
 }

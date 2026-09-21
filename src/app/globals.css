@@ -40,6 +40,8 @@ body {
   transition: background 0.15s;
 }
 .pv-exit:hover { background: rgba(18, 15, 12, 0.95); }
+/* Make room for it: the tour's own top-right cluster (Book now last) would sit under it. */
+.app-root[data-preview] .vw-tr { right: 156px; }
 
 /* /tour when there's nothing a visitor may open (published-only, §7.5) */
 .tour-msg {

@@ -48,8 +48,12 @@ export default function TourPage() {
       const start = want ? list.find((g) => g.id === want)?.id : list[0].id;
       if (!start) return setGate({ kind: 'unpublished', id: want! });
       const docs = await Promise.all(list.map((g) => loadSceneDoc(g.id, 'published')));
-      hydrateScenes(docs.filter((d): d is SceneDoc => !!d).map(toApiScene));
-      limitTour(list.map((g) => g.id), start);
+      // A tour shows one client's spaces: the ones published under the same
+      // project as the space it opens on (§5.1). Never another hotel's rooms.
+      const project = docs.find((d) => d?.id === start)?.propertyId ?? null;
+      const same = docs.filter((d): d is SceneDoc => !!d && (d.propertyId ?? null) === project);
+      hydrateScenes(same.map(toApiScene));
+      limitTour(same.map((d) => d.id), start);
       setGate({ kind: 'ready' });
     })().catch(() => setGate({ kind: 'offline' }));
   }, []);

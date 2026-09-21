@@ -1,7 +1,7 @@
 {
   "id": "bar-restro",
   "version": 2,
-  "propertyId": null,
+  "propertyId": "demo-project",
   "title": "Bar & Restaurant",
   "splat": {
     "format": "lcc2",
@@ -65,7 +65,7 @@
           "easing": "easeInOutCubic"
         },
         {
-          "t": 1,
+          "t": 2,
           "position": [
             0,
             1.7,
@@ -79,7 +79,7 @@
           "easing": "easeInOutCubic"
         },
         {
-          "t": 2,
+          "t": 4,
           "position": [
             -1.5,
             1.65,
@@ -94,7 +94,9 @@
         }
       ],
       "cues": [],
-      "audio": null
+      "audio": null,
+      "seconds": 4,
+      "thumb": null
     },
     {
       "id": "bar-counter",
@@ -117,7 +119,7 @@
           "easing": "easeInOutCubic"
         },
         {
-          "t": 1,
+          "t": 4,
           "position": [
             -3.2,
             1.6,
@@ -132,7 +134,9 @@
         }
       ],
       "cues": [],
-      "audio": null
+      "audio": null,
+      "seconds": 4,
+      "thumb": null
     },
     {
       "id": "bar-window",
@@ -155,7 +159,7 @@
           "easing": "easeInOutCubic"
         },
         {
-          "t": 1,
+          "t": 4,
           "position": [
             1.5,
             1.6,
@@ -170,12 +174,19 @@
         }
       ],
       "cues": [],
-      "audio": null
+      "audio": null,
+      "seconds": 4,
+      "thumb": null
     }
   ],
   "audio": null,
   "cta": null,
   "theme": null,
   "neighbours": [],
-  "status": "draft"
+  "status": "draft",
+  "booking": {
+    "enabled": false,
+    "label": "Book now",
+    "url": ""
+  }
 }

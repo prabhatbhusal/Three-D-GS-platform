@@ -16,16 +16,23 @@ import { Router } from 'express';
 import express from 'express';
 import { promises as fs, createWriteStream, createReadStream, mkdirSync } from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
 import yauzl from 'yauzl';
 import { requireEditorSession } from '../middleware/auth.js';
 import * as storage from '../storage.js';
+import { DATA_DIR } from '../dataDir.js';
 
 export const assetsRouter = Router();
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const STAGING_DIR = path.join(__dirname, '..', 'data', 'uploads-staging');
+// Every route joins :assetId into a filesystem path, and several rm -rf it.
+// Same rule storage.js enforces — letters, digits, _ and - only, so "..",
+// "/" and "\\" never reach path.join.
+assetsRouter.param('assetId', (req, res, next, id) => {
+  if (!/^[a-zA-Z0-9_-]+$/.test(id)) return res.status(400).json({ error: 'Invalid asset id.' });
+  next();
+});
+
+const STAGING_DIR = path.join(DATA_DIR, 'uploads-staging');
 const CHUNK_MAX = '16mb'; // client sends 8 MB chunks (§7.1); headroom for slop
 
 function newAssetId() {
@@ -203,9 +210,55 @@ async function listStagedFiles(assetId) {
     .map((e) => path.relative(root, path.join(e.parentPath ?? e.path, e.name)).replace(/\\/g, '/'));
 }
 
+/* -------------------------------------------------------------------- */
+/* Audio (§6.3) — one AAC .m4a, at most 2 MB. Same upload, same asset ids */
+/* as a splat export; only the validation differs.                       */
+/* -------------------------------------------------------------------- */
+
+const AUDIO_MAX_BYTES = 2 * 1024 * 1024;
+
+/** An .m4a is an MP4 container: bytes 4-8 are "ftyp". Catches an .mp3 or a
+ *  .wav renamed to .m4a, which would otherwise fail silently on a visitor's
+ *  phone instead of here. */
+async function looksLikeMp4(file) {
+  const fh = await fs.open(file, 'r');
+  try {
+    const head = Buffer.alloc(12);
+    const { bytesRead } = await fh.read(head, 0, 12, 0);
+    return bytesRead === 12 && head.toString('latin1', 4, 8) === 'ftyp';
+  } finally {
+    await fh.close();
+  }
+}
+
+async function finalizeAudio(assetId, res) {
+  const relPaths = await listStagedFiles(assetId);
+  const reject = async (msg) => {
+    await fs.rm(path.join(STAGING_DIR, assetId), { recursive: true, force: true });
+    return res.status(400).json({ error: msg });
+  };
+  if (relPaths.length !== 1) return reject('Upload one audio file at a time.');
+  const [relPath] = relPaths;
+  if (!relPath.toLowerCase().endsWith('.m4a')) {
+    return reject('Audio must be AAC in an .m4a file (mono, 96 kbps). That format plays in every browser, including older Safari.');
+  }
+  const full = stagingFile(assetId, relPath);
+  const { size } = await fs.stat(full);
+  if (!size) return reject(`${relPath} uploaded empty.`);
+  if (size > AUDIO_MAX_BYTES) {
+    return reject(`${relPath} is ${(size / 1048576).toFixed(1)} MB. Audio is capped at 2 MB per space — re-encode it mono at 96 kbps, or trim it.`);
+  }
+  if (!(await looksLikeMp4(full))) return reject(`${relPath} isn't really an .m4a file — export it again as AAC (.m4a).`);
+
+  await storage.put(assetId, relPath, createReadStream(full));
+  await fs.rm(path.join(STAGING_DIR, assetId), { recursive: true, force: true });
+  return res.json({ assetId, bytes: size, file: relPath });
+}
+
 assetsRouter.post('/:assetId/finalize', requireEditorSession, async (req, res, next) => {
   const { assetId } = req.params;
   try {
+    if (req.query.kind === 'audio') return await finalizeAudio(assetId, res);
     let relPaths = await listStagedFiles(assetId);
     if (!relPaths.length) {
       return res.status(400).json({ error: 'No files were uploaded for this asset.' });

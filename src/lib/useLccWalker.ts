@@ -7,7 +7,7 @@ import { walkerCfg } from './walkerConfig';
 import { navMode } from './navMode';
 import { dropWaypoint, closeViewpoint, exportViewpoints } from './viewpoints';
 import { addHotspot } from './sceneDoc';
-import { findFloorBelow, findStandingSpot } from './collision';
+import { findFloorBelow, findStandingSpot, clearOrbitDistance } from './collision';
 import { gizmo } from './transform';
 
 // Angular only — these do NOT scale with the scene, unlike everything in
@@ -40,7 +40,9 @@ export function isTypingTarget(t: EventTarget | null): boolean {
  *   walk   — 1st person, gravity + capsule collision, WASD / joystick, Shift
  *            or Run to sprint. Falls back to `fly` if the scan has no collision.
  *   fly    — no gravity, free 6-dof, Space / C for up / down  (key N toggles it)
- *   orbit  — camera swings around walkerCfg.orbitTarget (studio only)
+ *   orbit  — camera swings around walkerCfg.orbitTarget. The studio's Orbit
+ *            tool, and the tour's Fly mode (navMode.flyEnabled), which is this
+ *            same orbit around the middle of the space, seen from above.
  *
  * Third-person/avatar mode is removed (CLAUDE.md §6.1 [remove]) — there is no
  * character mesh, camera boom, or feet-anchored capsule sim any more.
@@ -322,6 +324,36 @@ export function useLccWalker({
   /* Frame                                                            */
   /* ---------------------------------------------------------------- */
 
+  /** Fly looks down on the space (never level, never from below); Orbit
+   *  stays near eye level, a little up or down. */
+  const aimOrbit = () => {
+    const [lo, hi] = navMode.orbitEnabled ? [-0.55, 0.2] : [-1.35, -0.12];
+    look.current.pitch = Math.max(lo, Math.min(hi, look.current.pitch));
+    camera.rotation.set(0, 0, 0);
+    camera.rotateY(look.current.yaw);
+    camera.rotateX(look.current.pitch);
+  };
+
+  /** Put the camera on its orbit. In Fly mode, pull it in to the first wall
+   *  or ceiling between it and the middle of the space (collision.ts). The
+   *  probe only re-runs when the view changes — a still camera costs nothing. */
+  const orbitCache = useRef({ key: '', d: 0 });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- vendor SDK renderer handle
+  const placeOrbit = (r: any, clamp: boolean) => {
+    v.tgt.set(walkerCfg.orbitTarget[0], walkerCfg.orbitTarget[1], walkerCfg.orbitTarget[2]);
+    v.fwd.set(0, 0, -1).applyQuaternion(camera.quaternion);
+    let d = walkerCfg.orbitDist;
+    if (clamp) {
+      const q = camera.quaternion;
+      const key = [v.tgt.x, v.tgt.y, v.tgt.z, q.x, q.y, q.z, q.w, d].map((n) => n.toFixed(3)).join(',');
+      if (key !== orbitCache.current.key) {
+        orbitCache.current = { key, d: clearOrbitDistance(r, v.tgt, v.fwd, d, walkerCfg.radius * 0.5, walkerCfg.radius) };
+      }
+      d = orbitCache.current.d;
+    }
+    camera.position.copy(v.tgt).addScaledVector(v.fwd, -d);
+  };
+
   useFrame((_, raw) => {
     const dt = Math.min(raw, 0.05);
 
@@ -338,7 +370,19 @@ export function useLccWalker({
 
     const r = rendererRef.current;
     const hasColl = !!r?.hasCollision?.();
-    const mode = walkerCfg.mode === 'walk' && !hasColl ? 'fly' : walkerCfg.mode;
+    // Visitor Fly and Orbit are both the walker's orbit, whatever the studio's
+    // own setting says — Fly looks down from high up, Orbit stays at eye level.
+    const aerial = !alwaysRef.current && (navMode.flyEnabled || navMode.orbitEnabled);
+    const mode = aerial ? 'orbit' : walkerCfg.mode === 'walk' && !hasColl ? 'fly' : walkerCfg.mode;
+
+    // Fly mode between drags: keep the camera on its orbit so the zoom and
+    // reset buttons (which only change walkerCfg) show up straight away.
+    if (aerial && enabledRef.current && !canControl) {
+      walkerCfg.orbitDist = Math.max(walkerCfg.radius * 2, walkerCfg.orbitDist * (1 + wheel.current * 0.001));
+      wheel.current = 0;
+      aimOrbit();
+      placeOrbit(r, aerial && hasColl);
+    }
 
     if (canControl) {
       const k = keys.current;
@@ -358,7 +402,7 @@ export function useLccWalker({
       // having explicitly switched to Walk mode (Viewer.jsx's toggle writes
       // navMode.walkEnabled). The studio (alwaysControl=true) always moves —
       // authoring needs it, and the studio has no viewpoints/walk split.
-      const moveAllowed = alwaysRef.current || navMode.walkEnabled;
+      const moveAllowed = alwaysRef.current || navMode.walkEnabled || aerial;
 
       if (!moveAllowed) {
         // Nothing else to do this frame — looking around is all a viewpoints
@@ -372,10 +416,8 @@ export function useLccWalker({
         if (touch.enabled) d -= touch.move.y * speed * dt;
         d = Math.max(walkerCfg.radius * 2, d);
         walkerCfg.orbitDist = d;
-
-        v.tgt.set(walkerCfg.orbitTarget[0], walkerCfg.orbitTarget[1], walkerCfg.orbitTarget[2]);
-        v.fwd.set(0, 0, -1).applyQuaternion(camera.quaternion);
-        camera.position.copy(v.tgt).addScaledVector(v.fwd, -d);
+        if (aerial) aimOrbit();
+        placeOrbit(r, aerial && hasColl);
       } else {
         const fly = mode === 'fly';
         v.fwd.set(0, 0, -1).applyQuaternion(camera.quaternion);

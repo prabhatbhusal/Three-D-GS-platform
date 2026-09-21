@@ -26,3 +26,10 @@ export interface UploadResult {
 }
 
 export type VariantTier = 'high' | 'medium' | 'low';
+
+/** What POST /api/assets/:id/finalize?kind=audio returns. */
+export interface AudioUploadResult {
+  assetId: string;
+  bytes: number;
+  file: string;
+}

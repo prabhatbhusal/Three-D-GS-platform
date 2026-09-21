@@ -6,11 +6,10 @@
  */
 import { promises as fs } from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
+import { DATA_DIR } from './dataDir.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const LEADS_DIR = path.join(__dirname, 'data', 'leads');
+const LEADS_DIR = path.join(DATA_DIR, 'leads');
 
 async function ensureDir() {
   await fs.mkdir(LEADS_DIR, { recursive: true });

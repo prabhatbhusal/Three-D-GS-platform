@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { filesFromDataTransfer, filesFromFileList, uploadVariant } from '../lib/upload';
 import { saveScene, getScenes, getSession, login } from '../lib/api';
 import { blankSceneDoc } from '../lib/sceneDoc';
-import { hydrateScenes } from '../lib/scenes';
+import { hydrateScenes, SCENE_BY_ID } from '../lib/scenes';
 import type { StagedFile, UploadProgress, UploadResult, VariantTier } from '../@types/upload.types';
 import type { SplatVariant } from '../@types/scene.types';
 import './uploader.css';
@@ -25,7 +25,7 @@ const VARIANT_COPY: Record<VariantTier, { label: string; hint: string }> = {
   low: { label: 'Low', hint: 'Optional — falls back to Medium, then High.' }
 };
 
-function slugify(title: string): string {
+export function slugify(title: string): string {
   return title
     .trim()
     .toLowerCase()
@@ -34,18 +34,29 @@ function slugify(title: string): string {
     .slice(0, 60) || `space-${Date.now().toString(36)}`;
 }
 
-function formatBytes(n: number): string {
+export function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/** Saving is an upsert by id, so a second "Reception" would silently replace
+ *  the first. Add -2, -3… until the id is free. */
+export function freeSceneId(base: string): string {
+  let id = base;
+  for (let n = 2; SCENE_BY_ID[id]; n++) id = `${base}-${n}`;
+  return id;
+}
+
 interface UploaderProps {
+  /** The property the new space is filed under (§5.1); its id prefixes the
+   *  space's id, as in the schema's own "basera-lobby" example. */
+  propertyId?: string | null;
   onClose: () => void;
   onCreated: (sceneId: string) => void;
 }
 
-export function Uploader({ onClose, onCreated }: UploaderProps) {
+export function Uploader({ propertyId = null, onClose, onCreated }: UploaderProps) {
   const [title, setTitle] = useState('');
   const [slots, setSlots] = useState<Record<VariantTier, SlotState>>({ high: IDLE, medium: IDLE, low: IDLE });
   const [creating, setCreating] = useState(false);
@@ -85,14 +96,14 @@ export function Uploader({ onClose, onCreated }: UploaderProps) {
     setCreating(true);
     setCreateError('');
     try {
-      const id = slugify(title);
+      const id = freeSceneId(propertyId ? `${propertyId}-${slugify(title)}` : slugify(title));
       const variants: { high: SplatVariant; medium?: SplatVariant; low?: SplatVariant } = {
         high: { assetId: slots.high.result.assetId, meta: slots.high.result.meta }
       };
       if (slots.medium.result) variants.medium = { assetId: slots.medium.result.assetId, meta: slots.medium.result.meta };
       if (slots.low.result) variants.low = { assetId: slots.low.result.assetId, meta: slots.low.result.meta };
 
-      await saveScene(id, blankSceneDoc(id, title.trim(), variants));
+      await saveScene(id, blankSceneDoc(id, title.trim(), variants, propertyId));
       hydrateScenes(await getScenes()); // pulls the new scene (+ its assetId) into the runtime list
       onCreated(id);
     } catch (err) {

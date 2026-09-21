@@ -114,3 +114,46 @@ export function findStandingSpot(
   }
   return null;
 }
+
+
+/** True when a small ball at (x, y, z) touches the scan's collision mesh. */
+function touches(r: SceneRenderer, x: number, y: number, z: number, radius: number): boolean {
+  if (!r?.intersectsCapsule) return false;
+  try {
+    const h: CapsuleHit | null = r.intersectsCapsule({
+      start: { x, y: y - radius * 0.1, z },
+      end: { x, y: y + radius * 0.1, z },
+      radius
+    });
+    return !!h?.hit;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Fly mode's line of sight. Walks out from `target` along `-dir` (the way a
+ * camera orbiting at distance `dist` sits) and returns how far it can go
+ * before a wall or the ceiling gets in the way — so the camera stays inside
+ * the room looking in, instead of outside looking at the back of a wall.
+ * The SDK has no way to hide a scan's ceiling (no clipping on its shaders),
+ * so this is how an indoor "dollhouse" view stays useful. Outdoors nothing is
+ * hit and the full distance comes back.
+ */
+export function clearOrbitDistance(
+  r: SceneRenderer,
+  target: { x: number; y: number; z: number },
+  dir: { x: number; y: number; z: number },
+  dist: number,
+  radius: number,
+  minDist: number
+): number {
+  if (!r?.intersectsCapsule) return dist;
+  const step = Math.max(radius, dist / 24);
+  for (let s = step; s <= dist; s += step) {
+    if (touches(r, target.x - dir.x * s, target.y - dir.y * s, target.z - dir.z * s, radius)) {
+      return Math.max(minDist, s - step);
+    }
+  }
+  return dist;
+}

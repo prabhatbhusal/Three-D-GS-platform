@@ -1,7 +1,7 @@
 {
   "id": "floor1",
   "version": 2,
-  "propertyId": null,
+  "propertyId": "demo-project",
   "title": "Floor1",
   "splat": {
     "format": "lcc2",

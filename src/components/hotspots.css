@@ -1,65 +1,94 @@
-/* Hotspot markers + panel. Loaded by HotspotMarkers.jsx so it's present in both
-   the viewer and the editor. */
+/* Hotspot callouts + panel. Loaded by HotspotMarkers.tsx, so present in both
+   the tour and the studio. Callout look: a ring on the spot, a thin leader
+   line, a card to one side. No backdrop blur — it costs frames on the phones
+   that are the low tier (§10.2). */
 
 /* The layer is a click-through shield — it must stay pointer-events:none even
    though it's a direct child of .vw / .ed2 (whose `> *` rule would re-enable it).
-   Belt AND braces: higher-specificity selectors + !important. The dots opt back
-   in individually. */
+   Belt AND braces: higher-specificity selectors + !important. Rings and cards
+   opt back in individually. */
 .hs-layer,
 .vw .hs-layer,
 .ed2 .hs-layer { position: fixed; inset: 0; z-index: 8; pointer-events: none !important; }
 
-.hs-dot {
+.hs-lines { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
+.hs-lines line {
+  stroke: rgba(255, 255, 255, 0.78); stroke-width: 1.25;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+
+/* ---- ring on the spot ---------------------------------------- */
+.hs-ring {
   position: absolute; top: 0; left: 0; pointer-events: auto; cursor: pointer;
-  display: flex; align-items: center;
-  padding: 0; border: 0; background: transparent;
-  font: 600 12px/1 var(--sans);
-}
-.hs-ic {
-  position: relative;
-  width: 32px; height: 32px; flex: 0 0 auto; border-radius: 50%;
+  width: 34px; height: 34px; padding: 0; border-radius: 50%;
   display: grid; place-items: center;
-  color: #14110e; background: var(--paper);
-  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.5);
-  transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1);
+  border: 2px solid rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25), 0 0 18px rgba(255, 255, 255, 0.45);
 }
-/* pulsing halo */
-.hs-ic::before {
-  content: ''; position: absolute; inset: -6px; border-radius: 50%;
-  border: 1.5px solid rgba(246, 241, 231, 0.55);
+.hs-ring::before {
+  content: ''; position: absolute; inset: -7px; border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.6);
   animation: hs-pulse 2.4s ease-out infinite;
 }
 @keyframes hs-pulse {
   0% { transform: scale(0.7); opacity: 0.9; }
-  70% { transform: scale(1.5); opacity: 0; }
+  70% { transform: scale(1.45); opacity: 0; }
   100% { opacity: 0; }
 }
-.hs-dot:hover .hs-ic { transform: scale(1.14); }
-.hs-lbl {
-  max-width: 0; overflow: hidden; white-space: nowrap;
-  color: var(--paper); background: rgba(12, 10, 8, 0.85);
-  border-radius: 999px; font-size: 11px; letter-spacing: 0.01em;
-  transition: max-width 0.24s ease, padding 0.24s ease, margin 0.24s ease;
-  padding: 7px 0; margin-left: 0;
+.hs-ring-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #fff; box-shadow: 0 0 10px rgba(255, 255, 255, 0.9);
+  transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.hs-dot:hover .hs-lbl,
-.hs-dot.hs-sel .hs-lbl { max-width: 200px; padding: 7px 13px; margin-left: 8px; }
-.hs-dot.hs-sel .hs-ic {
-  background: var(--gold);
-  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.5), 0 0 0 4px rgba(176, 141, 87, 0.35);
-}
-.hs-dot.hs-sel .hs-ic::before { border-color: rgba(176, 141, 87, 0.8); }
+.hs-ring:hover .hs-ring-dot { transform: scale(1.35); }
 
-/* In the studio, "selected" uses the ONE studio signal colour (CLAUDE.md
- * §10.1), not the viewer's warm gold — this marker sits over the 3D but is
- * a studio-authoring affordance, not tour chrome. */
-.ed2 .hs-dot.hs-sel .hs-ic {
-  background: #E8C547;
-  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.5), 0 0 0 4px rgba(232, 197, 71, 0.32);
+/* ---- card ---------------------------------------------------- */
+/* Fixed box: hotspotLayout.ts places it by these exact numbers. */
+.hs-card {
+  position: absolute; top: 0; left: 0; pointer-events: auto; cursor: pointer;
+  box-sizing: border-box; width: 236px; height: 74px; padding: 8px 12px 8px 8px;
+  display: flex; align-items: center; gap: 11px; text-align: left;
+  border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(16, 13, 11, 0.86); color: #fff;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.42);
+  animation: hs-in 0.22s ease both;
+  transition: border-color 0.15s, background 0.15s;
 }
-.ed2 .hs-dot.hs-sel .hs-ic::before { border-color: rgba(232, 197, 71, 0.8); }
+.hs-card:hover { border-color: rgba(255, 255, 255, 0.42); background: rgba(16, 13, 11, 0.94); }
+@keyframes hs-in { from { opacity: 0 } to { opacity: 1 } }
+.hs-card-img, .hs-card-ic {
+  flex: 0 0 auto; width: 56px; height: 56px; border-radius: 8px; object-fit: cover;
+}
+.hs-card-ic {
+  display: grid; place-items: center;
+  font: 600 18px/1 var(--sans); color: #14110e; background: var(--paper, #f6f1e7);
+}
+.hs-card-txt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.hs-card-title {
+  display: flex; align-items: center; gap: 6px;
+  font: 400 15px/1.2 var(--serif, Georgia, serif); color: #fff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hs-card-blurb {
+  font: 400 11.5px/1.35 var(--sans); color: rgba(255, 255, 255, 0.68);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.hs-spk {
+  flex: 0 0 auto; width: 13px; height: 13px;
+  fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+.hs-card-title .hs-spk { opacity: 0.7; }
 
-/* panel */
+/* Tour: the selected/focused marker takes the client's accent. */
+.vw .hs-ring:focus-visible, .vw .hs-card:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+/* Studio: "selected" uses the ONE studio signal colour (§10.1) — these sit
+ * over the 3D but are authoring affordances, not tour chrome. */
+.ed2 .hs-ring.hs-sel { border-color: var(--ed-signal); box-shadow: 0 0 0 3px var(--ed-signal-soft), 0 0 18px rgba(255, 255, 255, 0.45); }
+.ed2 .hs-card.hs-sel { border-color: var(--ed-signal); }
+
+/* ---- panel --------------------------------------------------- */
 .hs-scrim {
   position: fixed; inset: 0; z-index: 15; background: rgba(6, 5, 4, 0.55);
   animation: hs-fade 0.2s ease;
@@ -69,9 +98,7 @@
   z-index: 16; width: min(460px, 100vw); max-height: 72vh; overflow-y: auto;
   padding: 26px 24px calc(24px + env(safe-area-inset-bottom, 0px));
   border-radius: 20px 20px 0 0;
-  background:
-    linear-gradient(180deg, rgba(176, 141, 87, 0.12), transparent 120px),
-    rgba(19, 16, 13, 0.97);
+  background: rgba(19, 16, 13, 0.97);
   border: 1px solid rgba(246, 241, 231, 0.14);
   border-bottom: 0; color: var(--paper);
   box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.5);
@@ -87,7 +114,7 @@
 }
 .hs-panel-x:hover { background: rgba(246, 241, 231, 0.18); transform: rotate(90deg); }
 .hs-panel-title {
-  font: 400 24px/1.2 var(--serif); margin: 0 34px 16px 0; letter-spacing: 0.01em;
+  font: 400 26px/1.2 var(--serif); margin: 0 34px 16px 0; letter-spacing: 0.01em;
 }
 .hs-panel-img {
   width: 100%; border-radius: 12px; display: block; margin-bottom: 14px;
@@ -96,10 +123,37 @@
 .hs-panel-body { margin: 0; font: 400 14px/1.65 var(--sans); color: rgba(246, 241, 231, 0.82); }
 .hs-panel-link {
   display: inline-flex; align-items: center; gap: 8px;
-  margin-top: 8px; padding: 12px 22px; border: 0;
+  margin-top: 12px; padding: 12px 22px; border: 0;
   border-radius: 999px; cursor: pointer; text-decoration: none;
-  font: 600 12px/1 var(--sans); letter-spacing: 0.06em; text-transform: uppercase;
+  font: 600 13px/1 var(--sans); letter-spacing: 0.01em;
   color: #14110e; background: var(--gold);
   transition: transform 0.15s, box-shadow 0.3s;
 }
-.hs-panel-link:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(176, 141, 87, 0.4); }
+.hs-panel-link:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); }
+
+/* ---- audio row + transcript (§6.3) -------------------------- */
+.hs-audio { display: flex; align-items: center; gap: 12px; margin: -4px 0 14px; }
+.hs-listen {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+  padding: 9px 16px; border-radius: 999px;
+  font: 600 12.5px/1 var(--sans); color: var(--paper);
+  background: rgba(246, 241, 231, 0.08); border: 1px solid rgba(246, 241, 231, 0.22);
+  transition: background 0.15s, border-color 0.15s;
+}
+.hs-listen:hover { background: rgba(246, 241, 231, 0.14); }
+.hs-listen.on { color: #14110e; background: var(--gold); border-color: var(--gold); }
+.hs-listen .hs-spk { width: 15px; height: 15px; }
+.hs-audio-note { font: 400 12px/1.4 var(--sans); color: rgba(246, 241, 231, 0.6); }
+.hs-transcript {
+  margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(246, 241, 231, 0.12);
+  font: 400 13px/1.6 var(--sans); color: rgba(246, 241, 231, 0.75);
+}
+.hs-transcript summary { cursor: pointer; font-weight: 600; color: var(--paper); }
+.hs-transcript p { margin: 8px 0 0; white-space: pre-line; }
+
+@media (max-width: 520px) {
+  .hs-card-blurb { -webkit-line-clamp: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hs-ring::before { animation: none; opacity: 0.5; }
+}

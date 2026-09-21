@@ -14,9 +14,12 @@ import { getScene, getPublishedScene } from './api';
 import { liveViewpoints, loadTracks } from './viewpoints';
 import { transformFor, loadTransform } from './transform';
 import type { Hotspot, HotspotPayload, HotspotType } from '../@types/hotspot.types';
-import type { SceneDoc, SplatVariant, Track } from '../@types/scene.types';
+import type { Booking, SceneDoc, SplatVariant, Track } from '../@types/scene.types';
 
 const doc: Record<string, { hotspots: Hotspot[] }> = {};
+/** Book now per space (§7.6). Loaded with the doc, so the public tour reads
+ *  the published copy's button and the studio the draft's. */
+const booking: Record<string, Booking | null> = {};
 const listeners = new Set<() => void>();
 export const subscribeDoc = (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn); }; };
 const emit = () => listeners.forEach((f) => f());
@@ -27,12 +30,24 @@ const _f = new THREE.Vector3();
 
 export const hotspotsFor = (sceneId: string): Hotspot[] => doc[sceneId]?.hotspots ?? [];
 
+export const bookingFor = (sceneId: string): Booking | null => booking[sceneId] ?? null;
+
+export function setBooking(sceneId: string, patch: Partial<Booking>) {
+  booking[sceneId] = { enabled: false, label: 'Book now', url: '', ...booking[sceneId], ...patch };
+  emit();
+}
+
+/** True when any hotspot in the space carries audio — the sound toggle only
+ *  shows then (§6.3). */
+export const sceneHasAudio = (sceneId: string) => hotspotsFor(sceneId).some((h) => !!h.payload?.audio);
+
 const blankPayload = (type: HotspotType): HotspotPayload =>
   type === 'image' ? { url: '', caption: '' }
     : type === 'video' ? { url: '' }
       : type === 'link' ? { url: '', text: 'Open' }
         : type === 'portal' ? { sceneId: '' }
-          : { text: '' };
+          : type === 'audio' ? { transcript: '' }
+            : { text: '' };
 
 /** Drop a hotspot ~2 units in front of the camera. */
 export function addHotspot(sceneId: string, camera: THREE.Camera, type: HotspotType = 'text'): Hotspot {
@@ -55,7 +70,12 @@ export function addHotspot(sceneId: string, camera: THREE.Camera, type: HotspotT
 export function updateHotspot(sceneId: string, id: string, patch: Partial<Hotspot>) {
   const hs = doc[sceneId]?.hotspots.find((h) => h.id === id);
   if (!hs) return;
-  if (patch.type && patch.type !== hs.type) hs.payload = blankPayload(patch.type);
+  // A new type gets a fresh payload, but the audio and its transcript are the
+  // same whichever kind of card they sit on.
+  if (patch.type && patch.type !== hs.type) {
+    const { audio, transcript } = hs.payload ?? {};
+    hs.payload = { ...blankPayload(patch.type), ...(audio ? { audio, transcript } : {}) };
+  }
   Object.assign(hs, patch);
   emit();
 }
@@ -108,6 +128,7 @@ export function loadSceneDoc(
       const ids = new Set((saved.hotspots ?? []).map((h) => h.id));
       const localOnly = force ? [] : hotspotsFor(sceneId).filter((h) => !ids.has(h.id));
       doc[sceneId] = { hotspots: [...(saved.hotspots ?? []), ...localOnly] };
+      booking[sceneId] = saved.booking ?? null;
       if (source === 'draft') {
         serverDocs[sceneId] = saved as SavedDoc;
         savedJson[sceneId] = JSON.stringify(sceneDocFor(sceneId));
@@ -185,6 +206,7 @@ export function sceneDocFor(sceneId: string): SceneDoc {
     audio: null,
     cta: null,
     theme: null,
+    booking: null,
     neighbours: conf?.neighbours ?? [],
     status: 'draft' as const
   };
@@ -201,7 +223,8 @@ export function sceneDocFor(sceneId: string): SceneDoc {
       yaw: r3(yaw)
     },
     hotspots: hotspotsFor(sceneId),
-    tracks
+    tracks,
+    booking: bookingFor(sceneId)
   };
 }
 
@@ -212,12 +235,13 @@ export function sceneDocFor(sceneId: string): SceneDoc {
 export function blankSceneDoc(
   id: string,
   title: string,
-  variants: { high: SplatVariant; medium?: SplatVariant; low?: SplatVariant }
+  variants: { high: SplatVariant; medium?: SplatVariant; low?: SplatVariant },
+  propertyId: string | null = null
 ): SceneDoc {
   return {
     id,
     version: 2,
-    propertyId: null,
+    propertyId,
     title,
     splat: { format: 'lcc2', variants },
     transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: 1 },
@@ -230,6 +254,7 @@ export function blankSceneDoc(
     audio: null,
     cta: null,
     theme: null,
+    booking: null,
     neighbours: [],
     status: 'draft'
   };

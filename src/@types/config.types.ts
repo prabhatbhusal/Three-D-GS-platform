@@ -26,8 +26,14 @@ export interface UiConfig {
   hd?: boolean;
 }
 
+export type VisitorMode = 'viewpoints' | 'walk' | 'orbit' | 'fly';
+
 export interface NavModeState {
   walkEnabled: boolean;
+  /** Aerial view circling the whole space (the walker's orbit, for visitors). */
+  flyEnabled: boolean;
+  /** The same orbit at eye level: circling the middle of the room standing up. */
+  orbitEnabled: boolean;
 }
 
 /** Shared mutable touch-input state — see lib/mobileInput.js. */

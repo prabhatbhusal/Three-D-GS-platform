@@ -12,15 +12,13 @@
 import { createReadStream, createWriteStream } from 'fs';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { pipeline } from 'stream/promises';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { DATA_DIR } from './dataDir.js';
 
 // NAS masters/processing stay elsewhere; this is published derivatives only.
 const ASSET_DIR = process.env.ASSET_DIR
   ? path.resolve(process.env.ASSET_DIR)
-  : path.join(__dirname, 'data', 'assets'); // sibling of data/scenes, data/leads
+  : path.join(DATA_DIR, 'assets'); // sibling of data/scenes, data/leads
 
 const CONTENT_TYPES = {
   '.lcc2': 'application/octet-stream',

@@ -1,7 +1,7 @@
 {
   "id": "canteen",
   "version": 2,
-  "propertyId": null,
+  "propertyId": "demo-project",
   "title": "Canteen",
   "splat": {
     "format": "lcc2",
@@ -66,7 +66,9 @@
         }
       ],
       "cues": [],
-      "audio": null
+      "audio": null,
+      "seconds": 4,
+      "thumb": null
     },
     {
       "id": "vp-canteen-2",
@@ -90,7 +92,9 @@
         }
       ],
       "cues": [],
-      "audio": null
+      "audio": null,
+      "seconds": 4,
+      "thumb": null
     },
     {
       "id": "vp-canteen-3",
@@ -114,12 +118,19 @@
         }
       ],
       "cues": [],
-      "audio": null
+      "audio": null,
+      "seconds": 4,
+      "thumb": null
     }
   ],
   "audio": null,
   "cta": null,
   "theme": null,
   "neighbours": [],
-  "status": "draft"
+  "status": "draft",
+  "booking": {
+    "enabled": false,
+    "label": "Book now",
+    "url": ""
+  }
 }

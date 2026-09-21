@@ -7,7 +7,8 @@
     "dev": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node --test test/*.test.mjs && cd server && npm test"
   },
   "dependencies": {
     "@react-three/fiber": "^9.6.1",

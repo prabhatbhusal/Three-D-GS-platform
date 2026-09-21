@@ -41,6 +41,12 @@ fixed in the code as a task (§13).
 The minutes say "viewports". In the UI and the schema the word is **viewpoint**.
 Pick this one and never write the other.
 
+**Exception, decided 2026-09-21:** in the **studio UI** a property is called a
+**project** ("Projects", "New project"), because that is what the team calls
+it. Code, API, schema and file names keep **property** (`propertyId`,
+`/api/properties`, `data/properties/`) — renaming those would move data for
+no gain. So: "project" on screen in the studio, "property" everywhere else.
+
 ### 0.3 What changed in revision B
 
 1. **Product name is threedview.services.** A GeoNova / I.STEM Lab brand. The
@@ -214,7 +220,18 @@ this has roughly one year of professional experience; favour the boring version.
 
 ## 5. Data model
 
-### 5.1 Property document `[build]`
+### 5.1 Property document — partly `[built]`
+
+**As built (2026-09-21):** `{ id, version: 1, title, createdAt }` only, one file
+per property under `server/src/data/properties/<id>.json` (tracked, like
+scenes — no PII). The studio groups spaces by it. Membership lives on the
+scene's `propertyId`, **not** in a `spaces[]` list here, so there is one source
+of truth. **Rename** changes `title` only — the id is what every space and URL
+points at. **Delete** never deletes a space: its spaces go back to "Not in a
+project yet" (`propertyId: null`) and published tours keep working, since a
+tour doesn't read the property. Not built: `location`, `hero`, `spaces[]`
+ordering/blurbs, `theme`, `cta`, `status`/publish — all of it arrives with
+the hub page. On screen it is a **project** (§0.2).
 
 ```jsonc
 {
@@ -287,9 +304,11 @@ page does the work.
   ],
 
   "hotspots": [
-    { "id": "hs1", "type": "image" | "video" | "text" | "link" | "portal",
+    { "id": "hs1", "type": "image" | "video" | "text" | "link" | "portal" | "audio",
       "position": [x,y,z], "radius": 0.4, "label": "Deluxe suite",
-      "payload": { /* type-specific; may carry "audio": "asset://<id>" */ },
+      "payload": { /* type-specific, plus optional
+                      "audio": "asset://<assetId>/<file>.m4a",
+                      "transcript": "what the audio says" (§6.3) */ },
       "occludedBy": "geometry" | "none" }
   ],
 
@@ -315,6 +334,12 @@ page does the work.
 
   "cta": null,                       // null = inherit property.cta
   "theme": null,                     // null = inherit property.theme
+  "booking": null | { "enabled": true, "label": "Book now",
+                      "url": "https://…?arrive={checkin}&depart={checkout}&adults={guests}",
+                      "title": "Deluxe Suite", "subtitle": "…",
+                      "price": "$120", "priceUnit": "/ night",
+                      "priceNote": "Includes taxes & fees",
+                      "askDates": true },   // §7.6; null = off; all past url optional
   "neighbours": ["basera-bar", "basera-banquet"],
   "status": "draft" | "published"
 }
@@ -337,6 +362,11 @@ Every new schema field needs a migration path. v1 → v2:
 | `transform.rotation` | degrees, YXZ order — every doc before the gizmo had `[0,0,0]`, so no conversion |
 | `tracks[].audio`, `audio` absent | `null` |
 | `cta`, `theme` absent | `null`, meaning inherit |
+| `booking` absent (any v2 doc before 2026-09-21) | `null` (off). Filled by `fillLateDefaults()` on every read — late v2 fields don't bump the version |
+| `booking.title/subtitle/price/priceUnit/priceNote/askDates` absent | none / `false`: the card shows the space's name and no dates or price |
+| hotspot `type: "audio"` | new type; older readers that don't know it should treat it as `text` with its transcript |
+| `hotspots[].payload.audio` / `.transcript` absent | none — no audio |
+| `propertyId` absent | `null` — listed under "Not in a property yet" in the studio |
 
 Migrations live in `server/src/migrate.js` `[build]` and run **on read**, not as
 a one-off script. A scene authored last month must open today without anyone
@@ -348,7 +378,9 @@ remembering to run anything. Write the migrated doc back only on the next save.
 
 ### 6.1 Navigation modes
 
-Three visitor modes. That is the whole list.
+Five visitor modes since 2026-09-21 (Fly and Orbit added at the owner's
+explicit, repeated request — see §20 #1). That is the whole list. The switch
+reads Viewpoints | Walk | Orbit | Fly.
 
 - **Viewpoints (default).** Discrete authored stops, free look at each, smooth
   dolly between linked neighbours. Deliberate: splats captured from a walking
@@ -364,12 +396,30 @@ Three visitor modes. That is the whole list.
   visitor break out mid-flight to look around. MP4 export stays a separate
   marketing deliverable.
 
+- **Fly `[built]`.** The aerial "dollhouse" view: the camera circles the
+  middle of the space (the average of the authored track waypoints, or the
+  start view — never the scan's bounds, which stray splats inflate, §14),
+  looking down. The SDK's shaders have no clipping, so a scan's ceiling can't
+  be hidden; instead `clearOrbitDistance()` (`src/lib/collision.ts`) pulls the
+  camera in to the first wall or ceiling between it and the middle, using
+  only the documented `intersectsCapsule`. Indoors that is a high corner
+  view just under the ceiling; outdoors nothing is hit and it stays aerial.
+  Zoom, Reset view and Exit fly mode replace the views bar; exiting returns
+  the visitor to exactly where they were. Unlike walk, Fly **carries over**
+  when switching space from the layers rail, like a floor picker.
+
+- **Orbit `[built]`.** Fly's machinery at eye level: circle the middle of the
+  room standing up (pitch held between slightly down and slightly up), with
+  the same line-of-sight clamp, zoom, reset and exit. Switching Orbit ⇄ Fly
+  re-frames without losing the pre-orbit pose.
+
 **Removed `[built]`: third-person / avatar mode.** Done — `Avatar.jsx`,
 the `avatar` branch in `src/lib/useLccWalker.ts`, `walkerCfg.avatar` and the
 camera boom, the avatar option in the studio's movement-mode control, and the
 viewer's first-person/avatar "Take a walk" toggle are all gone. The viewer's
-mode control is viewpoints ⇄ walk. Fly and orbit survive **in the studio
-only**, as authoring tools.
+mode control is Viewpoints | Walk | Orbit | Fly. The studio's own free-flight
+and orbit tools are separate (`walkerCfg.mode`); visitor Fly is
+`navMode.flyEnabled`, which drives the walker's orbit.
 
 ### 6.2 Flythrough with annotations `[build]`
 
@@ -386,7 +436,22 @@ controls.
 On interruption: stop narration, fade music out over 400 ms, leave ambient
 running. Narration continuing over free roam is worse than no narration.
 
-### 6.3 Audio `[build]`
+### 6.3 Audio — hotspot audio `[built]`, ambient and track audio `[build]`
+
+**As built (2026-09-21):** `src/lib/audio.ts` — one `AudioContext`, one gain
+node (the only layer so far: hotspot clips) that is also the mute switch.
+Created and resumed only inside a tap: the enter gate, the studio's Preview
+button, Listen, the sound toggle, or the hotspot tap itself. Starts muted,
+mute remembered in `localStorage['threedview.muted']`, suspended while the tab
+is hidden. A hotspot's clip is fetched when it opens, so never before the
+first frame; decoded clips are cached. Muted, opening a hotspot shows
+**Listen** and the transcript open; with sound on it plays straight away.
+Closing stops it. The sound toggle shows only in spaces that have audio.
+Uploads: `POST /api/assets/:id/finalize?kind=audio` takes exactly one
+`.m4a`, ≤ 2 MB, and checks the MP4 `ftyp` header, so a renamed MP3 is
+refused. Publish warns when a hotspot has audio but no transcript. Not built:
+ambient, track music/narration and ducking, and the **2 MB per-space total**
+(only the per-file 2 MB is checked).
 
 Two layers, both optional, both authored per space:
 
@@ -440,6 +505,15 @@ platform captures that intent while they are still inside the experience.
 - Record which space and which hotspot preceded the enquiry. That number is what
   renews the contract.
 - The form works with the 3D absent (constraint 5).
+
+**As built (2026-09-21):** the CTA is a pill bottom-right (a full-width bar on
+phones) opening a light card at the right (a bottom sheet on phones): name,
+phone and email side by side, requirement, dates, message, one **Send
+enquiry** button, confirmation in place. It shares one slot with the Book now
+card — opening one closes the other — and both buttons stay clickable above
+the cards' backdrop on desktop. Input `maxLength`s mirror the server's
+`FIELD_LIMITS`. Still not built: fields from `cta.fields`, prefilling the
+space, recording the preceding hotspot.
 
 `POST /api/leads` is public and therefore hostile-facing: rate limit by IP,
 honeypot field, submission-time check, size cap on every field, no HTML stored,
@@ -630,6 +704,30 @@ Not built: **Publish property**, the extent-mismatch blocker (no bbox data,
   §18).
 
 ---
+
+### 7.6 Book now `[built]`
+
+Some hotels want a direct booking button next to the enquiry form; Basera
+does not, for now. So it is **off by default and per space**: Scene pane →
+**Book now** → toggle, button text, link. When on and the link is an
+http(s) address, the tour shows one filled pill in the top-right cluster,
+in the property's accent, opening the hotel's own booking page in a new tab.
+
+- Stored as `booking` on the scene doc (§5.2), so it goes through
+  publish/snapshot like everything else (constraint 6).
+- Only `https?://` links are ever rendered (`safeUrl()` in `src/lib/api.ts`),
+  and publish is **blocked** if Book now is on with anything else — a
+  `javascript:` link would otherwise run on a client's public page.
+- **The card (2026-09-21, approved by the owner — see §20):** Book now opens
+  a card like the owner's reference: room or offer name, tagline, optional
+  check-in / check-out / guests (native date inputs, validated: not in the
+  past, at least one night), the price and a note as the hotel typed them,
+  and one button that continues on the hotel's page. The visitor's choices
+  reach that page only through `{checkin} {checkout} {guests} {nights}` in
+  the link (`src/lib/booking.ts`, tested). **There is no booking engine,
+  payment, or live availability** — the price is text, not a quote.
+- Per space, not per property: a 6-space hotel enters the link 6 times until
+  the property document carries `cta`/`booking` for its spaces to inherit.
 
 ## 8. Quality tiers `[build]`
 
@@ -857,6 +955,23 @@ doesn't see. The CTA is the one exception, and it earns its pixels.
 - The hub page is a normal, fast web page: hero video, property name, space list.
   It should feel like the hotel's own site, not like a 3D app's landing screen.
 
+**As built (2026-09-21):** enter gate is a left-aligned hero over the
+streaming room (brand, place name, tagline, **Start virtual tour**). In the
+tour: place name top-left; top-right a row of dark round icon buttons
+(Spaces, Sound, HD, Controls, Full screen), then Book now (§7.6) and Exit;
+the bottom is one **centred** column — views tray, transport with a `2 / 6`
+counter, progress segments, and lowest of all the **Viewpoints | Walk |
+Orbit | Fly** switch (§6.1 — no Floor plan, §20 #2); in Orbit/Fly the first
+three become zoom, reset and exit. The enquiry CTA sits bottom-right on the
+switch's line; Book now and enquiry open as light cards at the right. **Layers:** the
+project's spaces as a rail down the left edge (desktop; phones keep the
+Spaces button). The tour only lists spaces published under the **same
+project** as the one it opens on. Hotspots are callouts
+in every camera mode: a ring on the spot, a leader line, and a card
+(thumbnail or icon, title, one line of text, a speaker mark if it has
+audio). Only the 4 nearest show their card; the rest are rings until
+hovered. Placement maths is `src/lib/hotspotLayout.ts`.
+
 Avoid: cream-and-terracotta palettes, acid-green-on-black, identical rounded
 cards with the same soft grey shadow, ALL-CAPS eyebrow labels above headings,
 `→` glued to button text, meta strings joined with middle dots.
@@ -895,14 +1010,16 @@ npm run dev            # http://localhost:3000
 npm run build && npm start
 ```
 
-Routes. `editorActive.ts` now decides by path (`/studio` = editor); delete it
-once `/studio/<property>/<space>` exists.
+Routes. `editorActive.ts` decides by path (anything under `/studio` = editor).
+Move between studio pages with plain `<a>`, never `<Link>`: only a full page
+load gives each property a clean `LCCRender` singleton.
 
 | Route | What | Status |
 |---|---|---|
 | `/` | Marketing home — static, server-rendered | `[built]` |
 | `/login` | Sign in / create account (`?mode=signup`, `?next=` same-site paths only) | `[built]` |
-| `/studio` | The editor. Signed-out visitors are sent to `/login`; if the API is unreachable it opens anyway (writes are still refused server-side) | `[built]` |
+| `/studio` | Project list: one card per client (click to open; ⋯ → Rename / Delete project), the last-opened project first and tagged. **New project** opens a large dialog: input type (Lixel Studio export — folder or .zip, the same upload path as the studio uploader; 360 camera video shown as *Coming soon*, not built), drop zone, project name and first-space name (taken from the export). Create opens the project with that space already loaded. "Not in a project yet" always shows when spaces are unfiled, with **Group into a project** (defaults to "Demo project") or a per-space Move to…. Signed-out visitors are sent to `/login` | `[built]` |
+| `/studio/<property>` | The editor, scoped to that project's spaces before the 3D mounts. The top bar shows **Projects / <current project ▾>** — the switcher lists every project and opens any of them. Leaving with unsaved edits triggers the browser's "Leave site?" prompt. No spaces yet → uploader. New uploads get the id `<property>-<title>` | `[built]` |
 | `/tour` | Visitor viewer, **published spaces only**. `?space=<id>` picks one (default: newest published); `?embed=1` hides Exit 3D. Unpublished or unknown → a message, and the 3D never mounts. **Interim**, until `/t/<property>/<space>` exists | `[built]` |
 | `/gallery` | Every published space, rendered per request | `[built]` |
 
@@ -913,8 +1030,20 @@ Still to build:
 | `/t/<property>` | Hub page |
 | `/t/<property>/<space>` | Detail page — full experience + CTA |
 | `/embed/<property>/<space>` | Chromeless embed, token-gated |
-| `/studio` | Becomes a space list; the editor moves to the route below |
-| `/studio/<property>/<space>` | The editor |
+| `/studio/<property>/<space>` | Deep link to one space (today the editor opens on the property's first space) |
+
+Tests — Node's own `node:test`, no framework:
+
+```bash
+npm test               # client helpers (test/*.test.mjs), then cd server && npm test
+```
+
+`server/test/api.test.js` starts the real API against a throwaway
+`DATA_DIR`/`ASSET_DIR` and covers properties, moving spaces, the booking
+migration and blocker, the transcript warning, audio upload validation and
+asset-id traversal. `test/client.test.mjs` runs the TypeScript helpers
+directly (Node 24 strips types). Every file-backed store reads `DATA_DIR`
+(`server/src/dataDir.js`) — point it anywhere to run against scratch data.
 
 The tour works with the API stopped — it falls back to scenes baked into
 `src/lib/scenes.js`. The 5 s budget means the app never blocks its first frame
@@ -937,6 +1066,14 @@ for ambient declarations).
 | `src/lib/transform.ts` | Scene transform store (degrees, YXZ, uniform scale), `applyToRenderer()` (§17), gizmo tool state. `[built]` |
 | `src/components/Gizmo.tsx` | Move / rotate / scale handles (`G`/`R`/`T`, Ctrl snaps) and `useSceneTransform()`, which applies placement in studio and tour. `[built]` |
 | `src/components/SiteNav.tsx`, `src/app/gallery/page.tsx` | Marketing nav; public gallery of published spaces. |
+| `src/app/studio/page.tsx`, `src/app/studio/[property]/page.tsx` | Project list (create, rename, delete, last opened), and the editor scoped to one project (§12). `src/lib/useStudioSession.ts` is their shared sign-in gate. The editor's project switcher and unsaved-edits guard are `ProjectSwitcher` / `LeaveGuard` in `EditorShell.tsx`. `[built]` |
+| `src/lib/audio.ts` | One `AudioContext`, gesture unlock, mute persistence, visibility pause, hotspot clip playback (§6.3). `[built]` for hotspot audio |
+| `src/components/BookingCard.tsx` + `src/lib/booking.ts` | The Book now card (§7.6) and its pure date/link helpers. `[built]` |
+| `src/components/NewProjectDialog.tsx` | The New project dialog (§12). Reuses `uploadVariant` and the uploader's `slugify` / `freeSceneId`. `[built]` |
+| `src/lib/collision.ts` → `clearOrbitDistance()` | Fly mode's line-of-sight probe (§6.1). |
+| `src/lib/hotspotLayout.ts` | Where a hotspot's callout card sits on screen, and which hotspots get one. Pure, tested. `[built]` |
+| `server/src/routes/properties.js` | Property list (with space counts), create, rename (`PATCH`, title only), delete (releases its spaces) — studio session only. `POST /api/scenes/:id/property` in `scenes.js` moves a space. `[built]` |
+| `server/src/dataDir.js` | `DATA_DIR` for every file-backed store (tests use a temp one). |
 | `src/components/ThemeToggle.tsx` + `src/lib/theme.ts` | Light/dark switch. Writes `<html data-theme>` + `localStorage.threedview-theme`; `site.css` and `editor.css` each flip their own tokens off it, and `layout.tsx` applies it in an inline script before first paint. Stateless — the icon swap is CSS in `globals.css`. Mounted in the marketing nav and the studio top bar; the tour stays dark. `[built]` |
 | `src/app/tour/page.tsx` | Decides which published space opens and hydrates the scene list from published docs before the 3D mounts (`limitTour()` in scenes.ts). |
 | `src/lib/scenes.ts` | Scene list: id, name, tagline, spawn. `setSessionSpawn` / `spawnFor` back the studio's spawn override. `renameScene()` retitles a scene (double-click its tree row) — label only, never the `id`, which addresses the asset. `hydrateScenes()` merges metadata from the API, best-effort. |
@@ -954,12 +1091,12 @@ for ambient declarations).
 | `src/lib/api.ts` | Client for the Node API. Every call best-effort; the app never blocks on it. Also the asset-upload endpoints (create/init/chunk/finalize/delete, §7.1). |
 | `src/lib/upload.ts` | Chunked resumable upload engine — folder walking (drag-and-drop + `webkitdirectory` browse), 8 MB chunks, resume-from-server-offset. A lone `.zip` passes through untouched; the server extracts it on finalize (§7.1). |
 | `src/components/App.tsx` | Canvas + shell + preview + hotspot projection. Owns the `dpr` cap — now tier-driven. |
-| `src/components/Viewer.tsx` | Visitor experience — enter gate ("Enter immersive 3D view"); top-left icon column (Spaces, Views, Walk); place name; top-right HD toggle (1× vs native pixel ratio, remembered per browser), controls help, fullscreen, Exit 3D (to `/gallery`); bottom view tray + prev / play / next + a segmented progress bar that fills per track; hotspots; joystick. Reused as the studio's Preview. **Still to add: the sound toggle. The enter gate is where the `AudioContext` resumes (§6.3).** |
+| `src/components/Viewer.tsx` | Visitor experience, laid out as in §10.2's as-built note — hero enter gate (where the `AudioContext` resumes, §6.3), place name, top-right icons + sound toggle + Book now + Exit 3D, Viewpoints/Walk pill, views tray + transport + segmented progress, hotspots, joystick. Reused as the studio's Preview. |
 | `src/components/TouchControls.tsx` | Floating mobile thumb-stick + Run/Jump. Writes `mobileInput.ts`. |
-| `src/components/HotspotMarkers.tsx` + `hotspots.css` | DOM hotspot markers and the slide-up content panel. |
+| `src/components/HotspotMarkers.tsx` + `hotspots.css` | Hotspot callouts (ring, leader line, card) in tour and studio, and the slide-up panel with Listen + transcript. |
 | `src/components/EditorShell.tsx` + `editor.css` | Studio UI — top bar, left scene tree, right inspector, bottom filmstrip. Inter (`next/font/google`) is scoped here via `--sans` (§10.1) — the tour keeps its own theme font. |
 | `src/components/Uploader.tsx` + `uploader.css` | New-space upload panel — high/medium/low slots, live progress, validation errors naming the missing file (§7.1). Opened from the Scenes group's ＋ in `EditorShell`. |
-| `src/components/EnquiryPanel.tsx` | Persistent CTA + enquiry panel over the scene (§6.4). |
+| `src/components/EnquiryPanel.tsx` | Persistent CTA + enquiry card over the scene (§6.4). Open state can be owned by the Viewer (one card at a time) or by itself (no-WebGL fallback). |
 | `src/app/layout.tsx` | Root layout — Inter (`--font-inter`) and Instrument Serif (`--font-display`, marketing site only). |
 | `src/app/page.tsx` + `src/components/site.css` | Marketing home (§12). `site.css` also styles `/login`; `.site` is its own scroll container because `globals.css` locks `body` for the 3D app. |
 | `src/app/login/page.tsx` + `src/components/AuthPanel.tsx` | Sign in / create account. |
@@ -980,12 +1117,11 @@ everything else in `src/`; backend additions stay plain JavaScript per §4):
 | File | Job |
 |---|---|
 | `src/lib/propertyDoc.ts` | Property document load/save, space list, CTA + theme inheritance. |
-| `src/lib/audio.ts` | One `AudioContext`, gain nodes per layer, gesture unlock, ducking, mute persistence, visibility pause. |
 | `src/lib/leads.ts` | Client-side submit, validation, retry, source-space/hotspot attribution. |
 | `src/components/Hub.tsx` | Hub page (server-rendered shell + client bits). |
-| `src/components/SoundToggle.tsx` | Mute/unmute + quality control. |
+| `src/components/SoundToggle.tsx` | Quality control. (The mute toggle is built, inline in `Viewer.tsx`.) |
 | `src/components/Timeline.tsx` | Shots, gaps, holds, cue chips, audio lane, scrub. |
-| `server/src/routes/properties.js` | Property CRUD, publish/unpublish. |
+| `server/src/routes/properties.js` | Property publish/unpublish (list, create, rename, delete are built). |
 | `server/src/routes/leads.js` | Public lead intake + delivery. Rate-limited. |
 
 ## 14. Scale — `unitScale`
@@ -1111,6 +1247,23 @@ before `context.resume()` loses the gesture.
 - The tour's place name shows the studio-wide brand from the Look tab, not a
   per-property one (the property document isn't built).
 - `src/lib/viewpoints.js` holds tracks, not viewpoints (§13).
+- Fly mode indoors is a view from just under the ceiling, not a roofless
+  dollhouse: the SDK can't clip its splats (checked: no clipping in its
+  shaders or docs). Revisit if an SDK drop adds it.
+- A published snapshot keeps the `propertyId` it had when published. Spaces
+  published before projects existed (computer-lab2) only join their
+  project's tour after they are republished.
+- "360 camera video" in the New project dialog is a placeholder: nothing
+  turns 360 footage into a splat.
+- A space can only be moved into a project from the "Not in a project yet"
+  list. There is no "move to another project" for a space that is already
+  filed — today that takes a hand edit of the space's `propertyId`.
+- Removing a hotspot's audio only unlinks it; the `.m4a` stays in asset
+  storage, because a published snapshot may still point at it. Nothing
+  garbage-collects unreferenced assets yet.
+- Once a hotspot or track is selected in the studio, the only ways back to
+  the Scene/Look panes (where Book now lives) are deleting it, switching
+  space, or reloading. There is no deselect. (Found while testing; not new.)
 - **Quality-tier detection is currently forced off — see the override note at
   the top of §8.** Every session loads at `high`, uncapped dpr. Revert before
   publishing anything.
@@ -1120,7 +1273,8 @@ before `context.resume()` loses the gesture.
 Do not build these. Recorded so they are not lost, and so nobody adds one
 mid-task.
 
-1. Dollhouse / orbit overview of a whole space as a visitor mode.
+1. ~~Dollhouse / orbit overview of a whole space as a visitor mode.~~
+   Approved and built as **Fly** (§6.1), 2026-09-21.
 2. Floor-plan mini-map with the visitor's position and clickable rooms.
 3. Measurement tool in the tour.
 4. WhatsApp / Viber CTA alongside the form.
@@ -1136,6 +1290,11 @@ mid-task.
 14. Lead routing to a client CRM instead of email.
 
 Approved out of this list in revision B: audio and narration (§6.3).
+Approved 2026-09-21: #1, as Fly and Orbit. #5 in part — dates and guests
+are passed to the hotel's own booking page through its link; there is still
+no booking engine. #6 in part — a price the hotel types in, shown as text;
+no live availability or pricing feed. #2 (floor plan) was explicitly
+excluded.
 
 ---
 

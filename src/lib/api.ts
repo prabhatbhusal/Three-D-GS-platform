@@ -5,8 +5,8 @@
  * the scenes baked into lib/scenes.js if the API is unreachable, because
  * "time to first frame under 5s" (CLAUDE.md) can't wait on a second server.
  */
-import type { ApiScene, SceneDoc } from '../@types/scene.types';
-import type { UploadResult } from '../@types/upload.types';
+import type { ApiScene, Property, SceneDoc } from '../@types/scene.types';
+import type { AudioUploadResult, UploadResult } from '../@types/upload.types';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000').replace(/\/$/, '');
 
@@ -18,7 +18,7 @@ async function send(path: string, options: RequestInit): Promise<Response> {
     return await fetch(`${API_BASE}${path}`, options);
   } catch {
     throw new Error(
-      `Can't reach the API at ${API_BASE}. Start it with "cd server && npm start", ` +
+      `Can't reach the API at ${API_BASE}. Start it with "cd server && npm run dev", ` +
       'and open the studio on the same host it allows (CLIENT_ORIGIN in server/.env).'
     );
   }
@@ -46,6 +46,31 @@ export const getScene = (id: string) => request<SceneDoc>(`/api/scenes/${id}`);
 /** Editor-only — requires a signed-in session (see login()). */
 export const saveScene = (id: string, doc: SceneDoc) =>
   request(`/api/scenes/${id}`, { method: 'PUT', body: JSON.stringify(doc) });
+
+/* ---- properties (§5.1) — studio-only ---- */
+
+export const getProperties = () => request<Property[]>('/api/properties');
+/** Resolves null when the property doesn't exist. */
+export const getProperty = (id: string) =>
+  request<Property>(`/api/properties/${encodeURIComponent(id)}`).catch((err: Error) => {
+    if (/does not exist/i.test(err.message)) return null;
+    throw err;
+  });
+export const createProperty = (title: string) =>
+  request<Property>('/api/properties', { method: 'POST', body: JSON.stringify({ title }) });
+/** Title only; the id (and every URL and space pointing at it) stays. */
+export const renameProperty = (id: string, title: string) =>
+  request<Property>(`/api/properties/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ title }) });
+/** Its spaces are kept and become unfiled; published tours are untouched. */
+export const deleteProperty = (id: string) =>
+  request<{ id: string; released: number }>(`/api/properties/${encodeURIComponent(id)}`, { method: 'DELETE' });
+
+/** The project last opened in this browser, so the list can point back to it. */
+export const LAST_PROJECT_KEY = 'threedview.lastProject';
+
+/** `null` takes the space out of every property. */
+export const moveSceneToProperty = (sceneId: string, propertyId: string | null) =>
+  request(`/api/scenes/${sceneId}/property`, { method: 'POST', body: JSON.stringify({ propertyId }) });
 
 /* ---- publishing (§7.5) ---- */
 
@@ -158,6 +183,26 @@ export async function uploadAssetChunk(
 export const finalizeAsset = (assetId: string) =>
   request<UploadResult>(`/api/assets/${assetId}/finalize`, { method: 'POST' });
 
+/** One .m4a, at most 2 MB — the server checks it really is one (§6.3). */
+export const finalizeAudio = (assetId: string) =>
+  request<AudioUploadResult>(`/api/assets/${assetId}/finalize?kind=audio`, { method: 'POST' });
+
 export const deleteAsset = (assetId: string) => request(`/api/assets/${assetId}`, { method: 'DELETE' });
 
 export const assetUrl = (assetId: string, relPath: string) => `${API_BASE}/api/assets/${assetId}/${relPath}`;
+
+/** A link that is safe to put in a visitor's page: http(s) only, never
+ *  javascript: or data:. Anything else comes back null — don't render it. */
+export function safeUrl(u: string | undefined | null): string | null {
+  const s = (u ?? '').trim();
+  return /^https?:\/\/\S+$/i.test(s) ? s : null;
+}
+
+/** Scene documents address uploads as `asset://<assetId>/<relPath>` (§9);
+ *  this turns one into a URL the browser can fetch. Plain http(s) passes
+ *  through (hand-typed image/video links); anything else is null. */
+export function resolveAsset(ref: string | undefined | null): string | null {
+  const m = /^asset:\/\/([A-Za-z0-9_-]+)\/(.+)$/.exec(ref ?? '');
+  if (m) return assetUrl(m[1], m[2].split('/').map(encodeURIComponent).join('/'));
+  return safeUrl(ref);
+}

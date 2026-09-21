@@ -4,13 +4,18 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { transformFor, setTransform, subscribeTransform, gizmo, setGizmoMode } from '../lib/transform';
-import { SCENES, SCENE_BY_ID, renameScene, setSessionSpawn } from '../lib/scenes';
+import { SCENE_BY_ID, renameScene, setSessionSpawn, visibleScenes } from '../lib/scenes';
 import { walkerCfg } from '../lib/walkerConfig';
 import { subscribeViewpoints } from '../lib/viewpoints';
-import { hotspotsFor, subscribeDoc, sceneDocFor, loadSceneDoc, markSaved, hasUnsavedChanges } from '../lib/sceneDoc';
+import {
+  hotspotsFor, subscribeDoc, sceneDocFor, loadSceneDoc, markSaved, hasUnsavedChanges, bookingFor, setBooking
+} from '../lib/sceneDoc';
+import { uploadAudio } from '../lib/upload';
+import { playClip, setMuted, stopClip, useSound } from '../lib/audio';
 import { uiConfig, setUiConfig, useUiConfig } from '../lib/uiConfig';
 import {
-  saveScene, getSession, logout, getPublishState, publishSceneNow, unpublishScene, revertScene
+  saveScene, getSession, logout, getPublishState, publishSceneNow, unpublishScene, revertScene,
+  resolveAsset, safeUrl, getProperties
 } from '../lib/api';
 import type { SessionUser, PublishState } from '../lib/api';
 import { HotspotMarkers } from './HotspotMarkers';
@@ -18,19 +23,23 @@ import { Uploader } from './Uploader';
 import { ThemeToggle } from './ThemeToggle';
 import type { ViewerState, EditorApi } from '../@types/app.types';
 import type { Hotspot, HotspotType } from '../@types/hotspot.types';
-import type { Scene } from '../@types/scene.types';
+import type { Property, Scene } from '../@types/scene.types';
 import type { Viewpoint } from '../@types/viewpoint.types';
 import './editor.css';
 
-const HS_TYPES: HotspotType[] = ['text', 'image', 'video', 'link', 'portal'];
-const HS_ICON: Record<HotspotType, string> = { image: '▣', video: '▶', text: 'i', link: '↗', portal: '⤢' };
+const HS_TYPES: HotspotType[] = ['text', 'image', 'video', 'audio', 'link', 'portal'];
+const HS_ICON: Record<HotspotType, string> = { image: '▣', video: '▶', text: 'i', link: '↗', portal: '⤢', audio: '♪' };
 
 type Selection = { type: 'hotspot' | 'track'; id: string };
 interface Pose { x: number; y: number; z: number; yaw: number; }
 
 /* ================================================================= */
 
-export function EditorShell({ state, onPreview }: { state: ViewerState | null; onPreview: () => void }) {
+export function EditorShell({ state, property, onPreview }: {
+  state: ViewerState | null;
+  property?: Property;
+  onPreview: () => void;
+}) {
   const [pane, setPane] = useState<'scene' | 'look'>('scene');
   const [sel, setSel] = useState<Selection | null>(null);
   const [pose, setPose] = useState<Pose | null>(null);
@@ -58,6 +67,7 @@ export function EditorShell({ state, onPreview }: { state: ViewerState | null; o
   if (!state) return <div className="ed2-boot">Loading editor…</div>;
 
   const ed = state.editor;
+  const dirty = hasUnsavedChanges(state.activeId);
   const tracks = state.viewpoints || [];
   const hotspots = hotspotsFor(state.activeId);
   const selHotspot = sel?.type === 'hotspot' ? hotspots.find((h) => h.id === sel.id) : null;
@@ -79,7 +89,8 @@ export function EditorShell({ state, onPreview }: { state: ViewerState | null; o
 
   return (
     <div className="ed2">
-      <TopBar onPreview={onPreview} sceneId={state.activeId} />
+      <LeaveGuard dirty={dirty} />
+      <TopBar onPreview={onPreview} sceneId={state.activeId} property={property} />
 
       <SceneTree
         state={state} tracks={tracks} hotspots={hotspots} sel={sel}
@@ -89,6 +100,7 @@ export function EditorShell({ state, onPreview }: { state: ViewerState | null; o
 
       {uploaderOpen && (
         <Uploader
+          propertyId={property?.id ?? null}
           onClose={() => setUploaderOpen(false)}
           onCreated={(id) => { setUploaderOpen(false); state.select(id); }}
         />
@@ -129,7 +141,7 @@ export function EditorShell({ state, onPreview }: { state: ViewerState | null; o
       />
 
       <HotspotMarkers
-        mode="edit" selId={selHotspot?.id}
+        sceneId={state.activeId} mode="edit" selId={selHotspot?.id}
         onSelect={(id) => setSel({ type: 'hotspot', id })}
       />
 
@@ -142,9 +154,18 @@ export function EditorShell({ state, onPreview }: { state: ViewerState | null; o
 
 /* ----------------------------- top bar ---------------------------- */
 
-function TopBar({ onPreview, sceneId }: { onPreview: () => void; sceneId: string }) {
+function TopBar({ onPreview, sceneId, property }: { onPreview: () => void; sceneId: string; property?: Property }) {
   return (
     <div className="ed2-top">
+      {/* A plain <a>, not <Link>: leaving the editor must tear the renderer
+       *  down (LCCRender is a page singleton), which only a full load does. */}
+      {property && (
+        <nav className="ed2-crumb" aria-label="Breadcrumb">
+          <a href="/studio">Projects</a>
+          <span aria-hidden>/</span>
+          <ProjectSwitcher property={property} />
+        </nav>
+      )}
       <div className="ed2-brand">
         <span className="ed2-dot" />
         <input
@@ -158,6 +179,80 @@ function TopBar({ onPreview, sceneId }: { onPreview: () => void; sceneId: string
       <PublishButton sceneId={sceneId} />
       <ThemeToggle className="ed2-theme" />
       <Account />
+    </div>
+  );
+}
+
+/** The browser's own "Leave site?" prompt while the open space has unsaved
+ *  edits — switching project, the breadcrumb and a reload are all full page
+ *  loads, and each would otherwise drop them silently. */
+function LeaveGuard({ dirty }: { dirty: boolean }) {
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
+  return null;
+}
+
+/**
+ * The project you're in, always visible in the top bar. Click it to see every
+ * project and jump to another. A plain <a> each: a project switch must be a
+ * full page load so the renderer (a page singleton) starts clean.
+ */
+function ProjectSwitcher({ property }: { property: Property }) {
+  const [open, setOpen] = useState(false);
+  const [list, setList] = useState<Property[] | null>(null);
+  const [error, setError] = useState('');
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    getProperties()
+      .then((l) => setList(l ?? []))
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Could not load projects.'));
+    const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', esc); };
+  }, [open]);
+
+  const spaces = (n = 0) => (n === 1 ? '1 space' : `${n} spaces`);
+
+  return (
+    <div className="ed2-switch" ref={ref}>
+      <button
+        className="ed2-crumb-here ed2-switch-btn" onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu" aria-expanded={open} title="Switch project"
+      >
+        <span className="ed2-switch-name">{property.title}</span>
+        <svg viewBox="0 0 20 20" className={`ed2-caret ${open ? 'open' : ''}`} aria-hidden>
+          <path d="M5 7.5 10 12.5 15 7.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <div className="ed2-switch-menu" role="menu" aria-label="Projects">
+          <p className="ed2-switch-lbl">Projects</p>
+          {!list && !error && <p className="ed2-muted ed2-fine">Loading…</p>}
+          {error && <p className="ed2-warn ed2-fine">{error}</p>}
+          {list?.map((p) => (p.id === property.id ? (
+            <span key={p.id} className="ed2-switch-item is-current" aria-current="page">
+              <span className="ed2-switch-tick" aria-hidden>✓</span>
+              <span className="ed2-switch-name">{p.title}</span>
+              <span className="ed2-switch-n">{spaces(p.spaceCount)}</span>
+            </span>
+          ) : (
+            <a key={p.id} className="ed2-switch-item" href={`/studio/${p.id}`} role="menuitem">
+              <span className="ed2-switch-tick" aria-hidden />
+              <span className="ed2-switch-name">{p.title}</span>
+              <span className="ed2-switch-n">{spaces(p.spaceCount)}</span>
+            </a>
+          )))}
+          <a className="ed2-switch-all" href="/studio" role="menuitem">All projects</a>
+        </div>
+      )}
     </div>
   );
 }
@@ -544,7 +639,7 @@ function SceneTree({ state, tracks, hotspots, sel, onSelect, onAddTrack, onAddHo
         Scenes
         <span className="ed2-tree-add" onClick={onNewSpace} title="New space">＋</span>
       </div>
-      {SCENES.map((s) => (
+      {visibleScenes().map((s) => (
         <SceneRow
           key={s.id}
           scene={s}
@@ -617,6 +712,8 @@ function WorldInspector({ state, pose, onBump }: { state: ViewerState; pose: Pos
           <span className="ed2-muted">clear colour</span>
         </div>
       </Section>
+
+      <BookingSection sceneId={state.activeId} />
 
       <Section title="Start view">
         <p className="ed2-pose">
@@ -768,7 +865,7 @@ function HotspotInspector({ ed, hs, activeId, onDelete }: HotspotInspectorProps)
           display={`${hs.radius.toFixed(2)} m`} onChange={(x) => set({ radius: x })} />
       </Section>
 
-      <Section title="Content">
+      {hs.type !== 'audio' && <Section title="Content">
         {hs.type === 'text' && (
           <textarea className="ed2-name ed2-area" rows={4}
             value={p.text || ''} onChange={(e) => setPayload({ text: e.target.value })} />
@@ -797,17 +894,136 @@ function HotspotInspector({ ed, hs, activeId, onDelete }: HotspotInspectorProps)
           <select className="ed2-name" value={p.sceneId || ''}
             onChange={(e) => setPayload({ sceneId: e.target.value })}>
             <option value="">— pick a scene —</option>
-            {SCENES.filter((s) => s.id !== activeId).map((s) => (
+            {visibleScenes().filter((s) => s.id !== activeId).map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
         )}
-      </Section>
+      </Section>}
+
+      <AudioSection key={hs.id} hs={hs} setPayload={setPayload} />
 
       <div className="ed2-row ed2-viewactions">
         <button className="ed2-del" onClick={onDelete}>🗑 Delete hotspot</button>
       </div>
     </>
+  );
+}
+
+/**
+ * Audio for one hotspot (§6.3): upload an .m4a, hear it, remove it, and
+ * write what it says. The transcript is what a muted visitor reads.
+ *
+ * Remove only unlinks it. The file stays in storage: a published snapshot
+ * may still point at it, and deleting it would break that live tour (§3.6).
+ */
+function AudioSection({ hs, setPayload }: { hs: Hotspot; setPayload: (patch: Hotspot['payload']) => void }) {
+  const p = hs.payload || {};
+  const [upload, setUpload] = useState<{ sent: number; total: number } | null>(null);
+  const [error, setError] = useState('');
+  const sound = useSound();
+  const url = resolveAsset(p.audio);
+  const playing = !!url && sound.playing === url;
+  const mb = (n: number) => `${(n / 1048576).toFixed(2)} MB`;
+
+  useEffect(() => () => stopClip(), []); // leaving this hotspot stops its preview
+
+  const pick = (file?: File) => {
+    if (!file) return;
+    setError('');
+    setUpload({ sent: 0, total: file.size });
+    uploadAudio(file, (pr) => setUpload({ sent: pr.bytesSent, total: pr.bytesTotal }))
+      .then((ref) => setPayload({ audio: ref }))
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'The upload failed. Try again.'))
+      .finally(() => setUpload(null));
+  };
+
+  return (
+    <Section title="Audio">
+      {p.audio ? (
+        <>
+          <p className="ed2-pose">{p.audio.split('/').pop()}</p>
+          <div className="ed2-row">
+            <button onClick={() => {
+              if (playing) { stopClip(); return; }
+              if (sound.muted) setMuted(false);
+              if (url) playClip(url);
+            }}>{playing ? '■ Stop' : sound.loading === url ? 'Loading…' : '▶ Play'}</button>
+            <button onClick={() => { stopClip(); setPayload({ audio: undefined }); }}>Remove</button>
+          </div>
+        </>
+      ) : upload ? (
+        <p className="ed2-pose">Uploading {mb(upload.sent)} of {mb(upload.total)}</p>
+      ) : (
+        <label className="ed2-filepick">
+          <input type="file" accept=".m4a,audio/mp4" onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ''; }} />
+          <span>＋ Add audio (.m4a)</span>
+        </label>
+      )}
+      {error && <p className="ed2-warn ed2-fine">{error}</p>}
+      {p.audio && sound.error && <p className="ed2-warn ed2-fine">{sound.error}</p>}
+
+      <textarea
+        className="ed2-name ed2-area" rows={3} style={{ marginTop: 8 }}
+        placeholder="Transcript — what the audio says"
+        value={p.transcript ?? ''} onChange={(e) => setPayload({ transcript: e.target.value })}
+      />
+      {p.audio && !p.transcript?.trim() && (
+        <p className="ed2-warn ed2-fine">Add a transcript. Many visitors never turn sound on, and they miss everything it says.</p>
+      )}
+      <p className="ed2-muted ed2-fine">Plays when a visitor opens this hotspot with sound on. AAC .m4a, mono, 96 kbps, 2 MB at most.</p>
+    </Section>
+  );
+}
+
+/**
+ * Book now (§7.6) — off unless a hotel asks for it. When on, the tour shows
+ * one button, top right, that opens the hotel's own booking page. Saved with
+ * the space and snapshotted on publish like everything else.
+ */
+function BookingSection({ sceneId }: { sceneId: string }) {
+  const b = bookingFor(sceneId) ?? { enabled: false, label: 'Book now', url: '' };
+  const badUrl = !!b.url.trim() && !safeUrl(b.url);
+  return (
+    <Section title="Book now">
+      <Toggle label="Show a Book now button" value={b.enabled} onChange={(v) => setBooking(sceneId, { enabled: v })} />
+      {b.enabled && (
+        <>
+          <input className="ed2-name" aria-label="Button text" placeholder="Book now"
+            value={b.label} onChange={(e) => setBooking(sceneId, { label: e.target.value })} />
+          <input className="ed2-name" style={{ marginTop: 6 }} aria-label="Booking page link"
+            placeholder="https://… the hotel's booking page"
+            value={b.url} onChange={(e) => setBooking(sceneId, { url: e.target.value })} />
+          {badUrl && <p className="ed2-warn ed2-fine">That isn&apos;t a web address. Start it with https://</p>}
+          {!b.url.trim() && <p className="ed2-muted ed2-fine">The button stays hidden until it has a link.</p>}
+
+          <div className="ed2-lbl" style={{ marginTop: 14 }}>The card</div>
+          <input className="ed2-name" aria-label="Room or offer" placeholder="Room or offer, e.g. Deluxe Suite"
+            value={b.title ?? ''} onChange={(e) => setBooking(sceneId, { title: e.target.value })} />
+          <input className="ed2-name" style={{ marginTop: 6 }} aria-label="Tagline" placeholder="Tagline, e.g. Traditional charm, modern comfort"
+            value={b.subtitle ?? ''} onChange={(e) => setBooking(sceneId, { subtitle: e.target.value })} />
+          <div className="ed2-row" style={{ flexWrap: 'nowrap' }}>
+            <input className="ed2-name" aria-label="Price" placeholder="Price, e.g. $120"
+              value={b.price ?? ''} onChange={(e) => setBooking(sceneId, { price: e.target.value })} />
+            <input className="ed2-name" aria-label="Price per" placeholder="/ night"
+              value={b.priceUnit ?? ''} onChange={(e) => setBooking(sceneId, { priceUnit: e.target.value })} />
+          </div>
+          <input className="ed2-name" style={{ marginTop: 6 }} aria-label="Price note" placeholder="Note, e.g. Includes taxes & fees"
+            value={b.priceNote ?? ''} onChange={(e) => setBooking(sceneId, { priceNote: e.target.value })} />
+          <Toggle label="Ask for dates and guests" value={!!b.askDates} onChange={(v) => setBooking(sceneId, { askDates: v })} />
+          {b.askDates && (
+            <p className="ed2-muted ed2-fine">
+              To pass them on, put <code>{'{checkin}'}</code> <code>{'{checkout}'}</code> <code>{'{guests}'}</code> in the link where the hotel&apos;s
+              booking page expects them, e.g. <code>?arrive={'{checkin}'}&amp;depart={'{checkout}'}&amp;adults={'{guests}'}</code>.
+            </p>
+          )}
+        </>
+      )}
+      <p className="ed2-muted ed2-fine">
+        Opens a card in the tour; its button continues on the hotel&apos;s own booking page. The price is
+        what you type here: there is no live availability. Set per space.
+      </p>
+    </Section>
   );
 }
 

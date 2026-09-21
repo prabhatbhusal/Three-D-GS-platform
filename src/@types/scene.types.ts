@@ -15,6 +15,8 @@ export interface Scene {
    *  convention. Unset for the two hand-authored demo scenes. */
   assetId?: string;
   neighbours?: string[];
+  /** Which client this space belongs to (§5.1). Null/absent = not filed yet. */
+  propertyId?: string | null;
 }
 
 export interface SpawnState {
@@ -33,6 +35,37 @@ export interface ApiScene {
   assetId?: string;
   meta?: string;
   neighbours?: string[];
+  propertyId?: string | null;
+}
+
+/** A client (§5.1): one hotel, college or campus. Spaces point at it. */
+export interface Property {
+  id: string;
+  version: 1;
+  title: string;
+  createdAt: string;
+  /** Only on GET /api/properties. */
+  spaceCount?: number;
+}
+
+/** Optional Book now card (§7.6). Off unless a hotel asks for it. Everything
+ *  past `url` is optional and absent on docs saved before 2026-09-21. */
+export interface Booking {
+  enabled: boolean;
+  /** Button text, e.g. "Book now". */
+  label: string;
+  /** The hotel's booking page; may use {checkin} {checkout} {guests} {nights}. */
+  url: string;
+  /** Card heading, e.g. "Deluxe Suite". Empty -> the space's name. */
+  title?: string;
+  subtitle?: string;
+  /** What the hotel typed, e.g. "$120" / "/ night" / "Includes taxes & fees".
+   *  Not live pricing — there is no availability feed. */
+  price?: string;
+  priceUnit?: string;
+  priceNote?: string;
+  /** Ask for check-in, check-out and guests, and pass them in the link. */
+  askDates?: boolean;
 }
 
 /** Scene document schema v2 (CLAUDE.md §5.2) as produced by sceneDoc.js today —
@@ -84,6 +117,8 @@ export interface SceneDoc {
   audio: null;
   cta: null;
   theme: null;
+  /** Absent on docs saved before 2026-09-21 -> null (migrate.js). */
+  booking: Booking | null;
   neighbours: string[];
   status: 'draft' | 'published';
 }

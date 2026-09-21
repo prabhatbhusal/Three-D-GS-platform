@@ -23,6 +23,7 @@
 
 @keyframes vw-fade { from { opacity: 0 } to { opacity: 1 } }
 @keyframes vw-rise { from { opacity: 0; transform: translate(-50%, 20px) } to { opacity: 1; transform: translate(-50%, 0) } }
+@keyframes vw-rise-sheet { from { transform: translateY(100%) } to { transform: translateY(0) } }
 @keyframes vw-up { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: translateY(0) } }
 @keyframes vw-pulse { 0% { transform: scale(0.8); opacity: 1 } 70% { transform: scale(1.5); opacity: 0 } 100% { opacity: 0 } }
 
@@ -40,33 +41,39 @@
 }
 
 /* ---- enter gate --------------------------------------------- */
+/* A hero over the room itself: the scene streams in behind it, darkened on
+ * the left where the words sit. (The no-WebGL fallback reuses these
+ * classes over plain black.) */
 .vw-enter {
-  position: fixed; inset: 0; z-index: 14; display: grid; place-items: center;
-  overflow: hidden; background: #060504; animation: vw-fade 0.4s ease;
+  position: fixed; inset: 0; z-index: 14; display: flex; align-items: center;
+  overflow: hidden; animation: vw-fade 0.4s ease;
+  background:
+    linear-gradient(90deg, rgba(8, 6, 5, 0.86) 0%, rgba(8, 6, 5, 0.55) 38%, rgba(8, 6, 5, 0.12) 70%),
+    linear-gradient(0deg, rgba(8, 6, 5, 0.5), transparent 40%);
 }
-.vw-enter-spot {
-  position: absolute; top: -30%; left: 50%; width: 120vmax; height: 120vmax;
-  transform: translateX(-50%);
-  background: radial-gradient(circle, rgba(176, 141, 87, 0.16), transparent 42%);
-  animation: vw-fade 1.2s ease;
+.vw-enter-in { position: relative; padding: 24px clamp(24px, 7vw, 96px); max-width: 640px; }
+.vw-enter-brand {
+  margin: 0 0 14px; font: 600 14px/1.2 var(--sans); color: rgba(246, 241, 231, 0.78);
+  animation: vw-up 0.6s var(--ease) 0.05s both;
 }
-.vw-enter-in { position: relative; text-align: center; padding: 24px; }
-.vw-enter-kicker {
-  margin: 0 0 18px; font: 500 11px/1 var(--sans);
-  letter-spacing: 0.42em; text-transform: uppercase;
-  color: rgba(246, 241, 231, 0.42); animation: vw-up 0.6s var(--ease) 0.05s both;
+.vw-enter-sub {
+  margin: 14px 0 0; max-width: 30rem; font: 400 15px/1.55 var(--sans); color: rgba(246, 241, 231, 0.72);
+  animation: vw-up 0.7s var(--ease) 0.16s both;
 }
+.vw-enter-play { display: grid; place-items: center; }
+.vw-enter-play svg { width: 14px; height: 14px; fill: currentColor; }
 .vw-enter-mark {
-  margin: 0; font: 400 clamp(34px, 7vw, 60px)/1.04 var(--serif, Georgia, serif);
+  margin: 0; font: 400 clamp(38px, 6vw, 68px)/1.04 var(--serif, Georgia, serif);
   letter-spacing: 0.015em; color: #fff;
   text-shadow: 0 6px 50px rgba(0, 0, 0, 0.6);
   animation: vw-up 0.7s var(--ease) 0.12s both;
 }
 .vw-enter-btn {
-  position: relative; overflow: hidden; margin-top: 32px;
-  appearance: none; cursor: pointer; border: 1px solid rgba(246, 241, 231, 0.25);
-  padding: 15px 40px; border-radius: 999px; background: transparent;
-  font: 600 12px/1 var(--sans); letter-spacing: 0.14em; text-transform: uppercase;
+  position: relative; overflow: hidden; margin-top: 30px;
+  display: inline-flex; align-items: center; gap: 12px;
+  appearance: none; cursor: pointer; border: 1px solid rgba(246, 241, 231, 0.4);
+  padding: 15px 28px 15px 22px; border-radius: 999px; background: rgba(8, 6, 5, 0.35);
+  font: 600 14px/1 var(--sans);
   color: var(--paper); animation: vw-up 0.7s var(--ease) 0.2s both;
   transition: color 0.25s, border-color 0.25s, transform 0.16s;
 }
@@ -77,7 +84,7 @@
 .vw-enter-btn:hover:not(:disabled) { color: #14110e; border-color: var(--paper); transform: translateY(-2px); }
 .vw-enter-btn:hover:not(:disabled)::before { transform: translateX(0); }
 .vw-enter-btn:disabled { cursor: default; color: rgba(246, 241, 231, 0.6); border-color: rgba(246, 241, 231, 0.14); }
-.vw-enter-btn > span:first-child { position: relative; }
+.vw-enter-btn > span { position: relative; }
 .vw-enter-prog {
   display: block; height: 2px; margin-top: 10px; border-radius: 2px;
   background: rgba(246, 241, 231, 0.12); overflow: hidden;
@@ -88,58 +95,70 @@
 }
 
 /* ---- chrome: icon buttons ---------------------------------- */
-/* Light, small and square, like a camera app — the room stays the subject.
+/* Dark, round and translucent over the room — the room stays the subject.
  * No backdrop blur: it costs frames on the phones that matter (§10.2). */
-.vw-tl, .vw-tr {
-  position: fixed; top: 16px; z-index: 10;
-  display: flex; gap: 8px; animation: vw-fade 0.4s var(--ease) both;
+.vw-tr {
+  /* above the cards' backdrop: Book now works while the enquiry card is open */
+  position: fixed; top: 16px; right: 16px; z-index: 14;
+  display: flex; align-items: center; gap: 8px; animation: vw-fade 0.4s var(--ease) both;
 }
-.vw-tl { left: 16px; flex-direction: column; }
-.vw-tr { right: 16px; align-items: center; }
 .vw-ib, .vw-hd {
   appearance: none; cursor: pointer; display: grid; place-items: center;
-  width: 38px; height: 38px; border-radius: 10px; padding: 0;
-  color: #1c1814; background: rgba(246, 241, 231, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
-  transition: background 0.15s, transform 0.15s, color 0.15s;
+  width: 40px; height: 40px; border-radius: 999px; padding: 0;
+  color: #fff; background: rgba(16, 13, 11, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
-.vw-ib:hover, .vw-hd:hover { background: #fff; transform: translateY(-1px); }
-.vw-ib.on { color: var(--paper); background: rgba(20, 17, 14, 0.86); border-color: rgba(246, 241, 231, 0.3); }
+.vw-ib:hover, .vw-hd:hover { background: rgba(16, 13, 11, 0.82); border-color: rgba(255, 255, 255, 0.4); }
+.vw-ib.on { color: #14110e; background: var(--paper); border-color: var(--paper); }
 .vw-ib svg, .vw-tb svg, .vw-exit svg {
   width: 18px; height: 18px; fill: none; stroke: currentColor;
   stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
 }
-.vw-hd { width: auto; padding: 0 10px; font: 800 11px/1 var(--sans); letter-spacing: 0.04em; color: rgba(28, 24, 20, 0.45); }
-.vw-hd.on { color: #1c1814; }
+.vw-hd { width: auto; padding: 0 12px; font: 800 11px/1 var(--sans); letter-spacing: 0.04em; color: rgba(255, 255, 255, 0.5); }
+.vw-hd.on { color: #fff; }
+/* Book now (§7.6): the hotel's accent, the one filled pill up here. */
+.vw-book {
+  display: inline-flex; align-items: center; height: 40px; padding: 0 20px; margin-left: 4px;
+  border-radius: 999px; text-decoration: none; white-space: nowrap;
+  font: 700 13px/1 var(--sans); color: #14110e; background: var(--gold);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3); transition: filter 0.15s;
+}
+.vw-book:hover { filter: brightness(1.08); }
 .vw-exit {
   display: inline-flex; align-items: center; gap: 8px; margin-left: 4px;
-  height: 38px; padding: 0 16px; border-radius: 10px; text-decoration: none;
+  height: 40px; padding: 0 16px; border-radius: 999px; text-decoration: none;
   font: 700 13px/1 var(--sans); color: #14110e; background: #fff;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22); transition: transform 0.15s;
 }
 .vw-exit:hover { transform: translateY(-1px); }
 
-/* place name, top centre */
+/* place name, top-left — place names are the hero (§10.2) */
 .vw-place {
-  position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9;
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-  text-align: center; pointer-events: none; text-shadow: 0 1px 12px rgba(0, 0, 0, 0.55);
+  position: fixed; top: 18px; left: 20px; z-index: 9; max-width: calc(100vw - 420px);
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  pointer-events: none; text-shadow: 0 1px 14px rgba(0, 0, 0, 0.6);
   animation: vw-fade 0.5s var(--ease) both;
 }
-.vw-place-brand { font: 600 10.5px/1 var(--sans); letter-spacing: 0.08em; opacity: 0.8; }
-.vw-place-name { font: 400 22px/1.15 var(--serif); }
+.vw-place-brand { font: 600 12px/1.2 var(--sans); opacity: 0.82; }
+.vw-place-name {
+  font: 400 30px/1.1 var(--serif); color: #fff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
 
 /* ---- bottom: tray, transport, segmented progress ------------- */
+/* One centred column: views tray, transport, progress, then the mode switch
+ * lowest of all. */
 .vw-bottom {
   position: fixed; left: 16px; right: 16px; bottom: 14px; z-index: 10;
-  display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
   pointer-events: none;
 }
 .vw-bottom > * { pointer-events: auto; }
 
 .vw-tray {
-  display: flex; gap: 8px; padding: 8px; max-width: min(100%, 980px);
+  display: flex; gap: 8px; padding: 8px; max-width: min(100%, 760px);
   overflow-x: auto; scrollbar-width: none; border-radius: 16px;
   background: rgba(20, 17, 14, 0.72); border: 1px solid var(--line);
   box-shadow: 0 12px 34px rgba(0, 0, 0, 0.35);
@@ -170,7 +189,56 @@
 }
 
 .vw-bar { width: 100%; display: flex; flex-direction: column; gap: 8px; }
-.vw-transport { display: flex; align-items: center; gap: 6px; }
+.vw-transport { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; }
+.vw-tb.on { color: #14110e; background: var(--paper); border-color: var(--paper); }
+.vw-count {
+  margin-right: 8px; font: 600 12px/1 var(--mono, monospace); font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+/* Fly mode's bar: zoom, reset, exit — where the views bar usually sits. */
+.vw-flybar { display: flex; align-items: center; gap: 6px; }
+/* .vw-tb (later in this file) fixes a 34px square; these two carry a label. */
+.vw-tb.vw-tb-wide { width: auto; display: inline-flex; gap: 7px; padding: 0 13px; white-space: nowrap; font: 600 12.5px/1 var(--sans); }
+.vw-tb-wide svg { width: 16px; height: 16px; }
+
+/* Layers: the project's spaces down the left edge, like a floor picker. */
+.vw-layers {
+  position: fixed; left: 16px; top: 50%; transform: translateY(-50%); z-index: 10;
+  display: flex; flex-direction: column; gap: 4px; padding: 5px; max-height: 56vh; overflow-y: auto;
+  border-radius: 16px; background: rgba(16, 13, 11, 0.62); border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.3); scrollbar-width: none;
+  animation: vw-fade 0.4s var(--ease) both;
+}
+.vw-layers button {
+  appearance: none; cursor: pointer; max-width: 170px; padding: 10px 14px; border: 0; border-radius: 11px;
+  text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font: 600 12.5px/1.1 var(--sans); color: rgba(255, 255, 255, 0.78); background: transparent;
+  transition: background 0.15s, color 0.15s;
+}
+.vw-layers button:hover:not(:disabled) { color: #fff; background: rgba(255, 255, 255, 0.08); }
+.vw-layers button.on { color: #14110e; background: var(--gold); }
+.vw-layers button:disabled:not(.on) { opacity: 0.5; cursor: default; }
+.vw-phone-only { display: none; }
+
+/* Viewpoints | Walk | Fly — the visitor modes (§6.1), centred like a camera app. */
+.vw-modes {
+  display: flex; gap: 2px; padding: 4px; border-radius: 999px;
+  background: rgba(16, 13, 11, 0.62); border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.3);
+}
+.vw-modes button {
+  appearance: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+  height: 36px; padding: 0 16px; border: 0; border-radius: 999px;
+  font: 600 13px/1 var(--sans); color: rgba(255, 255, 255, 0.78); background: transparent;
+  transition: background 0.15s, color 0.15s;
+}
+.vw-modes button:hover { color: #fff; }
+.vw-modes button.on { color: #14110e; background: var(--paper); }
+.vw-modes svg {
+  width: 16px; height: 16px; fill: none; stroke: currentColor;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
 .vw-tb {
   appearance: none; cursor: pointer; display: grid; place-items: center;
   width: 34px; height: 34px; padding: 0; border-radius: 9px;
@@ -184,9 +252,10 @@
 .vw-now {
   margin-left: 6px; font: 600 13px/1 var(--sans); color: #fff;
   text-shadow: 0 1px 10px rgba(0, 0, 0, 0.6);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 26vw;
 }
 
-.vw-segs { display: flex; gap: 6px; width: 100%; }
+.vw-segs { display: flex; gap: 6px; width: min(640px, 100%); }
 .vw-seg {
   position: relative; flex: 1; appearance: none; cursor: pointer;
   padding: 7px 0; border: 0; background: none;
@@ -210,8 +279,7 @@
   border-radius: 16px; background: rgba(20, 17, 14, 0.92); border: 1px solid var(--line);
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45); animation: vw-up 0.25s var(--ease) both;
 }
-.vw-pop-spaces { left: 66px; }
-.vw-pop-help { right: 16px; top: 64px; }
+.vw-pop-spaces, .vw-pop-help { right: 16px; top: 68px; }
 .vw-pop-title { margin: 0 0 10px; font: 400 20px/1 var(--serif); }
 .vw-space {
   appearance: none; cursor: pointer; width: 100%; display: flex; align-items: center; gap: 12px;
@@ -247,8 +315,9 @@
   content: ''; position: absolute; top: 50%; left: 50%; width: 3px; height: 3px;
   margin: -1.5px 0 0 -1.5px; border-radius: 50%; background: rgba(246, 241, 231, 0.9);
 }
+/* Top centre: the bottom is the views tray, the transport and the mode pill. */
 .vw-hint {
-  position: fixed; left: 50%; bottom: 88px; transform: translateX(-50%);
+  position: fixed; left: 50%; top: 26px; transform: translateX(-50%);
   z-index: 5; display: flex; align-items: center; gap: 8px;
   padding: 8px 16px; border-radius: 999px; pointer-events: none;
   background: rgba(8, 6, 5, 0.74); border: 1px solid var(--line);
@@ -302,80 +371,112 @@
 
 /* ---- fallback screen (no WebGL2 — CLAUDE.md §3 constraint 5) ------- */
 .vw-fallback-note {
-  margin: 14px auto 0; max-width: 340px;
+  margin: 14px 0 0; max-width: 340px;
   font: 400 13px/1.5 var(--sans); color: rgba(246, 241, 231, 0.6);
 }
 
-/* ---- persistent CTA + enquiry panel (CLAUDE.md §6.4) ---------------- */
-/* Desktop: floating pill, bottom-right — clear of the dock (center) and    */
-/* the joystick (bottom-left). Mobile: a full-width bar (see media query    */
-/* below), which also reserves the strip so it never covers the joystick.  */
+/* ---- persistent CTA (CLAUDE.md §6.4) ------------------------------ */
+/* Desktop: a pill bottom-right, clear of the centred bottom column. Mobile: a
+ * full-width bar (see the media query below) that reserves its own strip, so
+ * it never covers the joystick or the mode switch (§6.4, §10.2). */
 .vw-cta-btn {
   position: fixed; right: 18px; bottom: 24px; z-index: 11;
-  display: flex; align-items: center; gap: 9px;
-  appearance: none; cursor: pointer; padding: 14px 22px; border-radius: 999px;
-  font: 700 12px/1 var(--sans); letter-spacing: 0.04em;
+  display: flex; align-items: center; gap: 10px;
+  appearance: none; cursor: pointer; padding: 13px 20px 13px 16px; border: 0; border-radius: 999px;
+  font: 700 13px/1 var(--sans);
   color: #14110e; background: var(--gold);
-  box-shadow: 0 12px 34px rgba(176, 141, 87, 0.4);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3);
   animation: vw-fade 0.5s ease 0.25s both;
-  transition: transform 0.16s, box-shadow 0.2s;
+  transition: transform 0.16s, filter 0.16s;
 }
-.vw-cta-btn:hover { transform: translateY(-2px); box-shadow: 0 16px 40px rgba(176, 141, 87, 0.55); }
-
-.vw-cta-scrim {
-  position: fixed; inset: 0; z-index: 12;
-  background: rgba(6, 5, 4, 0.55); animation: vw-fade 0.2s ease;
+.vw-cta-btn:hover { transform: translateY(-2px); filter: brightness(1.06); }
+.vw-cta-btn.on { filter: brightness(0.94); }
+.vw-cta-btn svg, .vw-sheet-field svg {
+  width: 18px; height: 18px; flex: 0 0 auto; fill: none; stroke: currentColor;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
 }
-.vw-cta-panel {
-  position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); z-index: 13;
-  width: min(420px, 100vw); max-height: 88vh; overflow-y: auto;
-  padding: 26px 26px calc(26px + env(safe-area-inset-bottom, 0px));
-  background: #14110e; border: 1px solid var(--line);
-  border-radius: 20px 20px 0 0; box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.5);
-  animation: vw-rise 0.3s var(--ease);
-}
-.vw-cta-panel h2 {
-  margin: 0 0 4px; font: 400 24px/1.15 var(--serif, Georgia, serif); color: #fff;
-}
-.vw-cta-panel .vw-cta-sub {
-  margin: 0 0 20px; font: 400 12.5px/1.5 var(--sans); color: rgba(246, 241, 231, 0.56);
-}
-.vw-cta-x {
-  position: absolute; top: 16px; right: 16px; width: 30px; height: 30px;
-  border-radius: 50%; border: 0; cursor: pointer; font-size: 14px;
-  color: rgba(246, 241, 231, 0.7); background: rgba(246, 241, 231, 0.08);
-}
-.vw-cta-field { display: block; margin: 0 0 12px; }
-.vw-cta-field span {
-  display: block; margin: 0 0 5px; font: 600 10.5px/1 var(--sans);
-  letter-spacing: 0.06em; text-transform: uppercase; color: rgba(246, 241, 231, 0.42);
-}
-.vw-cta-field input, .vw-cta-field select, .vw-cta-field textarea {
-  width: 100%; appearance: none; box-sizing: border-box;
-  padding: 11px 13px; border-radius: 10px; border: 1px solid rgba(246, 241, 231, 0.16);
-  background: rgba(246, 241, 231, 0.05); color: var(--paper);
-  font: 400 13.5px/1.4 var(--sans);
-}
-.vw-cta-field input:focus, .vw-cta-field select:focus, .vw-cta-field textarea:focus {
-  outline: none; border-color: var(--gold);
-}
-.vw-cta-field textarea { resize: vertical; min-height: 64px; }
 .vw-cta-hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; } /* honeypot */
-.vw-cta-submit {
-  width: 100%; margin-top: 6px; appearance: none; cursor: pointer;
-  padding: 14px; border: 0; border-radius: 12px;
-  font: 700 12.5px/1 var(--sans); letter-spacing: 0.04em;
-  color: #14110e; background: var(--gold);
-  transition: filter 0.15s;
+.vw-book.on { filter: brightness(0.94); }
+button.vw-book { border: 0; cursor: pointer; }
+
+/* ---- cards: Book now + Ask about this space ------------------------ */
+/* A light, warm card over the room — the scene keeps rendering behind it,
+ * only lightly dimmed (§6.4). Desktop: floats at the right under the top
+ * buttons. Mobile: a bottom sheet. No backdrop blur (§10.2). */
+.vw-sheet-scrim {
+  position: fixed; inset: 0; z-index: 12; background: rgba(6, 5, 4, 0.28);
+  animation: vw-fade 0.2s ease;
 }
-.vw-cta-submit:hover:not(:disabled) { filter: brightness(1.08); }
-.vw-cta-submit:disabled { opacity: 0.55; cursor: default; }
-.vw-cta-error {
-  margin: 0 0 12px; font: 600 12px/1.4 var(--sans); color: #e8938c;
+.vw-sheet {
+  --ink: #1d1814; --ink-dim: #6e655b; --edge: rgba(29, 24, 20, 0.1); --field: #fff;
+  position: fixed; right: 16px; top: 68px; z-index: 13;
+  width: 360px; max-height: calc(100vh - 150px); overflow-y: auto;
+  padding: 22px 22px 20px; border-radius: 20px;
+  color: var(--ink); background: #fbf8f3; border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  animation: vw-up 0.25s var(--ease) both;
 }
-.vw-cta-done { text-align: center; padding: 24px 0 6px; }
-.vw-cta-done h2 { margin-bottom: 8px; }
-.vw-cta-done p { color: rgba(246, 241, 231, 0.6); font-size: 13px; margin: 0; }
+.vw-sheet h2 { margin: 0 32px 4px 0; font: 400 26px/1.15 var(--serif, Georgia, serif); color: var(--ink); }
+.vw-sheet-sub { margin: 0 0 16px; font: 400 13px/1.45 var(--sans); color: var(--ink-dim); }
+.vw-sheet-x {
+  position: absolute; top: 14px; right: 14px; width: 30px; height: 30px; border-radius: 50%;
+  border: 0; cursor: pointer; font-size: 13px; color: var(--ink-dim); background: rgba(29, 24, 20, 0.06);
+}
+.vw-sheet-x:hover { color: var(--ink); background: rgba(29, 24, 20, 0.11); }
+
+/* Book now: date / guest rows with an icon, like the reference */
+.vw-stay { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.vw-sheet-field {
+  display: flex; align-items: center; gap: 12px; padding: 9px 12px;
+  border-radius: 12px; background: var(--field); border: 1px solid var(--edge); color: var(--ink-dim);
+  cursor: pointer;
+}
+.vw-sheet-field:focus-within { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(176, 141, 87, 0.18); }
+.vw-sheet-field-txt { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.vw-sheet-field-txt > span { font: 600 10.5px/1.2 var(--sans); color: var(--ink-dim); }
+.vw-sheet-field input, .vw-sheet-field select {
+  width: 100%; padding: 0; border: 0; outline: none; background: transparent; appearance: none;
+  font: 600 14px/1.35 var(--sans); color: var(--ink); cursor: pointer;
+}
+.vw-price { margin: 4px 0 2px; font: 400 15px/1.2 var(--sans); color: var(--ink-dim); }
+.vw-price b { font: 400 30px/1 var(--serif, Georgia, serif); color: var(--ink); }
+
+/* Ask about this space: a two-column form */
+.vw-sheet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.vw-span-2 { grid-column: span 2; }
+.vw-sheet-input { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.vw-sheet-input > span { font: 600 12px/1.2 var(--sans); color: var(--ink); }
+.vw-sheet-input em { font-style: normal; font-weight: 500; color: var(--ink-dim); }
+.vw-sheet-input input, .vw-sheet-input select, .vw-sheet-input textarea {
+  width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 10px;
+  font: 500 14px/1.4 var(--sans); color: var(--ink);
+  background: var(--field); border: 1px solid var(--edge); appearance: none;
+}
+.vw-sheet-input textarea { resize: vertical; min-height: 70px; }
+.vw-sheet-input input:focus, .vw-sheet-input select:focus, .vw-sheet-input textarea:focus {
+  outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(176, 141, 87, 0.18);
+}
+
+/* shared foot: error, the one button, fine print */
+.vw-sheet-err { margin: 12px 0 0; font: 600 12.5px/1.45 var(--sans); color: #a33a2f; }
+.vw-sheet-go {
+  display: flex; align-items: center; justify-content: center; width: 100%; margin-top: 14px;
+  padding: 14px; border: 0; border-radius: 999px; cursor: pointer; text-decoration: none;
+  font: 700 14px/1 var(--sans); color: #fff; background: #2a211b;
+  transition: background 0.15s, transform 0.15s;
+}
+.vw-sheet-go:hover:not(:disabled) { background: #3a2e26; transform: translateY(-1px); }
+.vw-sheet-go:disabled { opacity: 0.45; cursor: default; }
+.vw-sheet-go-quiet { color: var(--ink); background: rgba(29, 24, 20, 0.07); }
+.vw-sheet-go-quiet:hover:not(:disabled) { background: rgba(29, 24, 20, 0.12); }
+.vw-sheet-fine { margin: 8px 0 0; font: 400 12px/1.45 var(--sans); color: var(--ink-dim); }
+.vw-sheet-center { text-align: center; }
+.vw-sheet-done { text-align: center; padding: 12px 0 2px; }
+.vw-sheet-done h2 { margin: 12px 0 6px; }
+.vw-sheet-tick {
+  display: inline-grid; place-items: center; width: 48px; height: 48px; border-radius: 50%;
+  font: 700 22px var(--sans); color: #14110e; background: var(--gold);
+}
 
 /* ---- compass widget --------------------------------- */
 .vw-compass {
@@ -452,15 +553,27 @@
 /* ---- mobile ----------------------------------------- */
 @media (max-width: 760px), (pointer: coarse) {
   .vw-hint { display: none; }
-  .vw-place { top: 64px; }
-  .vw-place-name { font-size: 18px; }
+  .vw-layers { display: none; }
+  .vw-phone-only { display: contents; }
+  .vw-tb-wide span { display: none; }
+  .vw-tb.vw-tb-wide { width: 34px; padding: 0; justify-content: center; }
+  .vw-place { top: 68px; left: 14px; max-width: calc(100vw - 28px); }
+  .vw-place-name { font-size: 22px; }
+  .vw-tr { right: 10px; left: 10px; justify-content: flex-end; flex-wrap: wrap; }
+  .vw-modes button { padding: 0 12px; }
+  .vw-now { display: none; }
   .vw-card { width: 116px; height: 72px; }
   /* Bottom bar CTA reserves its own strip; the views bar sits above it and
    * the joystick zone above that, so none of the three cover each other
    * (§6.4, §10.2). */
   .vw-cta-btn {
     left: 0; right: 0; bottom: 0; border-radius: 0;
-    justify-content: center; padding: calc(15px + env(safe-area-inset-bottom, 0px)) 16px 15px;
+    justify-content: center; padding: 15px 16px calc(15px + env(safe-area-inset-bottom, 0px));
+  }
+  .vw-sheet {
+    left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 88vh;
+    border-radius: 20px 20px 0 0; padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    animation: vw-rise-sheet 0.3s var(--ease) both;
   }
   .vw-bottom { left: 10px; right: 10px; bottom: calc(56px + env(safe-area-inset-bottom, 0px)); }
   .tc-zone { bottom: 150px; height: calc(42% - 150px); }
@@ -468,10 +581,20 @@
 }
 @media (max-width: 520px) {
   .vw-exit span { display: none; }
-  .vw-exit { padding: 0 11px; }
+  .vw-modes span { display: none; }
+  /* One row on a phone: smaller buttons, Exit as an icon. */
+  .vw-tr { gap: 5px; }
+  .vw-ib, .vw-hd, .vw-exit, .vw-book { height: 34px; }
+  .vw-ib { width: 34px; }
+  .vw-ib svg, .vw-exit svg { width: 16px; height: 16px; }
+  .vw-hd { padding: 0 9px; }
+  .vw-exit { width: 34px; padding: 0; justify-content: center; margin-left: 0; }
+  .vw-book { padding: 0 12px; font-size: 12px; margin-left: 0; }
   .vw-pop { left: 10px; right: 10px; width: auto; }
 }
-/* desktop: lift the enquiry pill above the progress bar */
+/* desktop: the enquiry pill sits on the same line as the mode switch */
 @media (min-width: 761px) and (pointer: fine) {
-  .vw-cta-btn { bottom: 64px; }
+  /* and above the cards' backdrop, so it switches straight from Book now to
+   * the enquiry card; on phones the bottom sheet must cover the bar instead */
+  .vw-cta-btn { bottom: 16px; z-index: 14; }
 }

@@ -1,34 +1,143 @@
 {
   "id": "veterinary-lab",
-  "version": 1,
+  "version": 2,
   "title": "Spa & Treatment Room",
   "tagline": "Wellness floor",
-  "splat": { "meta": "assets/rooms/veterinary-lab/meta.lcc2", "format": "lcc2" },
-  "spawn": { "position": [0, 1.7, 3], "yaw": 0, "eyeHeight": 1.65 },
-  "camera": { "fov": 60, "near": 0.25, "far": 300, "mode": "viewpoint" },
-  "waypoints": [],
+  "splat": {
+    "format": "lcc2",
+    "variants": {
+      "high": {
+        "assetId": "local:veterinary-lab",
+        "meta": "assets/rooms/veterinary-lab/meta.lcc2"
+      }
+    }
+  },
+  "spawn": {
+    "position": [
+      0,
+      1.7,
+      3
+    ],
+    "yaw": 0,
+    "eyeHeight": 1.65
+  },
+  "camera": {
+    "fov": 60,
+    "near": 0.25,
+    "far": 300,
+    "mode": "viewpoint"
+  },
   "hotspots": [],
   "tracks": [
     {
       "id": "spa-overview",
       "label": "Room overview",
       "loop": false,
+      "autoplayOnLoad": false,
       "keyframes": [
-        { "t": 0, "position": [0, 1.7, 5], "target": [0, 1.4, 0], "easing": "easeInOutCubic" },
-        { "t": 1, "position": [1.5, 1.7, 1.5], "target": [-2, 1.3, -2], "easing": "easeInOutCubic" }
-      ]
+        {
+          "t": 0,
+          "position": [
+            0,
+            1.7,
+            5
+          ],
+          "target": [
+            0,
+            1.4,
+            0
+          ],
+          "easing": "easeInOutCubic"
+        },
+        {
+          "t": 1,
+          "position": [
+            1.5,
+            1.7,
+            1.5
+          ],
+          "target": [
+            -2,
+            1.3,
+            -2
+          ],
+          "easing": "easeInOutCubic"
+        }
+      ],
+      "cues": [],
+      "audio": null,
+      "seconds": 1,
+      "thumb": null
     },
     {
       "id": "spa-table",
       "label": "Treatment table",
       "loop": false,
+      "autoplayOnLoad": false,
       "keyframes": [
-        { "t": 0, "position": [1.5, 1.7, 1.5], "target": [-1, 1.1, -1], "easing": "easeInOutCubic" },
-        { "t": 1, "position": [0, 1.6, -0.5], "target": [-1.5, 1.0, -2], "easing": "easeInOutCubic" }
-      ]
+        {
+          "t": 0,
+          "position": [
+            1.5,
+            1.7,
+            1.5
+          ],
+          "target": [
+            -1,
+            1.1,
+            -1
+          ],
+          "easing": "easeInOutCubic"
+        },
+        {
+          "t": 1,
+          "position": [
+            0,
+            1.6,
+            -0.5
+          ],
+          "target": [
+            -1.5,
+            1,
+            -2
+          ],
+          "easing": "easeInOutCubic"
+        }
+      ],
+      "cues": [],
+      "audio": null,
+      "seconds": 1,
+      "thumb": null
     }
   ],
-  "theme": { "accent": "#b08d57", "logoUrl": "", "font": "" },
+  "theme": {
+    "accent": "#b08d57",
+    "logoUrl": "",
+    "font": ""
+  },
   "neighbours": [],
-  "outdoor": false
+  "outdoor": false,
+  "propertyId": "demo-project",
+  "viewpoints": [],
+  "transform": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "scale": 1
+  },
+  "audio": null,
+  "cta": null,
+  "booking": {
+    "enabled": true,
+    "label": "Book now",
+    "url": ""
+  },
+  "status": "draft"
 }
