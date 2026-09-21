@@ -15,6 +15,7 @@ import {
 import type { SessionUser, PublishState } from '../lib/api';
 import { HotspotMarkers } from './HotspotMarkers';
 import { Uploader } from './Uploader';
+import { ThemeToggle } from './ThemeToggle';
 import type { ViewerState, EditorApi } from '../@types/app.types';
 import type { Hotspot, HotspotType } from '../@types/hotspot.types';
 import type { Scene } from '../@types/scene.types';
@@ -155,6 +156,7 @@ function TopBar({ onPreview, sceneId }: { onPreview: () => void; sceneId: string
       <button className="ed2-preview" onClick={onPreview}>▶ Preview</button>
       <SaveToServerButton sceneId={sceneId} />
       <PublishButton sceneId={sceneId} />
+      <ThemeToggle className="ed2-theme" />
       <Account />
     </div>
   );
@@ -455,7 +457,7 @@ function Account() {
                   </div>
                 ) : (
                   <div className="ed2-sheet-list">
-                    <div><span>Theme</span><strong>System default</strong></div>
+                    <div><span>Theme</span><ThemeToggle className="ed2-theme" /></div>
                     <div><span>Notifications</span><strong>Enabled</strong></div>
                     <div><span>Session</span><strong>Secure</strong></div>
                   </div>

@@ -12,6 +12,12 @@
   --mono: ui-monospace, Consolas, monospace;
 }
 
+/* Theme switch icons (ThemeToggle). Global so each surface can style the
+   button in its own idiom while the swap rule is written once. */
+.ic-moon { display: none; }
+:root[data-theme='light'] .ic-sun { display: none; }
+:root[data-theme='light'] .ic-moon { display: block; }
+
 * { box-sizing: border-box; }
 html, body, #root { margin: 0; padding: 0; height: 100%; overflow: hidden; }
 body {

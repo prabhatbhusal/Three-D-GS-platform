@@ -377,6 +377,78 @@
 .vw-cta-done h2 { margin-bottom: 8px; }
 .vw-cta-done p { color: rgba(246, 241, 231, 0.6); font-size: 13px; margin: 0; }
 
+/* ---- compass widget --------------------------------- */
+.vw-compass {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px 4px 6px; border-radius: 999px;
+  background: rgba(20, 17, 14, 0.78); border: 1px solid var(--line);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); pointer-events: auto;
+  backdrop-filter: blur(8px);
+}
+.vw-compass-ring {
+  width: 24px; height: 24px; display: grid; place-items: center;
+}
+.vw-compass-dial { width: 22px; height: 22px; transition: transform 0.12s linear; }
+.vw-compass-lbl {
+  font: 700 11.5px/1 var(--sans); letter-spacing: 0.05em; color: var(--paper);
+}
+
+/* ---- share & embed modal ---------------------------- */
+.vw-share-scrim {
+  position: fixed; inset: 0; z-index: 40;
+  background: rgba(6, 5, 4, 0.75); backdrop-filter: blur(10px);
+  display: grid; place-items: center; padding: 20px; animation: vw-fade 0.2s ease;
+}
+.vw-share-modal {
+  width: min(460px, 100%); background: #120F0C;
+  border: 1px solid rgba(246, 241, 231, 0.22); border-radius: 20px;
+  padding: 26px; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.65);
+  color: var(--paper); animation: vw-rise 0.25s var(--ease);
+}
+.vw-share-head {
+  display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px;
+}
+.vw-share-kicker {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--gold); font-weight: 650; display: block; margin-bottom: 4px;
+}
+.vw-share-head h3 { margin: 0; font: 400 24px/1.2 var(--serif); color: #fff; }
+.vw-share-close {
+  appearance: none; border: 1px solid var(--line); border-radius: 50%;
+  width: 30px; height: 30px; background: rgba(255, 255, 255, 0.06);
+  color: var(--paper); cursor: pointer; display: grid; place-items: center; font-size: 14px;
+}
+.vw-share-close:hover { background: rgba(255, 255, 255, 0.15); }
+.vw-share-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 4px; border-radius: 12px; background: rgba(0, 0, 0, 0.4); margin-bottom: 20px; }
+.vw-share-tab {
+  appearance: none; border: 0; background: transparent; color: rgba(246, 241, 231, 0.6);
+  padding: 8px 12px; border-radius: 9px; font: 600 12.5px var(--sans); cursor: pointer; transition: all 0.15s;
+}
+.vw-share-tab.on { color: #14110E; background: var(--paper); }
+.vw-qr-box {
+  display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 18px;
+  padding: 18px; border-radius: 16px; background: rgba(0, 0, 0, 0.35); border: 1px solid var(--line);
+}
+.vw-qr-img { border-radius: 12px; border: 4px solid #fff; }
+.vw-qr-note { margin: 0; font-size: 13px; color: rgba(246, 241, 231, 0.7); text-align: center; }
+.vw-share-input-group { display: flex; gap: 8px; }
+.vw-share-input {
+  flex: 1; padding: 10px 14px; border-radius: 10px; font: 500 13px var(--sans);
+  background: rgba(0, 0, 0, 0.5); border: 1px solid var(--line); color: var(--paper);
+}
+.vw-share-desc { margin: 0 0 12px; font-size: 13px; color: rgba(246, 241, 231, 0.7); line-height: 1.5; }
+.vw-share-textarea {
+  width: 100%; padding: 12px; border-radius: 10px; font: 12px/1.4 var(--mono);
+  background: rgba(0, 0, 0, 0.5); border: 1px solid var(--line); color: #7FE0F0;
+  resize: none; margin-bottom: 14px;
+}
+.vw-share-btn {
+  appearance: none; border: 1px solid transparent; cursor: pointer; white-space: nowrap;
+  padding: 10px 20px; border-radius: 10px; font: 600 13px/1 var(--sans);
+  color: #14110E; background: var(--paper); transition: all 0.15s;
+}
+.vw-share-btn:hover { background: #fff; transform: translateY(-1px); }
+.vw-share-btn.copied { background: #5DBB63; color: #fff; }
+
 /* ---- mobile ----------------------------------------- */
 @media (max-width: 760px), (pointer: coarse) {
   .vw-hint { display: none; }

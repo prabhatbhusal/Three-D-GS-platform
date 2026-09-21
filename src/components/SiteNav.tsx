@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSession, logout } from '../lib/api';
+import { ThemeToggle } from './ThemeToggle';
 
 export function SiteNav() {
   const router = useRouter();
@@ -67,6 +68,7 @@ export function SiteNav() {
         <Link href="/gallery">Gallery</Link>
       </nav>
       <div className="site-actions">
+        <ThemeToggle />
         {user ? (
           <div className="site-user-menu" ref={menuRef}>
             <button
@@ -152,7 +154,7 @@ export function SiteNav() {
                         </div>
                       ) : (
                         <div className="site-account-stack">
-                          <div className="site-account-item static"><span>Theme</span><strong>System default</strong></div>
+                          <div className="site-account-item"><span>Theme</span><ThemeToggle /></div>
                           <div className="site-account-item static"><span>Notifications</span><strong>Enabled</strong></div>
                           <div className="site-account-item static"><span>Session</span><strong>Secure</strong></div>
                         </div>

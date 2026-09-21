@@ -2,12 +2,13 @@
 /*  Studio shell (CLAUDE.md §10.1).                                   */
 /*                                                                    */
 /*  Black and white, dark or light (lib/theme.ts sets data-theme on     */
-/*  <html>). Every pane floats above the live viewport as a rounded    */
-/*  panel with a soft border. No colour in the chrome at all, so the   */
-/*  only colour on screen comes from the scan — the exceptions are     */
-/*  destructive red and the gizmo axes. Numeric readouts keep          */
-/*  monospace tabular figures: they are measurements, and must not     */
-/*  jitter as they update.                                             */
+/*  <html>). The chrome is DOCKED: panes run edge to edge with no      */
+/*  gutter, square corners, one hairline per pane facing the viewport. */
+/*  The controls ON them keep their radius. No colour in the chrome    */
+/*  at all, so the only colour on screen comes from the scan — the     */
+/*  exceptions are destructive red and the gizmo axes. Numeric         */
+/*  readouts keep monospace tabular figures: they are measurements,    */
+/*  and must not jitter as they update.                                */
 /* ================================================================= */
 
 .ed2, .ed2 * { box-sizing: border-box; }
@@ -45,10 +46,10 @@
   --ed-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
   --ed-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 
-  --ed-r: 12px;             /* panel radius */
+  --ed-r: 0;                /* panes are square — buttons and fields are not */
   --ed-r-sm: 8px;           /* control / card radius */
-  --ed-gap: 10px;           /* the gutter panels float in */
-  --ed-top: 66px;           /* gap + top bar (46) + gap — where side panes start */
+  --ed-gap: 0px;            /* panes are flush to the window and to each other */
+  --ed-top: 46px;           /* top bar height — where the side panes start */
 }
 /* Light: same names, inverted. Panels become white cards on a pale ground,
  * and the accent becomes near-black so selection still reads as "this one". */
@@ -107,14 +108,18 @@
 .ed2-top, .ed2-left, .ed2-inspector, .ed2-strip {
   animation: ed2in 0.15s linear both;
   background: var(--ed-panel);
-  border: 1px solid var(--ed-line);
-  border-radius: var(--ed-r);
-  box-shadow: var(--ed-shadow), var(--ed-inset);
+  border: 0;
 }
+/* One hairline each, on the side that meets the viewport — flush panes
+ * would otherwise double their borders up at every seam. */
+.ed2-top { border-bottom: 1px solid var(--ed-line); }
+.ed2-left { border-right: 1px solid var(--ed-line); }
+.ed2-inspector { border-left: 1px solid var(--ed-line); }
+.ed2-strip { border-top: 1px solid var(--ed-line); }
 
 /* --------------------------- top bar ---------------------------- */
 .ed2-top {
-  position: fixed; top: var(--ed-gap); left: var(--ed-gap); right: var(--ed-gap); height: 46px;
+  position: fixed; top: 0; left: 0; right: 0; height: 46px;
   display: flex; align-items: center; gap: 14px; padding: 0 12px;
   z-index: 30;
   overflow: visible;
@@ -141,6 +146,15 @@
   transition: filter 0.12s;
 }
 .ed2-preview:hover { filter: brightness(1.08); }
+
+.ed2-theme {
+  display: inline-grid; place-items: center; width: 30px; height: 30px; flex: 0 0 auto;
+  border-radius: 999px; border: 1px solid var(--ed-line);
+  background: transparent; color: var(--ed-text-dim); cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+.ed2-theme:hover { color: var(--ed-text); border-color: var(--ed-line-lit); background: var(--ed-raise); }
+.ed2-theme svg { width: 15px; height: 15px; }
 
 .ed2-account {
   position: relative; display: flex; align-items: center; gap: 10px;
@@ -169,8 +183,8 @@
 .ed2-user-menu {
   position: absolute; z-index: 50; right: 0; top: calc(100% + 10px);
   min-width: 180px; padding: 6px; border-radius: 14px;
-  background: rgba(9, 9, 10, 0.98); border: 1px solid var(--ed-line);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  background: var(--ed-panel); border: 1px solid var(--ed-line);
+  box-shadow: var(--ed-shadow);
 }
 .ed2-user-option {
   width: 100%; appearance: none; border: 0; background: transparent; border-radius: 10px;
@@ -179,7 +193,7 @@
 }
 .ed2-user-option + .ed2-user-option { margin-top: 0; }
 .ed2-user-option:hover { background: var(--ed-raise); }
-.ed2-user-option-danger { color: #ffb4b0; }
+.ed2-user-option-danger { color: var(--ed-danger); }
 .ed2-user-option-danger:hover { background: rgba(255, 90, 90, 0.08); }
 
 .ed2-account-backdrop {
@@ -244,7 +258,7 @@
 
 /* --------------------------- left pane / scene tree ----------- */
 .ed2-left {
-  position: fixed; top: var(--ed-top); left: var(--ed-gap); bottom: var(--ed-gap); width: 232px;
+  position: fixed; top: var(--ed-top); left: 0; bottom: 0; width: 232px;
   overflow-y: auto; padding: 8px;
 }
 .ed2-tree-grp {
@@ -341,7 +355,7 @@
 
 /* ------------------------- inspector -------------------------- */
 .ed2-inspector {
-  position: fixed; top: var(--ed-top); right: var(--ed-gap); bottom: var(--ed-gap); width: 312px;
+  position: fixed; top: var(--ed-top); right: 0; bottom: 0; width: 312px;
   overflow-y: auto; padding: 6px 16px 16px;
 }
 
@@ -414,7 +428,7 @@
   font: 500 12px/1.4 var(--sans); color: var(--ed-text);
   background: var(--ed-panel); border: 1px solid #2E6B4B; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
 }
-.ed2-save-toast.is-err { border-color: var(--ed-danger); color: #FFB4B0; }
+.ed2-save-toast.is-err { border-color: var(--ed-danger); color: var(--ed-danger); }
 .ed2-viewactions { margin-top: 14px; }
 
 /* inputs */
@@ -438,7 +452,7 @@
 .ed2-slider { display: block; margin-top: 12px; }
 .ed2-slider-top {
   display: flex; justify-content: space-between; margin-bottom: 6px;
-  color: rgba(228, 230, 233, 0.75);
+  color: var(--ed-text-dim);
 }
 .ed2-slider-val { color: var(--ed-text); font-family: var(--mono, monospace); font-size: 11px; font-variant-numeric: tabular-nums; }
 .ed2-slider input[type="range"] {
@@ -475,7 +489,7 @@
 .ed2-toggle {
   display: flex; align-items: center; gap: 10px; width: 100%;
   appearance: none; border: 0; cursor: pointer; background: transparent;
-  color: rgba(228, 230, 233, 0.85); font: 500 12px var(--sans, sans-serif);
+  color: var(--ed-text-dim); font: 500 12px var(--sans, sans-serif);
   padding: 8px 0; margin-top: 4px;
 }
 .ed2-toggle-knob {
@@ -537,9 +551,9 @@
 /* --------------------------- filmstrip ------------------------ */
 /* Floats between the two side panes — offsets track their widths + gutters. */
 .ed2-strip {
-  position: fixed; bottom: var(--ed-gap);
-  left: calc(232px + var(--ed-gap) * 2);
-  right: calc(312px + var(--ed-gap) * 2);
+  position: fixed; bottom: 0;
+  left: 232px;
+  right: 312px;
   display: flex; gap: 6px; padding: 8px;
   overflow-x: auto; overflow-y: hidden;
 }
@@ -607,7 +621,7 @@
 .pub-status.is-live .ed2-save-dot { background: #5BBF86; box-shadow: 0 0 0 3px rgba(91, 191, 134, 0.2); }
 .pub-list { margin: 0 0 12px; padding: 10px 12px 10px 28px; border-radius: var(--ed-r-sm); font-size: 12.5px; line-height: 1.5; }
 .pub-list li + li { margin-top: 4px; }
-.pub-list.is-block { color: #FFB4B0; background: rgba(229, 120, 122, 0.1); border: 1px solid rgba(229, 120, 122, 0.45); }
+.pub-list.is-block { color: var(--ed-danger); background: rgba(229, 120, 122, 0.1); border: 1px solid rgba(229, 120, 122, 0.45); }
 .pub-list.is-warn { color: #F2D29A; background: rgba(242, 196, 109, 0.08); border: 1px solid rgba(242, 196, 109, 0.3); }
 .pub-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .pub-actions .up-create { width: auto; flex: 1 1 200px; margin-top: 4px; }
@@ -619,6 +633,12 @@
 .pub-secondary.is-danger { color: var(--ed-danger); }
 .pub-secondary:disabled { opacity: 0.5; cursor: default; }
 .pub-note { margin: 12px 0 0; font-size: 12.5px; color: #8FD9AE; }
+/* Amber/green status text is tuned for a dark panel; on white it needs to
+ * darken to stay legible. Everything else here is already token-driven. */
+:root[data-theme="light"] .is-dirty,
+:root[data-theme="light"] .pub-list.is-warn { color: #7A5410; }
+:root[data-theme="light"] .pub-note { color: #1C6B44; }
+
 .pub-share { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--ed-line); }
 .pub-label { margin: 14px 0 7px; font: 600 12px var(--sans); color: var(--ed-text); }
 .pub-label:first-child { margin-top: 0; }

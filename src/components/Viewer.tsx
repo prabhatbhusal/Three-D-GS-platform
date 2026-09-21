@@ -35,6 +35,17 @@ export function Viewer({ state, isTouch, autoStart = false, tour = false }: View
   const live = entered && ready;
   const controllable = live && !state?.flying;
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
+      if (e.key === '?') {
+        setPanel((p) => (p === 'help' ? null : 'help'));
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   return (
     <div className="vw" data-touch={isTouch ? '' : undefined}>
       {state?.loading && <LoadingGate progress={state.progress} />}
@@ -172,8 +183,8 @@ function TopChrome({ state, walking, showBrand, brand, hd, canExit, panel, setPa
           title={hd ? 'Full resolution. Tap for a lighter view.' : 'Lighter view. Tap for full resolution.'}>HD</button>
         <IconBtn label="Controls" on={panel === 'help'} onClick={() => toggle('help')}>{Icon.help}</IconBtn>
         <IconBtn label={full ? 'Leave full screen' : 'Full screen'} onClick={() => {
-          if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-          else document.documentElement.requestFullscreen?.().catch(() => {});
+          if (document.fullscreenElement) document.exitFullscreen().catch(() => { });
+          else document.documentElement.requestFullscreen?.().catch(() => { });
         }}>{full ? Icon.unfull : Icon.full}</IconBtn>
         {canExit && (
           <a className="vw-exit" href="/gallery">
@@ -283,11 +294,11 @@ function HelpPanel({ walking, isTouch, onClose }: { walking: boolean; isTouch: b
   const rows: [string, string][] = isTouch
     ? [['Drag', 'Look around'], ['Tap a card', 'Fly to that view'], ['Walk button', 'Move with the joystick']]
     : [
-        ['Drag', 'Look around'],
-        ['Card or segment', 'Fly to that view'],
-        ...(walking ? [['W A S D', 'Walk'], ['Shift', 'Walk faster']] as [string, string][] : [['Walk button', 'Move freely']] as [string, string][]),
-        ['Any key or click', 'Stop a flythrough']
-      ];
+      ['Drag', 'Look around'],
+      ['Card or segment', 'Fly to that view'],
+      ...(walking ? [['W A S D', 'Walk'], ['Shift', 'Walk faster']] as [string, string][] : [['Walk button', 'Move freely']] as [string, string][]),
+      ['Any key or click', 'Stop a flythrough']
+    ];
   return (
     <div className="vw-pop vw-pop-help" role="dialog" aria-label="Controls">
       <p className="vw-pop-title">Controls</p>

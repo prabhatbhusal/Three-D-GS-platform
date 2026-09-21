@@ -798,22 +798,30 @@ anything", density over comfort. That was deliberately replaced, on request,
 with the modern-SaaS idiom below. The old text is preserved in this paragraph
 so nobody re-derives it from the code and thinks the change was an accident.
 
-Every pane is a rounded island floating in a gutter, with the **live 3D
-viewport showing through between them** — the scene is the ground, so no panel
-paints a backdrop over it. Tokens live at the top of `src/components/editor.css`
-and `uploader.css` inherits them.
+**Revised again 2026-09-20.** The floating-island look above lasted three
+days. The studio is now **docked and flat**: every pane runs edge to edge with
+no gutter and square corners, so the chrome reads as one continuous black
+surface from the top bar round to the filmstrip. The controls *on* the panes
+keep their radius — square panes, rounded buttons and fields. Tokens live at
+the top of `src/components/editor.css` and `uploader.css` inherits them.
 
-- Dark by necessity: the viewport shows photographic 3D content, and light
-  chrome destroys colour judgement. Deep blue-black, not neutral graphite.
-  Ground `#080B10`, panel `#10151D`, card `#161D28`, well `#0B0F15`, border
-  `#1E2631`.
-- Surfaces are rounded (`--ed-r` 12px panels, `--ed-r-sm` 8px controls) with a
-  soft border and a soft ambient shadow plus a lit top edge. Not hairlines.
+- Dark **and** light: the viewport shows photographic 3D content, so dark is
+  the default and the right choice for colour judgement, but both themes exist
+  and `ThemeToggle` in the top bar switches them. Neutral near-black, not blue-
+  black: ground `#09090A`, panel `#131315`, card `#1C1C1F`, well `#060607`,
+  border `#26262A` — with the same token names inverted under
+  `:root[data-theme="light"]`.
+- Panes are square (`--ed-r: 0`), flush (`--ed-gap: 0`), and carry exactly one
+  hairline each, on the side that faces the viewport — flush panes would
+  otherwise double their borders at every seam. They cast no shadow. Controls
+  keep `--ed-r-sm` 8px, and floating elements (dropdowns, toasts, the upload
+  dialog) keep `--ed-shadow`.
 - One accent, `--ed-signal`, for **active selection and the current keyframe
-  only** — currently cyan `#4FC3D9`. It is one line to change; the earlier
-  survey yellow was `#E8C547`. If a second accent appears, delete it. Gizmo
-  axis colours are the one exception — red/green/blue axes are a convention,
-  not decoration.
+  only**. The chrome is now monochrome, so it is plain full contrast — white on
+  dark, near-black on light. Earlier passes used cyan `#4FC3D9` and, before
+  that, survey yellow `#E8C547`; both are gone. If a second accent appears,
+  delete it. Gizmo axis colours are the one exception — red/green/blue axes are
+  a convention, not decoration.
 - Object kinds are told apart by a small tinted icon tile on the row, not by
   colouring the row itself.
 - Numeric readouts (coordinates, FOV, eye height, splat count, frame time,
@@ -824,8 +832,8 @@ and `uploader.css` inherits them.
   filled rows. Keyboard shortcuts for every tool still matter — three users,
   hours a day — but the chrome no longer optimises purely for tight rows.
 - §10.2's "Avoid" list (rounded cards, soft shadows, `·`-joined meta strings,
-  `→` on buttons) governs **the tour only**. The studio deliberately uses the
-  first two.
+  `→` on buttons) governs **the tour only**. The studio uses rounded cards and
+  soft shadows on its controls and floating elements, never on its panes.
 
 ### 10.2 Tour — the room is the interface
 
@@ -929,6 +937,7 @@ for ambient declarations).
 | `src/lib/transform.ts` | Scene transform store (degrees, YXZ, uniform scale), `applyToRenderer()` (§17), gizmo tool state. `[built]` |
 | `src/components/Gizmo.tsx` | Move / rotate / scale handles (`G`/`R`/`T`, Ctrl snaps) and `useSceneTransform()`, which applies placement in studio and tour. `[built]` |
 | `src/components/SiteNav.tsx`, `src/app/gallery/page.tsx` | Marketing nav; public gallery of published spaces. |
+| `src/components/ThemeToggle.tsx` + `src/lib/theme.ts` | Light/dark switch. Writes `<html data-theme>` + `localStorage.threedview-theme`; `site.css` and `editor.css` each flip their own tokens off it, and `layout.tsx` applies it in an inline script before first paint. Stateless — the icon swap is CSS in `globals.css`. Mounted in the marketing nav and the studio top bar; the tour stays dark. `[built]` |
 | `src/app/tour/page.tsx` | Decides which published space opens and hydrates the scene list from published docs before the 3D mounts (`limitTour()` in scenes.ts). |
 | `src/lib/scenes.ts` | Scene list: id, name, tagline, spawn. `setSessionSpawn` / `spawnFor` back the studio's spawn override. `renameScene()` retitles a scene (double-click its tree row) — label only, never the `id`, which addresses the asset. `hydrateScenes()` merges metadata from the API, best-effort. |
 | `src/lib/viewpoints.ts` | **Misnamed** — holds *tracks*, not viewpoints (§0.2). Rename to `src/lib/tracks.ts` when the timeline lands, and update the studio's "Copy tracks JSON" target. |
