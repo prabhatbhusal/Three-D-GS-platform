@@ -380,7 +380,13 @@ remembering to run anything. Write the migrated doc back only on the next save.
 
 Five visitor modes since 2026-09-21 (Fly and Orbit added at the owner's
 explicit, repeated request — see §20 #1). That is the whole list. The switch
-reads Viewpoints | Walk | Orbit | Fly.
+is a **mode dial**, top centre, like a camera's mode ring: only the current
+mode shows — its icon in an accent-ringed medallion, its name in the display
+serif, one line on what it's for. ‹ › (or a swipe on a phone) step
+Viewpoints → Walk → Orbit → Fly and wrap; the name slides in from the side
+you went and the icon turns in; a track's accent thumb glides to the current
+mode. Reduced motion turns the animation off (`ModeSlider` in `Viewer.tsx`,
+`.vw-dial` in `viewer.css`).
 
 - **Viewpoints (default).** Discrete authored stops, free look at each, smooth
   dolly between linked neighbours. Deliberate: splats captured from a walking
@@ -396,20 +402,19 @@ reads Viewpoints | Walk | Orbit | Fly.
   visitor break out mid-flight to look around. MP4 export stays a separate
   marketing deliverable.
 
-- **Fly `[built]`.** The aerial "dollhouse" view: the camera circles the
-  middle of the space (the average of the authored track waypoints, or the
-  start view — never the scan's bounds, which stray splats inflate, §14),
-  looking down. The SDK's shaders have no clipping, so a scan's ceiling can't
-  be hidden; instead `clearOrbitDistance()` (`src/lib/collision.ts`) pulls the
-  camera in to the first wall or ceiling between it and the middle, using
-  only the documented `intersectsCapsule`. Indoors that is a high corner
-  view just under the ceiling; outdoors nothing is hit and it stays aerial.
-  Zoom, Reset view and Exit fly mode replace the views bar; exiting returns
-  the visitor to exactly where they were. Unlike walk, Fly **carries over**
-  when switching space from the layers rail, like a floor picker.
+- **Fly `[built]`, revised 2026-09-22.** Free flight like an Unreal Engine
+  viewport, taking off from where the visitor stands: **W A S D** along the
+  view, **E** / Space up, **Q** / C down, Shift faster, drag with the left or
+  right button to look (no pointer capture), scroll or − + for speed
+  (`walkerCfg.flyBoost`, 1/8× … 8×). The keys work without holding the mouse.
+  No gravity and no collision, as in an editor viewport. Reset view returns to
+  where the flight began; Exit fly mode returns to exactly where the visitor
+  was. Fly carries over when switching space from the layers rail (starting
+  at that space's start view). The earlier aerial "dollhouse" circling view
+  was replaced on request; its wall/ceiling line-of-sight clamp
+  (`clearOrbitDistance()`) now serves Orbit only.
 
-- **Orbit `[built]`.** Fly's machinery at eye level: circle the middle of the
-  room standing up (pitch held between slightly down and slightly up), with
+- **Orbit `[built]`.** Circle the middle of the room standing up (pitch held between slightly down and slightly up), with
   the same line-of-sight clamp, zoom, reset and exit. Switching Orbit ⇄ Fly
   re-frames without losing the pre-orbit pose.
 
@@ -425,8 +430,11 @@ and orbit tools are separate (`walkerCfg.mode`); visitor Fly is
 
 While a track plays, its `cues` reveal hotspot annotations on time: a label card
 appears near the projected hotspot, holds for `duration`, leaves. The camera
-keeps moving. Any visitor input interrupts the track and hands control back —
-that already works and must keep working.
+keeps moving. Any visitor input on the 3D view (a press on the canvas, a key,
+the wheel) interrupts the track and hands control back — that already works
+and must keep working. A tap on the tour's own buttons is not camera input
+and does not interrupt (`useCameraDirector.ts`): otherwise Pause's own
+press ended the tour and its click restarted it.
 
 If the visitor has not interacted within the first second after the first frame,
 and the scene has a track with `autoplayOnLoad`, play it. This is the highest
@@ -959,13 +967,22 @@ doesn't see. The CTA is the one exception, and it earns its pixels.
 streaming room (brand, place name, tagline, **Start virtual tour**). In the
 tour: place name top-left; top-right a row of dark round icon buttons
 (Spaces, Sound, HD, Controls, Full screen), then Book now (§7.6) and Exit;
-the bottom is one **centred** column — views tray, transport with a `2 / 6`
-counter, progress segments, and lowest of all the **Viewpoints | Walk |
-Orbit | Fly** switch (§6.1 — no Floor plan, §20 #2); in Orbit/Fly the first
-three become zoom, reset and exit. The enquiry CTA sits bottom-right on the
-switch's line; Book now and enquiry open as light cards at the right. **Layers:** the
-project's spaces as a rail down the left edge (desktop; phones keep the
-Spaces button). The tour only lists spaces published under the **same
+the **mode dial** top centre (§6.1 — no Floor plan, §20 #2; under 1180 px
+wide and on phones it drops below the top buttons); the bottom is one
+**centred** column — a filmstrip of numbered view cards, then the **tour
+bar**: ‹ ›, a round play button whose ring fills over the current view's
+flight, the view's name in the serif with `1 / 3 now flying` under it, a
+**Views** toggle for the filmstrip, and progress segments along its bottom
+edge (click one to jump). The bar counts as playing across the short pause
+between views, so Pause always pauses. In Orbit/Fly the bar becomes zoom (or
+fly speed), reset and exit. The studio
+preview's Exit preview sits bottom-left. The enquiry CTA sits bottom-right; Book now and enquiry open as light cards at the right. **Layers:** the
+project's spaces as a floor-picker spine down the left edge — numbered nodes
+on a line, the current one named in the serif, a gold marker that glides to
+the space you pick and a turning ring on its node while it loads (desktop;
+phones keep the Spaces button). Once the tour has shown, the top buttons and
+the spine stay up while the next space loads; the spine sits above the
+loading screen. The tour only lists spaces published under the **same
 project** as the one it opens on. Hotspots are callouts
 in every camera mode: a ring on the spot, a leader line, and a card
 (thumbnail or icon, title, one line of text, a speaker mark if it has
@@ -1091,7 +1108,7 @@ for ambient declarations).
 | `src/lib/api.ts` | Client for the Node API. Every call best-effort; the app never blocks on it. Also the asset-upload endpoints (create/init/chunk/finalize/delete, §7.1). |
 | `src/lib/upload.ts` | Chunked resumable upload engine — folder walking (drag-and-drop + `webkitdirectory` browse), 8 MB chunks, resume-from-server-offset. A lone `.zip` passes through untouched; the server extracts it on finalize (§7.1). |
 | `src/components/App.tsx` | Canvas + shell + preview + hotspot projection. Owns the `dpr` cap — now tier-driven. |
-| `src/components/Viewer.tsx` | Visitor experience, laid out as in §10.2's as-built note — hero enter gate (where the `AudioContext` resumes, §6.3), place name, top-right icons + sound toggle + Book now + Exit 3D, Viewpoints/Walk pill, views tray + transport + segmented progress, hotspots, joystick. Reused as the studio's Preview. |
+| `src/components/Viewer.tsx` | Visitor experience, laid out as in §10.2's as-built note — hero enter gate (where the `AudioContext` resumes, §6.3), place name, top-right icons + sound toggle + Book now + Exit 3D, mode dial, layers spine, view filmstrip + tour bar (play ring, segmented progress), hotspots, joystick. Reused as the studio's Preview. |
 | `src/components/TouchControls.tsx` | Floating mobile thumb-stick + Run/Jump. Writes `mobileInput.ts`. |
 | `src/components/HotspotMarkers.tsx` + `hotspots.css` | Hotspot callouts (ring, leader line, card) in tour and studio, and the slide-up panel with Listen + transcript. |
 | `src/components/EditorShell.tsx` + `editor.css` | Studio UI — top bar, left scene tree, right inspector, bottom filmstrip. Inter (`next/font/google`) is scoped here via `--sans` (§10.1) — the tour keeps its own theme font. |
@@ -1253,6 +1270,13 @@ before `context.resume()` loses the gesture.
 - A published snapshot keeps the `propertyId` it had when published. Spaces
   published before projects existed (computer-lab2) only join their
   project's tour after they are republished.
+- A space whose model fails to load (missing files, network) shows "<name>
+  didn't load" in the middle and keeps the chrome and layers rail up
+  (`ViewerState.failed`). **computer-lab2 does this today:** its asset
+  `ast_80be873a6555` is not in `server/src/data/assets/` — re-upload it.
+- Floor1 and Floor4 have no tracks and the placeholder start view
+  `[0, 1.7, 3]`. Fly copes (see §6.1), but set a start view and author a
+  track on each.
 - "360 camera video" in the New project dialog is a placeholder: nothing
   turns 360 footage into a splat.
 - A space can only be moved into a project from the "Not in a project yet"

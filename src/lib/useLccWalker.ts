@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { LCCRender } from '../vendor/sdk/lcc-web-sdk.js';
 import { touch } from './mobileInput';
-import { walkerCfg } from './walkerConfig';
+import { walkerCfg, zoomOrbit, scaleFlySpeed } from './walkerConfig';
 import { navMode } from './navMode';
 import { dropWaypoint, closeViewpoint, exportViewpoints } from './viewpoints';
 import { addHotspot } from './sceneDoc';
@@ -41,8 +41,11 @@ export function isTypingTarget(t: EventTarget | null): boolean {
  *            or Run to sprint. Falls back to `fly` if the scan has no collision.
  *   fly    — no gravity, free 6-dof, Space / C for up / down  (key N toggles it)
  *   orbit  — camera swings around walkerCfg.orbitTarget. The studio's Orbit
- *            tool, and the tour's Fly mode (navMode.flyEnabled), which is this
- *            same orbit around the middle of the space, seen from above.
+ *            tool, and the tour's Orbit mode (navMode.orbitEnabled).
+ *
+ * The tour's Fly mode (navMode.flyEnabled) is `fly` above, driven like an
+ * Unreal viewport: WASD along the view, E up, Q down, Shift faster, drag with
+ * either button to look, scroll for speed. Keys work without holding the mouse.
  *
  * Third-person/avatar mode is removed (CLAUDE.md §6.1 [remove]) — there is no
  * character mesh, camera boom, or feet-anchored capsule sim any more.
@@ -157,14 +160,31 @@ export function useLccWalker({
       }
     };
     const onWheel = (e: WheelEvent) => { wheel.current += e.deltaY; };
+    // Right-drag looks around in Fly/Orbit; the browser menu would get in the way.
+    const onContextMenu = (e: MouseEvent) => {
+      if (!pointerLockRef.current) return; // the studio keeps its own behaviour
+      if (navMode.flyEnabled || navMode.orbitEnabled) e.preventDefault();
+    };
 
     // Visitor: click captures the pointer. Editor (pointerLock=false): press-drag
     // to look, like an orbit tool — no capture, panels stay clickable.
     const onMouseDown = (e: MouseEvent) => {
-      if (e.button !== 0 || touch.enabled) return;
+      const aerialOrFly = navMode.flyEnabled || navMode.orbitEnabled;
+      // Left drags to look everywhere; right drags too in Orbit/Fly, like Unreal.
+      if ((e.button !== 0 && !(e.button === 2 && aerialOrFly)) || touch.enabled) return;
       // The gizmo's pointerdown runs first and has already claimed this drag.
       if (gizmo.dragging) return;
-      if (pointerLockRef.current) { el.requestPointerLock(); return; }
+      // Orbit and Fly turn by dragging, like any orbit view; everything else
+      // in the tour captures the mouse. Some browsers and embeds refuse the
+      // capture — that must not throw, and must not leave the view stuck.
+      const aerialNow = navMode.flyEnabled || navMode.orbitEnabled;
+      if (pointerLockRef.current && !aerialNow) {
+        try {
+          const p = el.requestPointerLock() as unknown as Promise<void> | undefined;
+          p?.catch?.(() => {});
+        } catch { /* refused: nothing to do */ }
+        return;
+      }
       dragging.current = true;
       dragX = e.clientX; dragY = e.clientY;
       el.style.cursor = 'grabbing';
@@ -208,6 +228,7 @@ export function useLccWalker({
     el.addEventListener('mousedown', onMouseDown);
     window.addEventListener('mouseup', onMouseUp);
     el.addEventListener('wheel', onWheel, { passive: true });
+    el.addEventListener('contextmenu', onContextMenu);
     document.addEventListener('pointerlockchange', onLock);
     el.addEventListener('touchstart', onTouchStart, { passive: true });
     el.addEventListener('touchmove', onTouchMove, { passive: true });
@@ -221,6 +242,7 @@ export function useLccWalker({
       el.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('mouseup', onMouseUp);
       el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('contextmenu', onContextMenu);
       document.removeEventListener('pointerlockchange', onLock);
       el.removeEventListener('touchstart', onTouchStart);
       el.removeEventListener('touchmove', onTouchMove);
@@ -351,6 +373,7 @@ export function useLccWalker({
       }
       d = orbitCache.current.d;
     }
+    walkerCfg.orbitActual = d;
     camera.position.copy(v.tgt).addScaledVector(v.fwd, -d);
   };
 
@@ -364,21 +387,23 @@ export function useLccWalker({
       camera.updateProjectionMatrix();
     }
 
+    // Fly takes the keys at any time — like Unreal, WASD needs no mouse held.
     const canControl =
       enabledRef.current &&
-      (alwaysRef.current || locked.current || dragging.current || touch.enabled);
+      (alwaysRef.current || locked.current || dragging.current || touch.enabled || (!alwaysRef.current && navMode.flyEnabled));
 
     const r = rendererRef.current;
     const hasColl = !!r?.hasCollision?.();
-    // Visitor Fly and Orbit are both the walker's orbit, whatever the studio's
-    // own setting says — Fly looks down from high up, Orbit stays at eye level.
-    const aerial = !alwaysRef.current && (navMode.flyEnabled || navMode.orbitEnabled);
-    const mode = aerial ? 'orbit' : walkerCfg.mode === 'walk' && !hasColl ? 'fly' : walkerCfg.mode;
+    // Visitor Orbit is the walker's orbit and visitor Fly is free flight,
+    // whatever the studio's own setting says.
+    const aerial = !alwaysRef.current && navMode.orbitEnabled;
+    const freeFly = !alwaysRef.current && navMode.flyEnabled;
+    const mode = aerial ? 'orbit' : freeFly ? 'fly' : walkerCfg.mode === 'walk' && !hasColl ? 'fly' : walkerCfg.mode;
 
     // Fly mode between drags: keep the camera on its orbit so the zoom and
     // reset buttons (which only change walkerCfg) show up straight away.
     if (aerial && enabledRef.current && !canControl) {
-      walkerCfg.orbitDist = Math.max(walkerCfg.radius * 2, walkerCfg.orbitDist * (1 + wheel.current * 0.001));
+      if (wheel.current) zoomOrbit(1 + wheel.current * 0.001);
       wheel.current = 0;
       aimOrbit();
       placeOrbit(r, aerial && hasColl);
@@ -402,16 +427,17 @@ export function useLccWalker({
       // having explicitly switched to Walk mode (Viewer.jsx's toggle writes
       // navMode.walkEnabled). The studio (alwaysControl=true) always moves —
       // authoring needs it, and the studio has no viewpoints/walk split.
-      const moveAllowed = alwaysRef.current || navMode.walkEnabled || aerial;
+      const moveAllowed = alwaysRef.current || navMode.walkEnabled || aerial || freeFly;
 
       if (!moveAllowed) {
         // Nothing else to do this frame — looking around is all a viewpoints
         // visitor gets, and LCCRender.update() below still has to run.
       } else if (mode === 'orbit') {
         // Dolly with W/S, wheel, or the joystick's Y.
+        if (w) zoomOrbit(1 + w * 0.001);
         let d = walkerCfg.orbitDist;
-        d *= 1 + w * 0.001;
-        if (k.has('KeyW') || k.has('ArrowUp')) d -= speed * dt;
+        // Moving in starts from where the camera really is (see zoomOrbit).
+        if (k.has('KeyW') || k.has('ArrowUp')) d = Math.min(d, walkerCfg.orbitActual || d) - speed * dt;
         if (k.has('KeyS') || k.has('ArrowDown')) d += speed * dt;
         if (touch.enabled) d -= touch.move.y * speed * dt;
         d = Math.max(walkerCfg.radius * 2, d);
@@ -441,9 +467,12 @@ export function useLccWalker({
         touch.jump = false;
 
         if (fly) {
-          camera.position.addScaledVector(v.wish, speed * dt);
-          if (jump) camera.position.y += speed * dt;
-          if (k.has('KeyC') || k.has('ControlLeft')) camera.position.y -= speed * dt;
+          // Visitor Fly: scroll sets the speed, E/Space up, Q/C/Ctrl down.
+          if (freeFly && w) scaleFlySpeed(w < 0 ? 1.15 : 1 / 1.15);
+          const s = speed * (freeFly ? walkerCfg.flyBoost : 1);
+          camera.position.addScaledVector(v.wish, s * dt);
+          if (jump || (freeFly && k.has('KeyE'))) camera.position.y += s * dt;
+          if (k.has('KeyC') || k.has('ControlLeft') || (freeFly && k.has('KeyQ'))) camera.position.y -= s * dt;
         } else {
           if (grounded.current && jump) {
             vel.current.y = 6.2 * walkerCfg.unitScale;

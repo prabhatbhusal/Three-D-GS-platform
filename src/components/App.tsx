@@ -7,7 +7,7 @@ import { useSceneManager, LCC_MODEL_MATRIX } from '../lib/useSceneManager';
 import { Gizmo, useSceneTransform } from './Gizmo';
 import { transformFor, setTransform, IDENTITY } from '../lib/transform';
 import { walkerCfg } from '../lib/walkerConfig';
-import { findFloorBelow } from '../lib/collision';
+import { findFloorBelow, findStandingSpot } from '../lib/collision';
 import { useCameraDirector } from '../lib/useCameraDirector';
 import { useLccWalker } from '../lib/useLccWalker';
 import { spawnFor, setSessionSpawn, hydrateScenes, SCENE_BY_ID, firstScene, isPublicTour } from '../lib/scenes';
@@ -55,6 +55,9 @@ function Stage({ onState, viewerMode }: StageProps) {
   const [flying, setFlying] = useState(false);
   const [vpTick, bumpVp] = useReducer((n) => n + 1, 0);
   const seq = useRef<object | null>(null);
+  // Who to tell when the running sequence stops (the tour bar's play state).
+  const seqEnd = useRef<(() => void) | null>(null);
+  const endSeq = () => { const f = seqEnd.current; seqEnd.current = null; f?.(); };
 
   const { play, stop } = useCameraDirector({
     onArrive: () => walkerRef.current?.adoptCameraOrientation()
@@ -81,31 +84,39 @@ function Stage({ onState, viewerMode }: StageProps) {
    * the air. Called on entering Fly, on Reset, and when a new space opens
    * while flying.
    */
-  const frameAerial = useCallback((kind: 'fly' | 'orbit' = navMode.orbitEnabled ? 'orbit' : 'fly') => {
+  const openFloor = useRef(new Map<string, { x: number; y: number; z: number } | null>());
+  /** Orbit: frame the room — circle its middle at eye level. (Fly is free
+   *  flight and needs no framing; it takes off from where you are.) */
+  const frameAerial = useCallback(() => {
     const pts: THREE.Vector3[] = [];
     for (const vp of liveViewpoints(mgr.activeId)) for (const w of vp.path) pts.push(new THREE.Vector3(...w.pos));
-    if (!pts.length) pts.push(new THREE.Vector3(...spawnFor(mgr.activeId).spawn));
+    if (!pts.length) {
+      // No tracks: the start view may still be the placeholder, anywhere at
+      // all. Use the open floor nearest the middle of the scan instead — the
+      // walker's own "somewhere to stand" search — found once per space.
+      let spot = openFloor.current.get(mgr.activeId);
+      if (spot === undefined) {
+        const r = mgr.renderer;
+        spot = r ? findStandingSpot(r, r.getBounds?.(), { eyeHeight: walkerCfg.eyeHeight, radius: walkerCfg.radius }) : null;
+        openFloor.current.set(mgr.activeId, spot);
+      }
+      pts.push(spot ? new THREE.Vector3(spot.x, spot.y, spot.z) : new THREE.Vector3(...spawnFor(mgr.activeId).spawn));
+    }
     const c = pts.reduce((a, p) => a.add(p), new THREE.Vector3()).multiplyScalar(1 / pts.length);
     const spread = Math.max(0, ...pts.map((p) => p.distanceTo(c)));
     const u = walkerCfg.unitScale || 1;
-    if (kind === 'fly') {
-      // Authored points are at eye height; look at the lower half of the room.
-      c.y -= walkerCfg.eyeHeight * 0.6;
-      walkerCfg.orbitDist = Math.max(spread * 1.6, 6 * u);
-    } else {
-      // Orbit: circle the middle at eye height, a step back, level-ish.
-      walkerCfg.orbitDist = Math.max(spread * 1.1, 4 * u);
-    }
+    walkerCfg.orbitDist = Math.max(spread * 1.1, 4 * u);
     walkerCfg.orbitTarget = [c.x, c.y, c.z];
-    camera.quaternion.setFromEuler(new THREE.Euler(kind === 'fly' ? -0.62 : -0.15, walkerRef.current?.yaw?.() ?? 0, 0, 'YXZ'));
+    camera.quaternion.setFromEuler(new THREE.Euler(-0.15, walkerRef.current?.yaw?.() ?? 0, 0, 'YXZ'));
     camera.position.copy(c).addScaledVector(new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion), -walkerCfg.orbitDist);
     camera.updateMatrixWorld();
     walkerRef.current?.adoptCameraOrientation();
-  }, [camera, mgr.activeId]);
+  }, [camera, mgr.activeId, mgr.renderer]);
 
-  // Enter Fly or Orbit: remember where the visitor was, then frame the room.
-  // Switch between them: re-frame. Leave both: put them back exactly where they
-  // were (or at the start view, if they changed space meanwhile).
+  // Enter Fly or Orbit: remember where the visitor was. Orbit then frames the
+  // room; Fly takes off from right here, like an Unreal viewport. Leave both:
+  // put them back exactly where they were (or at the start view, if they
+  // changed space meanwhile).
   const nav = useNavMode();
   const aerialKind = viewerMode ? (nav.flyEnabled ? 'fly' : nav.orbitEnabled ? 'orbit' : null) : null;
   const preFly = useRef<{ p: THREE.Vector3; q: THREE.Quaternion } | null>(null);
@@ -118,7 +129,8 @@ function Stage({ onState, viewerMode }: StageProps) {
       stop();
       setFlying(false);
       if (!from) preFly.current = { p: camera.position.clone(), q: camera.quaternion.clone() };
-      frameAerial(aerialKind);
+      if (aerialKind === 'orbit') frameAerial();
+      else walkerRef.current?.adoptCameraOrientation();
     } else if (preFly.current) {
       camera.position.copy(preFly.current.p);
       camera.quaternion.copy(preFly.current.q);
@@ -144,10 +156,11 @@ function Stage({ onState, viewerMode }: StageProps) {
   }, [stop]);
 
   const playSequence = useCallback(
-    (list: Viewpoint[], { onIndex }: { onIndex?: (i: number) => void } = {}) => {
+    (list: Viewpoint[], { onIndex, onEnd }: { onIndex?: (i: number) => void; onEnd?: () => void } = {}) => {
       if (!list?.length) return;
       const token = {};
       seq.current = token;
+      seqEnd.current = onEnd ?? null;
       let i = 0;
       const step = () => {
         if (seq.current !== token) return;
@@ -156,7 +169,7 @@ function Stage({ onState, viewerMode }: StageProps) {
         play(list[i], {
           onDone: (arrived: boolean) => {
             if (seq.current !== token) return;
-            if (!arrived) { seq.current = null; setFlying(false); return; }
+            if (!arrived) { seq.current = null; setFlying(false); endSeq(); return; }
             i = (i + 1) % list.length;
             setTimeout(step, 700);
           }
@@ -180,7 +193,7 @@ function Stage({ onState, viewerMode }: StageProps) {
     if (mgr.ready) {
       const { spawn, yaw } = spawnFor(mgr.activeId);
       walkerRef.current?.reset(spawn, yaw);
-      if (stayAerial) frameAerial();
+      if (stayAerial && navMode.orbitEnabled) frameAerial();
     }
   }, [mgr.activeId, mgr.ready, stop]); // eslint-disable-line react-hooks/exhaustive-deps -- frameAerial follows activeId
 
@@ -221,7 +234,7 @@ function Stage({ onState, viewerMode }: StageProps) {
       removeViewpoint: (id) => removeSessionViewpoint(mgr.activeId, id),
       play: (vp) => playViewport(vp),
       playSequence,
-      stopSequence: () => { seq.current = null; stop(); setFlying(false); },
+      stopSequence: () => { seq.current = null; stop(); setFlying(false); endSeq(); },
       exportAll: () => exportViewpoints(),
       // --- hotspots ---
       addHotspot: (type) => addHotspot(mgr.activeId, camera, type),
@@ -261,18 +274,32 @@ function Stage({ onState, viewerMode }: StageProps) {
       loading: mgr.loading,
       progress: mgr.progress,
       ready: mgr.ready,
+      failed: mgr.failed,
       unitScale: mgr.unitScale,
       flying,
       viewpoints: liveViewpoints(mgr.activeId),
       select: mgr.select,
       playViewport,
       stopFly,
-      flyReset: () => frameAerial(),
+      flyReset: () => {
+        if (navMode.orbitEnabled) { frameAerial(); return; }
+        const home = preFly.current;
+        if (home) {
+          camera.position.copy(home.p);
+          camera.quaternion.copy(home.q);
+        } else {
+          const { spawn, yaw } = spawnFor(mgr.activeId);
+          camera.position.set(...spawn);
+          camera.quaternion.setFromEuler(new THREE.Euler(0, yaw, 0, 'YXZ'));
+        }
+        camera.updateMatrixWorld();
+        walkerRef.current?.adoptCameraOrientation();
+      },
       editor
     });
   }, [
     mgr.activeId, mgr.activeName, mgr.tagline, mgr.loading, mgr.progress,
-    mgr.ready, mgr.unitScale, mgr.select, flying, vpTick, playViewport, stopFly, frameAerial, editor, onState
+    mgr.ready, mgr.failed, mgr.unitScale, mgr.select, flying, vpTick, playViewport, stopFly, frameAerial, editor, onState
   ]);
 
   return (

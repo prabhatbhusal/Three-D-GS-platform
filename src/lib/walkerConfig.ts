@@ -26,10 +26,24 @@ export const walkerCfg: WalkerConfig = {
                      // near-surface "spike / line" splat artifact
   far: 300,
 
-  // orbit mode (studio only)
+  // orbit: the studio's Orbit tool and the tour's Orbit / Fly modes
   orbitTarget: [0, 1, 0],
-  orbitDist: 4
+  orbitDist: 4,
+  orbitActual: 4,
+  flyBoost: 1
 };
+
+/** Fly faster (factor > 1) or slower, within 1/8× … 8×. */
+export function scaleFlySpeed(factor: number) {
+  walkerCfg.flyBoost = Math.min(8, Math.max(0.125, walkerCfg.flyBoost * factor));
+}
+
+/** Zoom the orbit by `factor` (<1 = in). In from where the camera really is,
+ *  out from where it was asked to be; never closer than the body radius. */
+export function zoomOrbit(factor: number) {
+  const base = factor < 1 ? Math.min(walkerCfg.orbitDist, walkerCfg.orbitActual || walkerCfg.orbitDist) : walkerCfg.orbitDist;
+  walkerCfg.orbitDist = Math.max(walkerCfg.radius * 2, base * factor);
+}
 
 /** Reset the scale-derived defaults for a freshly measured scene. */
 export function scaleWalkerCfg(unitScale: number) {

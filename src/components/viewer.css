@@ -157,87 +157,224 @@
 }
 .vw-bottom > * { pointer-events: auto; }
 
+/* The filmstrip: numbered views; the one playing outlined in the accent. */
 .vw-tray {
-  display: flex; gap: 8px; padding: 8px; max-width: min(100%, 760px);
-  overflow-x: auto; scrollbar-width: none; border-radius: 16px;
-  background: rgba(20, 17, 14, 0.72); border: 1px solid var(--line);
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.35);
-  animation: vw-up 0.35s var(--ease) both;
+  display: flex; gap: 8px; padding: 8px; max-width: min(100%, 640px);
+  overflow-x: auto; scrollbar-width: none; border-radius: 18px;
+  background: linear-gradient(180deg, rgba(30, 24, 19, 0.86), rgba(13, 10, 8, 0.8));
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  animation: vw-up 0.3s var(--ease) both;
 }
 .vw-tray::-webkit-scrollbar { display: none; }
 .vw-card {
-  position: relative; flex: 0 0 auto; width: 152px; height: 86px; padding: 0;
-  border: 0; border-radius: 10px; overflow: hidden; cursor: pointer;
-  background: #2a241e; transition: transform 0.2s var(--ease), box-shadow 0.2s;
+  position: relative; flex: 0 0 auto; width: 136px; height: 80px; padding: 0;
+  border: 0; border-radius: 12px; overflow: hidden; cursor: pointer;
+  background: radial-gradient(120% 100% at 30% 15%, #4a3d31, #1a1511 75%);
+  transition: transform 0.2s var(--ease), box-shadow 0.2s;
 }
-.vw-card:hover { transform: translateY(-3px); }
-.vw-card.on { box-shadow: inset 0 0 0 2px var(--paper), 0 6px 18px rgba(0, 0, 0, 0.4); }
+.vw-card:hover { transform: translateY(-2px); }
+.vw-card.on { box-shadow: inset 0 0 0 2px var(--gold), 0 0 0 3px rgba(176, 141, 87, 0.22); }
 .vw-card-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.vw-card-ph {
-  display: block; width: 100%; height: 100%;
-  background: radial-gradient(120% 90% at 30% 20%, #5a4a3a, #1f1a15);
+.vw-card-ph { position: absolute; inset: 0 0 18px; display: grid; place-items: center; color: rgba(246, 241, 231, 0.26); }
+.vw-card-ph svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; }
+.vw-card-no {
+  position: absolute; top: 7px; left: 9px;
+  font: 600 10.5px/1 var(--mono, monospace); font-variant-numeric: tabular-nums; color: rgba(255, 255, 255, 0.7);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
 }
-.vw-card-ph::after {
-  content: attr(data-l); position: absolute; top: 10px; left: 12px;
-  font: 400 26px/1 var(--serif); color: rgba(246, 241, 231, 0.35);
-}
+.vw-card.on .vw-card-no { color: var(--gold); }
 .vw-card-nm {
-  position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 10px 8px;
-  text-align: left; font: 700 12px/1.2 var(--sans); color: #fff;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.78));
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 16px 10px 7px;
+  text-align: left; font: 600 12px/1.2 var(--sans); color: #fff;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-.vw-bar { width: 100%; display: flex; flex-direction: column; gap: 8px; }
-.vw-transport { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; }
-.vw-tb.on { color: #14110e; background: var(--paper); border-color: var(--paper); }
-.vw-count {
-  margin-right: 8px; font: 600 12px/1 var(--mono, monospace); font-variant-numeric: tabular-nums;
-  color: rgba(255, 255, 255, 0.72);
+/* The tour bar: ‹ play › (a ring that fills as the view flies), the view's
+ * name and count, the filmstrip toggle, and the progress as its bottom edge. */
+.vw-tourbar {
+  position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px;
+  width: min(520px, 100%); padding: 8px 10px 17px 8px; border-radius: 22px; color: #fff;
+  background: linear-gradient(180deg, rgba(30, 24, 19, 0.86), rgba(13, 10, 8, 0.8));
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
+.vw-tourbar-transport { display: flex; align-items: center; gap: 2px; }
+.vw-tourbar-step {
+  appearance: none; cursor: pointer; display: grid; place-items: center;
+  width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%;
+  color: rgba(255, 255, 255, 0.66); background: transparent; transition: color 0.15s, background 0.15s;
+}
+.vw-tourbar-step:hover { color: #fff; background: rgba(255, 255, 255, 0.09); }
+.vw-tourbar svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.vw-tourbar-play {
+  position: relative; display: grid; place-items: center; width: 48px; height: 48px;
+  padding: 0; border: 0; border-radius: 50%; cursor: pointer; color: #fff; background: transparent;
+}
+.vw-tourbar .vw-tourbar-ring { position: absolute; inset: 0; width: 48px; height: 48px; transform: rotate(-90deg); overflow: visible; }
+.vw-ring-track { fill: rgba(255, 255, 255, 0.08); stroke: rgba(255, 255, 255, 0.2); stroke-width: 1.5; transition: fill 0.15s; }
+.vw-tourbar-play:hover .vw-ring-track { fill: rgba(255, 255, 255, 0.15); }
+.vw-ring-fill {
+  fill: none; stroke: var(--gold); stroke-width: 2.5; stroke-linecap: round;
+  stroke-dasharray: 132; stroke-dashoffset: 132;
+  animation: vw-ring var(--dur, 4s) linear forwards;
+  filter: drop-shadow(0 0 4px rgba(176, 141, 87, 0.65));
+}
+@keyframes vw-ring { to { stroke-dashoffset: 0 } }
+.vw-tourbar-glyph { position: relative; display: grid; place-items: center; }
+.vw-tourbar .vw-tourbar-glyph svg { width: 18px; height: 18px; stroke-width: 2.4; }
+.vw-tourbar:not(.is-playing) .vw-tourbar-glyph svg { fill: currentColor; stroke-width: 1.2; transform: translateX(1px); }
+.vw-tourbar-now { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.vw-tourbar-title {
+  font: 400 19px/1.05 var(--serif, Georgia, serif); color: #fff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  animation: vw-dial-from-right 0.3s var(--ease) both;
+}
+.vw-tourbar-sub { font: 500 11.5px/1.2 var(--sans); color: rgba(246, 241, 231, 0.62); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vw-count { font: 600 11.5px/1 var(--mono, monospace); font-variant-numeric: tabular-nums; color: var(--gold); }
+.vw-tourbar-views {
+  display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 13px; cursor: pointer;
+  border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.16); background: rgba(255, 255, 255, 0.05);
+  font: 600 12.5px/1 var(--sans); color: rgba(255, 255, 255, 0.86); transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.vw-tourbar-views:hover { background: rgba(255, 255, 255, 0.1); }
+.vw-tourbar-views.on { color: #14110e; background: var(--paper); border-color: var(--paper); }
+.vw-tourbar .vw-tourbar-views svg { width: 16px; height: 16px; }
 
 /* Fly mode's bar: zoom, reset, exit — where the views bar usually sits. */
 .vw-flybar { display: flex; align-items: center; gap: 6px; }
+.vw-speed {
+  min-width: 46px; text-align: center; font: 600 12.5px/1 var(--mono, monospace);
+  font-variant-numeric: tabular-nums; color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
+}
 /* .vw-tb (later in this file) fixes a 34px square; these two carry a label. */
 .vw-tb.vw-tb-wide { width: auto; display: inline-flex; gap: 7px; padding: 0 13px; white-space: nowrap; font: 600 12.5px/1 var(--sans); }
 .vw-tb-wide svg { width: 16px; height: 16px; }
 
-/* Layers: the project's spaces down the left edge, like a floor picker. */
+/* Layers: the project's spaces as a floor-picker spine down the left edge —
+ * a node per space, an accent marker gliding to the one you're in, its name
+ * in the display serif. The space loading shows a turning ring. */
 .vw-layers {
-  position: fixed; left: 16px; top: 50%; transform: translateY(-50%); z-index: 10;
-  display: flex; flex-direction: column; gap: 4px; padding: 5px; max-height: 56vh; overflow-y: auto;
-  border-radius: 16px; background: rgba(16, 13, 11, 0.62); border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.3); scrollbar-width: none;
+  /* above the loading screen: you watch the marker reach the space that's loading */
+  position: fixed; left: 16px; top: 50%; transform: translateY(-50%); z-index: 13;
+  display: flex; flex-direction: column; gap: 8px; width: 214px; max-height: 62vh;
+  padding: 13px 12px 10px 10px; border-radius: 20px; color: #fff;
+  background: linear-gradient(180deg, rgba(30, 24, 19, 0.86), rgba(13, 10, 8, 0.8));
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   animation: vw-fade 0.4s var(--ease) both;
 }
-.vw-layers button {
-  appearance: none; cursor: pointer; max-width: 170px; padding: 10px 14px; border: 0; border-radius: 11px;
-  text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  font: 600 12.5px/1.1 var(--sans); color: rgba(255, 255, 255, 0.78); background: transparent;
-  transition: background 0.15s, color 0.15s;
+.vw-layers-head { padding-left: 29px; font: 600 11px/1 var(--sans); color: rgba(246, 241, 231, 0.55); }
+.vw-layers-list { position: relative; display: flex; flex-direction: column; overflow-y: auto; scrollbar-width: none; }
+.vw-layers-list::-webkit-scrollbar { display: none; }
+.vw-layers-spine {
+  position: absolute; left: 9px; top: 18px; bottom: 18px; width: 1px; pointer-events: none;
+  background: linear-gradient(rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.3) 20%, rgba(255, 255, 255, 0.3) 80%, rgba(255, 255, 255, 0.06));
 }
-.vw-layers button:hover:not(:disabled) { color: #fff; background: rgba(255, 255, 255, 0.08); }
-.vw-layers button.on { color: #14110e; background: var(--gold); }
-.vw-layers button:disabled:not(.on) { opacity: 0.5; cursor: default; }
+.vw-layers-marker {
+  position: absolute; left: 3px; top: 0; z-index: 1; width: 13px; height: 13px; border-radius: 50%; pointer-events: none;
+  background: var(--gold); box-shadow: 0 0 0 4px rgba(176, 141, 87, 0.2), 0 0 14px rgba(176, 141, 87, 0.75);
+  transform: translateY(calc(var(--at, 0) * 36px + 11.5px));
+  transition: transform 0.42s var(--ease);
+}
+.vw-layer {
+  position: relative; display: flex; align-items: center; gap: 9px; height: 36px; flex: 0 0 auto;
+  padding: 0 8px 0 0; border: 0; border-radius: 10px; cursor: pointer; text-align: left;
+  color: rgba(255, 255, 255, 0.6); background: transparent; transition: color 0.15s;
+}
+.vw-layer-node { position: relative; flex: 0 0 auto; display: grid; place-items: center; width: 19px; height: 19px; }
+.vw-layer-node::after {
+  content: ''; width: 7px; height: 7px; border-radius: 50%;
+  background: #15110e; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.42); transition: box-shadow 0.15s;
+}
+.vw-layer-no { flex: 0 0 auto; width: 17px; font: 600 10.5px/1 var(--mono, monospace); font-variant-numeric: tabular-nums; color: rgba(255, 255, 255, 0.36); }
+.vw-layer-name { min-width: 0; font: 500 13px/1.2 var(--sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vw-layer:hover:not(:disabled) { color: #fff; }
+.vw-layer:hover:not(:disabled) .vw-layer-node::after { box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.85); }
+.vw-layer.on { color: #fff; cursor: default; }
+.vw-layer.on .vw-layer-name { font: 400 16px/1.1 var(--serif, Georgia, serif); }
+.vw-layer.on .vw-layer-no { color: var(--gold); }
+.vw-layer:disabled { cursor: default; opacity: 0.45; }
+.vw-layer.is-loading .vw-layer-node::before {
+  content: ''; position: absolute; inset: -3px; border-radius: 50%;
+  border: 1.5px solid transparent; border-top-color: #fff; animation: vw-spin 0.8s linear infinite;
+}
+@keyframes vw-spin { to { transform: rotate(360deg) } }
 .vw-phone-only { display: none; }
 
-/* Viewpoints | Walk | Fly — the visitor modes (§6.1), centred like a camera app. */
-.vw-modes {
-  display: flex; gap: 2px; padding: 4px; border-radius: 999px;
-  background: rgba(16, 13, 11, 0.62); border: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.3);
+/* ---- the mode dial, top centre ------------------------------------ */
+/* Like the mode ring on a camera: one mode at a time — an accent-ringed
+ * medallion, the name in the display serif, a line on what it's for — with
+ * arrows (or a swipe) to turn it, and a track whose thumb glides to the
+ * mode you're in. Warm and solid, no blur (§10.2). */
+.vw-dial {
+  position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 14;
+  display: grid; grid-template-columns: 34px minmax(0, 1fr) 34px; align-items: center; gap: 4px;
+  width: 320px; padding: 7px 7px 14px;
+  border-radius: 22px; color: #fff;
+  background: linear-gradient(180deg, rgba(30, 24, 19, 0.86), rgba(13, 10, 8, 0.8));
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  touch-action: pan-y; user-select: none; -webkit-user-select: none;
+  animation: vw-fade 0.4s var(--ease) both;
 }
-.vw-modes button {
-  appearance: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
-  height: 36px; padding: 0 16px; border: 0; border-radius: 999px;
-  font: 600 13px/1 var(--sans); color: rgba(255, 255, 255, 0.78); background: transparent;
-  transition: background 0.15s, color 0.15s;
+.vw-dial-arrow {
+  appearance: none; cursor: pointer; display: grid; place-items: center;
+  width: 34px; height: 34px; padding: 0; border: 0; border-radius: 50%;
+  color: rgba(255, 255, 255, 0.66); background: transparent;
+  transition: color 0.15s, background 0.15s;
 }
-.vw-modes button:hover { color: #fff; }
-.vw-modes button.on { color: #14110e; background: var(--paper); }
-.vw-modes svg {
-  width: 16px; height: 16px; fill: none; stroke: currentColor;
+.vw-dial-arrow:hover { color: #fff; background: rgba(255, 255, 255, 0.09); }
+.vw-dial-arrow:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+.vw-dial svg {
+  width: 17px; height: 17px; fill: none; stroke: currentColor;
   stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+.vw-dial-face {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  min-width: 0; overflow: hidden; padding: 1px 0;
+}
+.vw-dial-medal {
+  flex: 0 0 auto; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.03) 70%);
+  box-shadow: inset 0 0 0 1.5px var(--gold), 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+.vw-dial-medal svg { width: 19px; height: 19px; }
+.vw-dial-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.vw-dial-name { font: 400 21px/1 var(--serif, Georgia, serif); letter-spacing: 0.01em; color: #fff; }
+.vw-dial-promise {
+  font: 500 11.5px/1.2 var(--sans); color: rgba(246, 241, 231, 0.62);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* turning the dial: the name slides in from the side you went, the icon
+ * turns in on its ring */
+.vw-dial-text.is-next { animation: vw-dial-from-right 0.34s var(--ease) both; }
+.vw-dial-text.is-prev { animation: vw-dial-from-left 0.34s var(--ease) both; }
+.vw-dial-medal.is-next { animation: vw-dial-turn-cw 0.42s var(--ease) both; }
+.vw-dial-medal.is-prev { animation: vw-dial-turn-ccw 0.42s var(--ease) both; }
+@keyframes vw-dial-from-right { from { opacity: 0; transform: translateX(16px) } to { opacity: 1; transform: none } }
+@keyframes vw-dial-from-left { from { opacity: 0; transform: translateX(-16px) } to { opacity: 1; transform: none } }
+@keyframes vw-dial-turn-cw { from { opacity: 0; transform: rotate(-110deg) scale(0.7) } to { opacity: 1; transform: none } }
+@keyframes vw-dial-turn-ccw { from { opacity: 0; transform: rotate(110deg) scale(0.7) } to { opacity: 1; transform: none } }
+
+/* where you are: four ticks, and an accent thumb that glides between them */
+.vw-dial-track {
+  position: absolute; left: 50%; bottom: 5px; transform: translateX(-50%);
+  display: flex; gap: 4px; pointer-events: none;
+}
+.vw-dial-track i { width: 14px; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.2); }
+.vw-dial-thumb {
+  position: absolute; left: 0; top: 0; width: 14px; height: 3px; border-radius: 2px;
+  background: var(--gold); box-shadow: 0 0 8px rgba(176, 141, 87, 0.7);
+  transform: translateX(calc(var(--i) * 18px));
+  transition: transform 0.38s var(--ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vw-dial-text, .vw-dial-medal, .vw-tourbar-title { animation: none !important; }
+  .vw-dial-thumb, .vw-layers-marker { transition: none; }
 }
 .vw-tb {
   appearance: none; cursor: pointer; display: grid; place-items: center;
@@ -246,28 +383,17 @@
   transition: background 0.15s;
 }
 .vw-tb:hover { background: rgba(20, 17, 14, 0.92); }
-.vw-tb-main { width: 40px; color: #14110e; background: var(--paper); border-color: transparent; }
-.vw-tb-main:hover { background: #fff; }
-.vw-tb-main svg { fill: currentColor; stroke-width: 1.2; }
-.vw-now {
-  margin-left: 6px; font: 600 13px/1 var(--sans); color: #fff;
-  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.6);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 26vw;
-}
-
-.vw-segs { display: flex; gap: 6px; width: min(640px, 100%); }
-.vw-seg {
-  position: relative; flex: 1; appearance: none; cursor: pointer;
-  padding: 7px 0; border: 0; background: none;
-}
+/* progress: the tour bar's glowing bottom edge, one segment per view */
+.vw-segs { position: absolute; left: 18px; right: 18px; bottom: 5px; display: flex; gap: 4px; }
+.vw-seg { position: relative; flex: 1; appearance: none; cursor: pointer; padding: 4px 0; border: 0; background: none; }
 .vw-seg::before {
-  content: ''; display: block; height: 4px; border-radius: 4px;
-  background: rgba(246, 241, 231, 0.34); transition: background 0.15s, transform 0.15s;
+  content: ''; display: block; height: 3px; border-radius: 2px;
+  background: rgba(255, 255, 255, 0.18); transition: background 0.15s;
 }
-.vw-seg:hover::before { background: rgba(246, 241, 231, 0.6); transform: scaleY(1.5); }
+.vw-seg:hover::before { background: rgba(255, 255, 255, 0.42); }
 .vw-seg-fill {
-  position: absolute; left: 0; top: 7px; height: 4px; width: 0;
-  border-radius: 4px; background: #fff; pointer-events: none;
+  position: absolute; left: 0; top: 4px; height: 3px; width: 0; border-radius: 2px; pointer-events: none;
+  background: var(--gold); box-shadow: 0 0 6px rgba(176, 141, 87, 0.6);
 }
 .vw-seg-fill.done { width: 100%; }
 .vw-seg-fill.live { animation: vw-fill var(--dur, 4s) linear forwards; }
@@ -315,9 +441,19 @@
   content: ''; position: absolute; top: 50%; left: 50%; width: 3px; height: 3px;
   margin: -1.5px 0 0 -1.5px; border-radius: 50%; background: rgba(246, 241, 231, 0.9);
 }
-/* Top centre: the bottom is the views tray, the transport and the mode pill. */
+/* A space whose model didn't load: say so in the middle, keep the rest up. */
+.vw-failed {
+  position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 9;
+  width: min(420px, calc(100vw - 32px)); padding: 22px 24px; border-radius: 18px; text-align: center;
+  color: var(--paper); background: rgba(16, 13, 11, 0.86); border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+}
+.vw-failed h2 { margin: 0 0 8px; font: 400 24px/1.2 var(--serif, Georgia, serif); color: #fff; }
+.vw-failed p { margin: 0; font: 400 13.5px/1.55 var(--sans); color: rgba(246, 241, 231, 0.72); }
+
+/* Under the mode dial, top centre. */
 .vw-hint {
-  position: fixed; left: 50%; top: 26px; transform: translateX(-50%);
+  position: fixed; left: 50%; top: 84px; transform: translateX(-50%);
   z-index: 5; display: flex; align-items: center; gap: 8px;
   padding: 8px 16px; border-radius: 999px; pointer-events: none;
   background: rgba(8, 6, 5, 0.74); border: 1px solid var(--line);
@@ -557,12 +693,16 @@ button.vw-book { border: 0; cursor: pointer; }
   .vw-phone-only { display: contents; }
   .vw-tb-wide span { display: none; }
   .vw-tb.vw-tb-wide { width: 34px; padding: 0; justify-content: center; }
-  .vw-place { top: 68px; left: 14px; max-width: calc(100vw - 28px); }
+  .vw-place { top: 136px; left: 14px; max-width: calc(100vw - 28px); }
+  .vw-dial { top: 58px; width: min(310px, calc(100vw - 24px)); }
   .vw-place-name { font-size: 22px; }
-  .vw-tr { right: 10px; left: 10px; justify-content: flex-end; flex-wrap: wrap; }
-  .vw-modes button { padding: 0 12px; }
-  .vw-now { display: none; }
-  .vw-card { width: 116px; height: 72px; }
+  /* full width so the row can wrap; only the buttons take presses, not the empty strip */
+  .vw-tr { right: 10px; left: 10px; justify-content: flex-end; flex-wrap: wrap; pointer-events: none; }
+  .vw-tr > * { pointer-events: auto; }
+  .vw-card { width: 112px; height: 68px; }
+  .vw-tourbar-views span { display: none; }
+  .vw-tourbar-views { padding: 0 10px; }
+  .vw-tourbar { gap: 10px; }
   /* Bottom bar CTA reserves its own strip; the views bar sits above it and
    * the joystick zone above that, so none of the three cover each other
    * (§6.4, §10.2). */
@@ -581,7 +721,6 @@ button.vw-book { border: 0; cursor: pointer; }
 }
 @media (max-width: 520px) {
   .vw-exit span { display: none; }
-  .vw-modes span { display: none; }
   /* One row on a phone: smaller buttons, Exit as an icon. */
   .vw-tr { gap: 5px; }
   .vw-ib, .vw-hd, .vw-exit, .vw-book { height: 34px; }
@@ -592,7 +731,13 @@ button.vw-book { border: 0; cursor: pointer; }
   .vw-book { padding: 0 12px; font-size: 12px; margin-left: 0; }
   .vw-pop { left: 10px; right: 10px; width: auto; }
 }
-/* desktop: the enquiry pill sits on the same line as the mode switch */
+/* Narrow desktops: the top-right buttons reach the middle, so the slider
+ * drops just under them (and the hint under it). */
+@media (min-width: 761px) and (max-width: 1180px) {
+  .vw-dial { top: 64px; }
+  .vw-hint { top: 138px; }
+}
+/* desktop: the enquiry pill sits bottom-right */
 @media (min-width: 761px) and (pointer: fine) {
   /* and above the cards' backdrop, so it switches straight from Book now to
    * the enquiry card; on phones the bottom sheet must cover the bar instead */

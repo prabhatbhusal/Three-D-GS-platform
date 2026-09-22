@@ -12,6 +12,13 @@ export interface WalkerConfig {
   far: number;
   orbitTarget: [number, number, number];
   orbitDist: number;
+  /** Where the orbit camera actually is after the wall/ceiling check — can be
+   *  less than orbitDist. Zooming in starts from here, or it would do nothing
+   *  until orbitDist caught up with the wall. */
+  orbitActual: number;
+  /** Visitor Fly speed multiplier — the scroll wheel and the − + buttons set
+   *  it, like an Unreal viewport's camera speed. */
+  flyBoost: number;
 }
 
 /** Visitor-facing presentation settings — see lib/uiConfig.js. */

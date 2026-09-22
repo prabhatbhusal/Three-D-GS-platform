@@ -82,6 +82,10 @@ export function useSceneManager({ dev = false, appKey = null }: { dev?: boolean;
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [ready, setReady] = useState(false);
+  // The last load failed (missing files, a network error). The viewer keeps
+  // its chrome up so the visitor can pick another space instead of staring
+  // at a black screen with no way out.
+  const [failed, setFailed] = useState(false);
   // Surfaced as state (not read off the ref during render) so consumers
   // re-render when they land.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- vendor SDK renderer handle
@@ -110,6 +114,7 @@ export function useSceneManager({ dev = false, appKey = null }: { dev?: boolean;
       setActiveId(sceneId);
       setRenderer(null);
       setReady(false);
+      setFailed(false);
       setLoading(true);
       setProgress(0);
 
@@ -203,6 +208,7 @@ export function useSceneManager({ dev = false, appKey = null }: { dev?: boolean;
         () => {
           if (current.current !== entry) return;
           entry.state = 'error';
+          setFailed(true);
           setLoading(false);
           console.error(`[scene] "${sceneId}" failed to load — ${metaPath(sceneId)}`);
         }
@@ -246,6 +252,7 @@ export function useSceneManager({ dev = false, appKey = null }: { dev?: boolean;
     loading,
     progress,
     ready,
+    failed,
     select,
     /** Pass to the walker so it only collides with the live scene. */
     renderer,

@@ -114,7 +114,10 @@ export function useCameraDirector({ onArrive }: { onArrive?: () => void } = {}) 
 
   // Abort on any manual input while a flight is running.
   useEffect(() => {
-    const abort = () => stop();
+    // Only a press on the 3D view itself: a tap on a button (Pause, sound, the
+    // enquiry CTA) is not camera input, and aborting on it made Pause's own
+    // pointerdown end the tour so its click restarted it.
+    const abort = (e: Event) => { if (e.target instanceof HTMLCanvasElement) stop(); };
     // §6.2's "any visitor input interrupts the track" means camera input.
     // Typing a name into a studio field is not that, and killing the flight
     // mid-word would make the timeline unusable while authoring.

@@ -150,10 +150,14 @@ export function clearOrbitDistance(
 ): number {
   if (!r?.intersectsCapsule) return dist;
   const step = Math.max(radius, dist / 24);
+  // If the middle itself sits in something (a table, a pillar), walk out of
+  // it first: only the first thing hit AFTER open air counts, or the camera
+  // would be pinned inside that object with nowhere to zoom.
+  let clear = !touches(r, target.x, target.y, target.z, radius);
   for (let s = step; s <= dist; s += step) {
-    if (touches(r, target.x - dir.x * s, target.y - dir.y * s, target.z - dir.z * s, radius)) {
-      return Math.max(minDist, s - step);
-    }
+    const hit = touches(r, target.x - dir.x * s, target.y - dir.y * s, target.z - dir.z * s, radius);
+    if (!clear) { clear = !hit; continue; }
+    if (hit) return Math.max(minDist, s - step);
   }
   return dist;
 }

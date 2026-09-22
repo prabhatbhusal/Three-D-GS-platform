@@ -18,7 +18,9 @@ export interface EditorApi {
   setViewSeconds: (id: string, seconds: number) => void;
   removeViewpoint: (id: string) => void;
   play: (vp: Viewpoint) => void;
-  playSequence: (list: Viewpoint[], opts?: { onIndex?: (i: number) => void }) => void;
+  /** `onEnd` fires once when the sequence stops for any reason other than
+   *  a new sequence replacing it — an interruption, or stopSequence(). */
+  playSequence: (list: Viewpoint[], opts?: { onIndex?: (i: number) => void; onEnd?: () => void }) => void;
   stopSequence: () => void;
   exportAll: () => string;
   addHotspot: (type: HotspotType) => Hotspot | undefined;
@@ -41,6 +43,8 @@ export interface ViewerState {
   loading: boolean;
   progress: number;
   ready: boolean;
+  /** The current space's model didn't load (missing files, network error). */
+  failed: boolean;
   unitScale: number;
   flying: boolean;
   viewpoints: Viewpoint[];

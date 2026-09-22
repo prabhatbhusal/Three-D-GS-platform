@@ -31,8 +31,10 @@ body {
 .app-root canvas { display: block; touch-action: none; }
 
 /* Editor "Preview" — exit pill */
+/* Bottom-left: the only corner the tour leaves free — top-right is its
+ * buttons, top centre the mode slider, bottom-right the enquiry pill. */
 .pv-exit {
-  position: fixed; top: 16px; right: 16px; z-index: 40;
+  position: fixed; bottom: 16px; left: 16px; z-index: 40;
   appearance: none; cursor: pointer; padding: 9px 16px; border-radius: 999px;
   font: 600 12px/1 var(--sans); letter-spacing: 0.02em;
   color: var(--paper); background: rgba(18, 15, 12, 0.8);
@@ -40,8 +42,9 @@ body {
   transition: background 0.15s;
 }
 .pv-exit:hover { background: rgba(18, 15, 12, 0.95); }
-/* Make room for it: the tour's own top-right cluster (Book now last) would sit under it. */
-.app-root[data-preview] .vw-tr { right: 156px; }
+/* phones: the enquiry CTA is a full-width bottom bar there */
+@media (max-width: 760px), (pointer: coarse) { .pv-exit { bottom: auto; top: 16px; } }
+
 
 /* /tour when there's nothing a visitor may open (published-only, §7.5) */
 .tour-msg {

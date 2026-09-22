@@ -4,7 +4,7 @@ import { useEffect, useReducer, useRef, useState } from 'react';
 import { visibleScenes, SCENE_BY_ID } from '../lib/scenes';
 import { useUiConfig, setUiConfig } from '../lib/uiConfig';
 import { useNavMode, setVisitorMode, visitorMode } from '../lib/navMode';
-import { walkerCfg } from '../lib/walkerConfig';
+import { zoomOrbit, scaleFlySpeed, walkerCfg } from '../lib/walkerConfig';
 import { bookingFor, sceneHasAudio, subscribeDoc } from '../lib/sceneDoc';
 import { safeUrl } from '../lib/api';
 import { setMuted, unlockAudio, useSound } from '../lib/audio';
@@ -39,12 +39,16 @@ export function Viewer({ state, isTouch, autoStart = false, tour = false }: View
   useEffect(() => subscribeDoc(bump), []); // booking + hotspot audio arrive with the scene doc
   const nav = useNavMode();
   const walking = nav.walkEnabled;
-  const flyingAerial = nav.flyEnabled || nav.orbitEnabled;
   const entered = autoStart || enteredByUser;
 
   const ready = !!state?.ready;
-  const live = entered && ready;
-  const controllable = live && !state?.flying;
+  const failed = !!state?.failed;
+  // Once the tour has shown, keep its chrome up through later loads (switching
+  // space), and up for a failed space, so the visitor can always pick another.
+  const [seenReady, setSeenReady] = useState(false);
+  useEffect(() => { if (ready) setSeenReady(true); }, [ready]);
+  const live = entered && (ready || failed || seenReady);
+  const controllable = entered && ready && !state?.flying;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -71,13 +75,13 @@ export function Viewer({ state, isTouch, autoStart = false, tour = false }: View
           brand={ui.brand}
           place={state?.activeName}
           tagline={state?.activeId ? SCENE_BY_ID[state.activeId]?.tagline : undefined}
-          ready={ready}
+          ready={ready || failed}
           progress={state?.progress ?? 0}
           onEnter={enter}
         />
       )}
 
-      {live && (
+      {live && state && (
         <>
           <TopChrome state={state} showBrand={ui.showBrand} brand={ui.brand}
             hd={ui.hd !== false} canExit={!tour && !isEmbed()}
@@ -86,10 +90,20 @@ export function Viewer({ state, isTouch, autoStart = false, tour = false }: View
           {sheet === 'book' && bookingFor(state.activeId)?.enabled && (
             <BookingCard booking={bookingFor(state.activeId)!} place={state.activeName} onClose={() => setSheet(null)} />
           )}
+          {failed && (
+            <div className="vw-failed" role="alert">
+              <h2>{state.activeName || 'This space'} didn&apos;t load</h2>
+              <p>
+                Its model couldn&apos;t be fetched.
+                {visibleScenes().length > 1 ? ' Pick another space, or come back later.' : ' Try again later.'}
+              </p>
+            </div>
+          )}
+          {ready && <ModeSlider mode={visitorMode(nav)} />}
           <LayersRail state={state} />
-          <BottomChrome state={state} showLabels={ui.showLabels} mode={visitorMode(nav)}
+          {ready && <BottomChrome state={state} showLabels={ui.showLabels} mode={visitorMode(nav)}
             trayOpen={panel === 'views' && !(isTouch && walking)}
-            onToggleTray={() => setPanel(panel === 'views' ? null : 'views')} />
+            onToggleTray={() => setPanel(panel === 'views' ? null : 'views')} />}
           {panel === 'spaces' && <SpacesPanel state={state} onClose={() => setPanel(null)} />}
           {panel === 'help' && <HelpPanel walking={walking} isTouch={isTouch} onClose={() => setPanel(null)} />}
           {controllable && (
@@ -104,8 +118,8 @@ export function Viewer({ state, isTouch, autoStart = false, tour = false }: View
             />
           )}
           {!isTouch && controllable && <div className="vw-cross" />}
-          {!isTouch && controllable && <FirstRunHint key={visitorMode(nav)} walking={walking} aerial={flyingAerial} />}
-          {isTouch && walking && <TouchControls visible={controllable} />}
+          {!isTouch && controllable && <FirstRunHint key={visitorMode(nav)} walking={walking} aerial={nav.orbitEnabled} fly={nav.flyEnabled} />}
+          {isTouch && (walking || nav.flyEnabled) && <TouchControls visible={controllable} />}
         </>
       )}
 
@@ -178,6 +192,8 @@ const Icon = {
   orbit: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.5" /><path d="M20 12a8 8 0 1 1-2.34-5.66" /><path d="M20 4v4h-4" /></svg>,
   plus: <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>,
   close: <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" /></svg>,
+  chevL: <svg viewBox="0 0 24 24"><path d="m15 5-7 7 7 7" /></svg>,
+  chevR: <svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7" /></svg>,
   minus: <svg viewBox="0 0 24 24"><path d="M5 12h14" /></svg>,
   recenter: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" /></svg>,
   full: <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></svg>,
@@ -263,20 +279,66 @@ function setHd(on: boolean) {
 }
 
 /** Viewpoints (default), Walk, Orbit (circle the room at eye level) or Fly
- *  (circle it from up high) — §6.1. Floor plan is deliberately not here. */
+ *  (free flight) — §6.1. Floor plan is deliberately not here. Each carries a
+ *  one-line promise of what it's for, in the visitor's terms. */
 const MODES = [
-  ['viewpoints', 'Viewpoints', Icon.pin], ['walk', 'Walk', Icon.walk],
-  ['orbit', 'Orbit', Icon.orbit], ['fly', 'Fly', Icon.fly]
+  ['viewpoints', 'Viewpoints', Icon.pin, 'Glide between the best spots'],
+  ['walk', 'Walk', Icon.walk, 'Move freely, as if you’re there'],
+  ['orbit', 'Orbit', Icon.orbit, 'Circle the room at eye level'],
+  ['fly', 'Fly', Icon.fly, 'Soar anywhere with W A S D']
 ] as const;
 
-function ModePill({ mode }: { mode: string }) {
+/**
+ * The mode dial, top centre — like the mode ring on a camera. Only the
+ * current mode shows: its icon in an accent-ringed medallion, its name in the
+ * tour's display serif, and what it's for underneath. The arrows (or a swipe
+ * on a phone) step to the mode before or after, wrapping round, and the name
+ * slides in from the side you went. A segmented track says how many modes
+ * there are and where you are. All motion answers a tap (§10.2).
+ */
+function ModeSlider({ mode }: { mode: string }) {
+  const n = MODES.length;
+  const i = Math.max(0, MODES.findIndex(([m]) => m === mode));
+  const at = (k: number) => MODES[(k + n) % n];
+  const [, label, icon, promise] = MODES[i];
+  // Which way the last change went, so the new name enters from that side.
+  const [dir, setDir] = useState<'next' | 'prev'>('next');
+  const go = (step: 1 | -1) => { setDir(step > 0 ? 'next' : 'prev'); setVisitorMode(at(i + step)[0]); };
+  // Swipe on touch screens: a clear horizontal flick changes mode.
+  const swipe = useRef<{ x: number; y: number } | null>(null);
+
   return (
-    <div className="vw-modes" role="group" aria-label="How to move">
-      {MODES.map(([m, label, icon]) => (
-        <button key={m} className={mode === m ? 'on' : ''} aria-pressed={mode === m} aria-label={label} onClick={() => setVisitorMode(m)}>
-          {icon}<span>{label}</span>
-        </button>
-      ))}
+    <div
+      className="vw-dial" role="group" aria-label="How to move"
+      onPointerDown={(e) => { if (e.pointerType !== 'mouse') swipe.current = { x: e.clientX, y: e.clientY }; }}
+      onPointerUp={(e) => {
+        const s = swipe.current;
+        swipe.current = null;
+        if (!s) return;
+        const dx = e.clientX - s.x;
+        if (Math.abs(dx) > 36 && Math.abs(dx) > Math.abs(e.clientY - s.y) * 1.5) go(dx < 0 ? 1 : -1);
+      }}
+    >
+      <button className="vw-dial-arrow" onClick={(e) => { e.currentTarget.blur(); go(-1); }} aria-label={`Switch to ${at(i - 1)[1]}`} title={at(i - 1)[1]}>
+        {Icon.chevL}
+      </button>
+
+      <span className="vw-dial-face" aria-live="polite">
+        <span className={`vw-dial-medal is-${dir}`} key={`m-${mode}`} aria-hidden>{icon}</span>
+        <span className={`vw-dial-text is-${dir}`} key={`t-${mode}`}>
+          <span className="vw-dial-name">{label}</span>
+          <span className="vw-dial-promise">{promise}</span>
+        </span>
+      </span>
+
+      <button className="vw-dial-arrow" onClick={(e) => { e.currentTarget.blur(); go(1); }} aria-label={`Switch to ${at(i + 1)[1]}`} title={at(i + 1)[1]}>
+        {Icon.chevR}
+      </button>
+
+      <span className="vw-dial-track" aria-hidden style={{ '--i': i, '--n': n } as React.CSSProperties}>
+        {MODES.map(([m]) => <i key={m} />)}
+        <b className="vw-dial-thumb" />
+      </span>
     </div>
   );
 }
@@ -284,12 +346,29 @@ function ModePill({ mode }: { mode: string }) {
 /** Orbit and Fly's own controls, in place of the views bar: the views are
  *  fixed stops, which mean nothing while circling the room. */
 function FlyBar({ state, mode }: { state: ViewerState; mode: 'orbit' | 'fly' }) {
-  const zoom = (f: number) => { walkerCfg.orbitDist = Math.max(walkerCfg.radius * 2, walkerCfg.orbitDist * f); };
+  const [, bump] = useReducer((n) => n + 1, 0);
+  // The wheel changes the speed too, inside the walker; keep the readout honest.
+  useEffect(() => {
+    if (mode !== 'fly') return;
+    const id = setInterval(bump, 250);
+    return () => clearInterval(id);
+  }, [mode]);
   const exit = mode === 'fly' ? 'Exit fly mode' : 'Exit orbit';
+  const boost = walkerCfg.flyBoost;
   return (
     <div className="vw-flybar" role="group" aria-label={mode === 'fly' ? 'Fly controls' : 'Orbit controls'}>
-      <button className="vw-tb" onClick={() => zoom(1.25)} aria-label="Zoom out" title="Zoom out">{Icon.minus}</button>
-      <button className="vw-tb" onClick={() => zoom(0.8)} aria-label="Zoom in" title="Zoom in">{Icon.plus}</button>
+      {mode === 'fly' ? (
+        <>
+          <button className="vw-tb" onClick={() => { scaleFlySpeed(1 / 1.5); bump(); }} aria-label="Fly slower" title="Slower">{Icon.minus}</button>
+          <span className="vw-speed" aria-live="polite">{boost >= 1 ? boost.toFixed(boost < 10 ? 1 : 0) : boost.toFixed(2)}×</span>
+          <button className="vw-tb" onClick={() => { scaleFlySpeed(1.5); bump(); }} aria-label="Fly faster" title="Faster">{Icon.plus}</button>
+        </>
+      ) : (
+        <>
+          <button className="vw-tb" onClick={() => zoomOrbit(1.25)} aria-label="Zoom out" title="Zoom out">{Icon.minus}</button>
+          <button className="vw-tb" onClick={() => zoomOrbit(0.8)} aria-label="Zoom in" title="Zoom in">{Icon.plus}</button>
+        </>
+      )}
       <button className="vw-tb vw-tb-wide" onClick={() => state.flyReset()} aria-label="Reset view">{Icon.recenter}<span>Reset view</span></button>
       <button className="vw-tb vw-tb-wide" onClick={() => setVisitorMode('viewpoints')} aria-label={exit}>{Icon.close}<span>{exit}</span></button>
     </div>
@@ -304,16 +383,29 @@ function FlyBar({ state, mode }: { state: ViewerState; mode: 'orbit' | 'fly' }) 
 function LayersRail({ state }: { state: ViewerState }) {
   const spaces = visibleScenes();
   if (spaces.length < 2) return null;
+  const at = Math.max(0, spaces.findIndex((s) => s.id === state.activeId));
   return (
-    <nav className="vw-layers" aria-label="Spaces">
-      {spaces.map((s) => (
-        <button
-          key={s.id} className={s.id === state.activeId ? 'on' : ''} aria-current={s.id === state.activeId ? 'true' : undefined}
-          disabled={state.loading} onClick={() => s.id !== state.activeId && state.select(s.id)} title={s.name}
-        >
-          {s.name}
-        </button>
-      ))}
+    <nav className="vw-layers" aria-label="Spaces" style={{ '--at': at } as React.CSSProperties}>
+      <span className="vw-layers-head">Spaces</span>
+      <span className="vw-layers-list">
+        {/* the spine, and the accent marker that glides to where you are */}
+        <span className="vw-layers-spine" aria-hidden />
+        <span className="vw-layers-marker" aria-hidden />
+        {spaces.map((s, i) => {
+          const on = s.id === state.activeId;
+          return (
+            <button
+              key={s.id} className={`vw-layer ${on ? 'on' : ''} ${on && state.loading ? 'is-loading' : ''}`}
+              aria-current={on ? 'true' : undefined}
+              disabled={state.loading && !on} onClick={() => !on && state.select(s.id)} title={s.name}
+            >
+              <span className="vw-layer-node" aria-hidden />
+              <span className="vw-layer-no" aria-hidden>{String(i + 1).padStart(2, '0')}</span>
+              <span className="vw-layer-name">{s.name}</span>
+            </button>
+          );
+        })}
+      </span>
     </nav>
   );
 }
@@ -331,8 +423,6 @@ function BottomChrome({ state, showLabels, mode, trayOpen, onToggleTray }: {
   const [auto, setAuto] = useState(false);
   const [run, setRun] = useState(0); // restarts the fill animation
 
-  // Any interruption (a drag, a key) ends the flight — and the autoplay.
-  useEffect(() => { if (!state.flying && auto) setAuto(false); }, [state.flying]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const go = (i: number) => {
     const k = (i + vps.length) % vps.length;
@@ -344,56 +434,76 @@ function BottomChrome({ state, showLabels, mode, trayOpen, onToggleTray }: {
     const start = idx < 0 ? 0 : idx;
     setAuto(true);
     state.editor.playSequence([...vps.slice(start), ...vps.slice(0, start)], {
-      onIndex: (k) => { setIdx((start + k) % vps.length); setRun((n) => n + 1); }
+      onIndex: (k) => { setIdx((start + k) % vps.length); setRun((n) => n + 1); },
+      // any interruption (a drag, a key, pause) ends the autoplay
+      onEnd: () => setAuto(false)
     });
   };
   const pause = () => { state.editor.stopSequence(); state.stopFly(); setAuto(false); };
-  const playing = state.flying;
+  // Playing across the short pauses between views too — otherwise the button
+  // flips to "Play" in the gap, and pressing it restarts the tour.
+  const playing = state.flying || auto;
 
-  // One centred column: views tray, transport, progress, and the mode switch
-  // lowest of all. Orbit and Fly swap the first three for their own controls.
+  // One centred column: views tray, transport, progress. Orbit and Fly swap
+  // them for their own controls. The mode switch lives top centre (ModeSlider).
   if (mode === 'fly' || mode === 'orbit') {
     return (
       <div className="vw-bottom">
         <FlyBar state={state} mode={mode} />
-        <ModePill mode={mode} />
       </div>
     );
   }
 
+  if (!vps.length) return null;
+  const cur = idx >= 0 ? vps[idx] : null;
+  const dur = `${cur?.seconds || 4}s`;
+
   return (
     <div className="vw-bottom">
-      {vps.length > 0 && trayOpen && (
+      {/* The filmstrip: numbered views, the one playing outlined in the accent. */}
+      {trayOpen && (
         <div className="vw-tray" role="list">
           {vps.map((vp, i) => (
             <button key={vp.id} role="listitem" className={`vw-card ${i === idx ? 'on' : ''}`} onClick={() => go(i)} title={vp.label}>
               {vp.thumb
                 ? <img className="vw-card-img" src={vp.thumb} alt="" />
-                : <span className="vw-card-ph" data-l={(vp.label || '?').trim()[0]} />}
+                : <span className="vw-card-ph" aria-hidden>{Icon.views}</span>}
+              <span className="vw-card-no" aria-hidden>{String(i + 1).padStart(2, '0')}</span>
               {showLabels && <span className="vw-card-nm">{vp.label}</span>}
             </button>
           ))}
         </div>
       )}
 
-      {vps.length > 0 && (
-        <div className="vw-transport">
-          <button className={`vw-tb ${trayOpen ? 'on' : ''}`} onClick={onToggleTray} aria-pressed={trayOpen} aria-label="Views" title="Views">{Icon.views}</button>
-          <button className="vw-tb" onClick={() => go(idx - 1)} aria-label="Previous view">{Icon.prev}</button>
-          <button className="vw-tb vw-tb-main" onClick={() => (playing ? pause() : playAll())} aria-label={playing ? 'Pause' : 'Play the tour'}>
-            {playing ? Icon.pause : Icon.play}
+      {/* The tour bar: ‹ play › with a ring that fills as the view flies,
+       *  the view's name and count, the filmstrip toggle, and the progress
+       *  segments as its bottom edge. */}
+      <div className={`vw-tourbar ${playing ? 'is-playing' : ''}`}>
+        <div className="vw-tourbar-transport">
+          <button className="vw-tourbar-step" onClick={() => go(idx - 1)} aria-label="Previous view" title="Previous view">{Icon.chevL}</button>
+          <button className="vw-tourbar-play" onClick={() => (playing ? pause() : playAll())} aria-label={playing ? 'Pause' : 'Play the tour'}>
+            <svg className="vw-tourbar-ring" viewBox="0 0 48 48" aria-hidden>
+              <circle className="vw-ring-track" cx="24" cy="24" r="21" />
+              {playing && <circle key={`ring-${run}`} className="vw-ring-fill" cx="24" cy="24" r="21" style={{ '--dur': dur } as React.CSSProperties} />}
+            </svg>
+            <span className="vw-tourbar-glyph">{playing ? Icon.pause : Icon.play}</span>
           </button>
-          <button className="vw-tb" onClick={() => go(idx + 1)} aria-label="Next view">{Icon.next}</button>
-          {idx >= 0 && (
-            <span className="vw-now">
-              <span className="vw-count">{idx + 1} / {vps.length}</span>
-              {vps[idx]?.label}
-            </span>
-          )}
+          <button className="vw-tourbar-step" onClick={() => go(idx + 1)} aria-label="Next view" title="Next view">{Icon.chevR}</button>
         </div>
-      )}
 
-      {vps.length > 0 && (
+        <div className="vw-tourbar-now" aria-live="polite">
+          <span className="vw-tourbar-title" key={cur?.id ?? 'intro'}>{cur ? cur.label : 'Guided tour'}</span>
+          <span className="vw-tourbar-sub">
+            {cur
+              ? <><b className="vw-count">{idx + 1} / {vps.length}</b>{playing ? ' now flying' : ' paused'}</>
+              : <>{vps.length === 1 ? '1 view' : `${vps.length} views`}, press play</>}
+          </span>
+        </div>
+
+        <button className={`vw-tourbar-views ${trayOpen ? 'on' : ''}`} onClick={onToggleTray} aria-pressed={trayOpen} aria-label="Views" title="Views">
+          {Icon.views}<span>Views</span>
+        </button>
+
         <div className="vw-segs">
           {vps.map((vp, i) => (
             <button key={vp.id} className="vw-seg" onClick={() => go(i)} aria-label={`Go to ${vp.label}`} title={vp.label}>
@@ -405,9 +515,7 @@ function BottomChrome({ state, showLabels, mode, trayOpen, onToggleTray }: {
             </button>
           ))}
         </div>
-      )}
-
-      <ModePill mode={mode} />
+      </div>
     </div>
   );
 }
@@ -439,7 +547,9 @@ function HelpPanel({ walking, isTouch, onClose }: { walking: boolean; isTouch: b
       ['Ring or label', 'Open what’s there'],
       ...(walking ? [['W A S D', 'Walk'], ['Shift', 'Walk faster']] as [string, string][] : [['Walk', 'Move freely']] as [string, string][]),
       ['Orbit', 'Circle the room at eye level'],
-      ['Fly', 'See the whole space from above'],
+      ['Fly: W A S D', 'Fly where you look'],
+      ['Fly: E / Q', 'Up / down'],
+      ['Fly: drag, scroll', 'Look around, change speed'],
       ['Any key or click', 'Stop a flythrough']
     ];
   return (
@@ -453,18 +563,26 @@ function HelpPanel({ walking, isTouch, onClose }: { walking: boolean; isTouch: b
   );
 }
 
-function FirstRunHint({ walking, aerial }: { walking: boolean; aerial: boolean }) {
+function FirstRunHint({ walking, aerial, fly }: { walking: boolean; aerial: boolean; fly: boolean }) {
   const [gone, setGone] = useState(false);
   const t = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
-    t.current = setTimeout(() => setGone(true), 4200);
+    t.current = setTimeout(() => setGone(true), fly ? 9000 : 4200); // Fly has more to learn
     return () => clearTimeout(t.current);
-  }, []);
+  }, [fly]);
   if (gone) return null;
   return (
     <div className="vw-hint">
-      {aerial ? (
-        <><span className="vw-hint-k">Click</span> then move the mouse to circle the space<span className="vw-hint-sep" /><span className="vw-hint-k">Scroll</span> to zoom</>
+      {fly ? (
+        <>
+          <span className="vw-hint-k">W A S D</span> fly<span className="vw-hint-sep" />
+          <span className="vw-hint-k">E</span> up <span className="vw-hint-k">Q</span> down<span className="vw-hint-sep" />
+          <span className="vw-hint-k">Shift</span> faster<span className="vw-hint-sep" />
+          <span className="vw-hint-k">Drag</span> to look<span className="vw-hint-sep" />
+          <span className="vw-hint-k">Scroll</span> speed
+        </>
+      ) : aerial ? (
+        <><span className="vw-hint-k">Drag</span> to circle the space<span className="vw-hint-sep" /><span className="vw-hint-k">Scroll</span> to zoom</>
       ) : (<>
       <span className="vw-hint-k">Drag</span> to look around
       <span className="vw-hint-sep" />
