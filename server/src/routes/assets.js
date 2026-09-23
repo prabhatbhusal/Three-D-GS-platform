@@ -21,6 +21,7 @@ import yauzl from 'yauzl';
 import zlib from 'zlib';
 import { requireEditorSession } from '../middleware/auth.js';
 import * as storage from '../storage.js';
+import { buildFloorPlan } from '../floorplan.js';
 import { DATA_DIR } from '../dataDir.js';
 
 export const assetsRouter = Router();
@@ -418,7 +419,10 @@ assetsRouter.post('/:assetId/finalize', requireEditorSession, async (req, res, n
     }
 
     await fs.rm(path.join(STAGING_DIR, assetId), { recursive: true, force: true });
+    // a floor plan from the export's own collision mesh; never fails the upload
+    const floorPlan = await buildFloorPlan(assetId, meta.name && meta.name !== 'XGrids Lcc2 Splats' ? meta.name : 'Floor plan').catch(() => null);
     res.json({
+      floorPlan,
       assetId,
       bytes,
       fileCount: relPaths.length,
@@ -475,6 +479,17 @@ assetsRouter.get('/:assetId/*', async (req, res, next) => {
     }
   } catch (err) {
     if (err.code === 'ENOENT') return res.status(404).json({ error: 'Asset not found.' });
+    next(err);
+  }
+});
+
+/** (Re)build a space's floor plan, e.g. for a scan uploaded before plans existed. */
+assetsRouter.post('/:assetId/floorplan', requireEditorSession, async (req, res, next) => {
+  try {
+    const plan = await buildFloorPlan(req.params.assetId, String(req.query.title || 'Floor plan').slice(0, 80));
+    if (!plan) return res.status(422).json({ error: 'This space has no collision mesh to draw a plan from. Upload the full Lixel Studio export.' });
+    res.json(plan);
+  } catch (err) {
     next(err);
   }
 });

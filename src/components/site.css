@@ -1,27 +1,25 @@
 /* ================================================================= */
 /*  Marketing site + sign-in (/, /login).                             */
 /*                                                                    */
-/*  One saturated violet does the work (links, buttons, the active    */
-/*  nav pill), teal only ever as its partner in the brand gradient.   */
-/*  Revised 2026-09-23 from a pale cyan, on request: vibrant, but one */
-/*  hue, so it stays balanced. A display serif carries headlines and  */
-/*  italics carry the one word that matters.                          */
+/*  Revised 2026-09-23 in the manner of XGRIDS' Lixel K1 page, on     */
+/*  request: a blue-black ground, one saturated blue, bold sans       */
+/*  headlines set centred, and pill buttons. No display serif.        */
 /*                                                                    */
 /*  globals.css locks html/body to overflow:hidden for the 3D app, so */
 /*  .site is its own full-screen scroll container.                    */
 /* ================================================================= */
 
 .site {
-  --bg: #070A0F;
-  --panel: #0E131B;
-  --raise: #141B26;
-  --line: #1E2733;
-  --line-lit: #2E3A49;
-  --text: #E8EEF4;
-  --dim: #8C96A5;
-  --accent: #9D8BFF;       /* text and strokes: 7:1 on the dark ground */
-  --accent-fill: #6E4FFF;  /* filled buttons: white text at 5:1 */
-  --accent-glow: rgba(110, 79, 255, 0.34);
+  --bg: #131419;
+  --panel: #1E1F26;
+  --raise: #282A33;
+  --line: #2A2C36;
+  --line-lit: #3E414D;
+  --text: #F6F7FA;
+  --dim: #B9BCCC;
+  --accent: #7C9CFF;       /* text and strokes: 6.8:1 on the ground */
+  --accent-fill: #3364FF;  /* filled buttons and the current tab: white text at 4.8:1 */
+  --accent-glow: rgba(51, 100, 255, 0.3);
   --accent-ink: #FFFFFF;
   --teal: #2DD4BF;
   --violet: #B79BFF;
@@ -29,15 +27,15 @@
      (the splat frames, the auth art) stays dark in both themes — light
      chrome around photographic 3D is fine, light behind it is not. */
   --grid: rgba(255, 255, 255, 0.05);
-  --glass: rgba(14, 19, 27, 0.86);
+  --glass: rgba(19, 20, 25, 0.82);
   --sh: rgba(0, 0, 0, 0.45);
-  --placeholder: #5E6878;
+  --placeholder: #6B6F80;
   --danger: #FF8B8B;
   --danger-ink: #2A0B0B;
-  --hero-grad: linear-gradient(100deg, var(--teal) 0%, #7C6BFF 55%, var(--violet) 100%);
+  --hero-grad: linear-gradient(100deg, var(--teal) 0%, #3364FF 55%, var(--violet) 100%);
   --sans: var(--font-inter), 'Segoe UI', system-ui, sans-serif;
-  --display: var(--font-display), 'Iowan Old Style', Georgia, serif;
-  --r: 20px;
+  --display: var(--sans);
+  --r: 16px;
 
   position: fixed;
   inset: 0;
@@ -47,36 +45,32 @@
   color: var(--text);
   font: 400 16px/1.6 var(--sans);
   -webkit-font-smoothing: antialiased;
-  background:
-    radial-gradient(900px 520px at 12% -8%, rgba(110, 79, 255, 0.16), transparent 70%),
-    radial-gradient(760px 520px at 100% 8%, rgba(45, 212, 191, 0.08), transparent 70%),
-    radial-gradient(var(--grid) 1px, transparent 1.2px) 0 0 / 22px 22px,
-    var(--bg);
+  background: var(--bg);
 }
 
 /* ------------------------------------------------------------ light */
 /* Set on <html> by the inline script in layout.tsx (stored choice, else
    the OS preference) and flipped by ThemeToggle. Tokens only — no
    component knows which theme it is in. The accent deepens because the
-   dark theme's violet fails contrast on paper. */
+   dark theme's light blue fails contrast on paper. */
 :root[data-theme='light'] .site {
-  --bg: #F7F9FC;
+  --bg: #F6F7FA;
   --panel: #FFFFFF;
-  --raise: #EFF3F8;
-  --line: #DCE3EC;
-  --line-lit: #BCC7D4;
-  --text: #0E1620;
-  --dim: #56626F;
-  --accent: #5A3FE6;
-  --accent-fill: #5A3FE6;
-  --accent-glow: rgba(90, 63, 230, 0.26);
+  --raise: #ECEEF4;
+  --line: #DDE0EA;
+  --line-lit: #BFC3D1;
+  --text: #131419;
+  --dim: #555A6B;
+  --accent: #2450E6;
+  --accent-fill: #3364FF;
+  --accent-glow: rgba(51, 100, 255, 0.22);
   --accent-ink: #FFFFFF;
   --teal: #0F8F80;
   --violet: #8B3FE6;
   --grid: rgba(14, 22, 32, 0.07);
-  --glass: rgba(255, 255, 255, 0.88);
+  --glass: rgba(246, 247, 250, 0.86);
   --sh: rgba(19, 33, 51, 0.12);
-  --placeholder: #8A96A4;
+  --placeholder: #8A8FA0;
   --danger: #B3271E;
   --danger-ink: #FFFFFF;
   --hero-grad: linear-gradient(100deg, var(--teal) 0%, var(--accent) 55%, var(--violet) 100%);
@@ -105,10 +99,10 @@
   border-radius: 6px;
 }
 
+/* the one word that matters: the accent, not a different face */
 .site em {
-  font-family: var(--display);
-  font-style: italic;
-  font-weight: 400;
+  font-style: normal;
+  color: var(--accent);
   white-space: nowrap;
 }
 
@@ -119,27 +113,103 @@
 }
 
 /* ------------------------------------------------------------ nav */
+/* A floating glass pill, after XGRIDS: scrolling down past 200 px folds it
+ * to the mark and the links (SiteNav sets data-collapsed), scrolling up
+ * opens it, on their curve. Ours on top: a scan line along its foot that
+ * the page's scroll draws, and a viewfinder on the current page. Over a
+ * photo (data-over-dark) it is dark in both themes. */
 .site-nav {
+  --nav-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --nav-bg: rgba(19, 20, 25, 0.5);
+  --nav-bg-folded: rgba(19, 20, 25, 0.88);
   position: sticky;
-  top: 16px;
+  top: 10px;
   z-index: 10;
-  width: min(1180px, calc(100% - 32px));
-  margin: 16px auto 0;
+  width: min(1200px, calc(100% - 32px));
+  height: 56px;
+  margin: 10px auto 0;
   display: flex;
   align-items: center;
-  gap: 24px;
-  padding: 10px 10px 10px 18px;
-  border-radius: 999px;
-  background: var(--glass);
-  border: 1px solid var(--line);
-  box-shadow: 0 12px 40px var(--sh);
+  gap: 20px;
+  padding: 0 8px 0 16px;
+  border-radius: 100px;
+  background: var(--nav-bg);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 10px 40px rgba(0, 0, 0, 0.18);
+  -webkit-backdrop-filter: blur(28px) saturate(1.4);
+  backdrop-filter: blur(28px) saturate(1.4);
+  transition: width 0.55s var(--nav-ease), padding 0.55s var(--nav-ease), gap 0.55s var(--nav-ease),
+    background-color 0.34s ease, box-shadow 0.34s ease;
 }
+
+:root[data-theme='light'] .site-nav:not([data-over-dark]) {
+  --nav-bg: rgba(255, 255, 255, 0.72);
+  --nav-bg-folded: rgba(255, 255, 255, 0.94);
+  box-shadow: inset 0 0 0 1px rgba(19, 20, 25, 0.08), 0 10px 40px rgba(19, 33, 51, 0.1);
+}
+
+/* over a photo in the light theme: the dark pill's own colours */
+:root[data-theme='light'] .site-nav[data-over-dark] {
+  --text: #F6F7FA;
+  --dim: #B9BCCC;
+  --raise: #282A33;
+  --line: #2A2C36;
+  --accent: #7C9CFF;
+  color: var(--text);
+}
+
+.site-nav[data-collapsed] {
+  width: min(var(--merged-w, 640px), calc(100% - 32px));
+  padding: 0 12px;
+  gap: 8px;
+  background: var(--nav-bg-folded);
+}
+
+.site-brand-word { display: inline-block; }
+
+.site-brand-word,
+.site-actions {
+  max-width: 560px;
+  transition: max-width 0.55s var(--nav-ease), opacity 0.3s ease 0.12s;
+}
+
+.site-nav[data-collapsed] .site-brand-word,
+.site-nav[data-collapsed] .site-actions {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition: max-width 0.55s var(--nav-ease), opacity 0.2s ease;
+}
+
+.site-nav[data-collapsed] .site-links { margin: 0 auto; }
+
+/* the scan line: drawn left to right by the page's own scroll */
+@supports (animation-timeline: scroll()) {
+  .site-nav::after {
+    content: '';
+    position: absolute;
+    left: 26px;
+    right: 26px;
+    bottom: 0;
+    height: 2px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent-fill) 75%, #DCE5FF);
+    transform: scaleX(0);
+    transform-origin: left;
+    animation: site-scan linear both;
+    animation-timeline: scroll(nearest block);
+  }
+}
+
+@keyframes site-scan { to { transform: scaleX(1); } }
 
 .site-brand {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-weight: 650;
+  flex: none;
+  white-space: nowrap;
+  font-weight: 700;
   letter-spacing: -0.01em;
 }
 
@@ -168,9 +238,10 @@
 .site-links a {
   position: relative;
   isolation: isolate;
-  padding: 8px 12px;
+  padding: 8px 14px;
   border-radius: 999px;
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--dim);
   white-space: nowrap;
   transition: color 0.2s;
@@ -193,16 +264,26 @@
 .site-links a:hover::before { opacity: 1; transform: none; }
 .site-links a[aria-current='page'] { color: var(--text); }
 
-/* The current page's pill. It is a named view transition (SiteNav), so on
- * navigation the browser glides it from the old link to the new one, like
- * the tour's mode dial thumb. */
+/* The current page's viewfinder: four corner brackets, like a camera's
+ * focus frame. It is a named view transition (SiteNav), so on navigation
+ * the browser glides it from the old link to the new one. */
 .site-links-pill {
+  --c: var(--accent);
   position: absolute;
-  inset: 0;
+  inset: 1px -1px;
   z-index: -1;
-  border-radius: inherit;
-  background: color-mix(in srgb, var(--accent-fill) 22%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent), 0 4px 18px var(--accent-glow);
+  border-radius: 4px;
+  background:
+    linear-gradient(var(--c), var(--c)) left top / 9px 2px,
+    linear-gradient(var(--c), var(--c)) left top / 2px 9px,
+    linear-gradient(var(--c), var(--c)) right top / 9px 2px,
+    linear-gradient(var(--c), var(--c)) right top / 2px 9px,
+    linear-gradient(var(--c), var(--c)) left bottom / 9px 2px,
+    linear-gradient(var(--c), var(--c)) left bottom / 2px 9px,
+    linear-gradient(var(--c), var(--c)) right bottom / 9px 2px,
+    linear-gradient(var(--c), var(--c)) right bottom / 2px 9px,
+    color-mix(in srgb, var(--accent-fill) 12%, transparent);
+  background-repeat: no-repeat;
 }
 
 /* -------------------------------------------- page transitions */
@@ -250,6 +331,7 @@
 .site-actions {
   margin-left: auto;
   display: flex;
+  align-items: center;
   gap: 8px;
 }
 
@@ -459,7 +541,7 @@
 
 .site-account-card h3 {
   margin: 6px 0 4px;
-  font: 400 22px/1.25 var(--display);
+  font: 700 20px/1.25 var(--sans);
 }
 
 .site-account-card p {
@@ -524,7 +606,7 @@
   padding: 9px 18px;
   border-radius: 999px;
   border: 1px solid transparent;
-  font: 600 14px/1.2 var(--sans);
+  font: 700 14px/1.2 var(--sans);
   cursor: pointer;
   white-space: nowrap;
   transition: transform 0.15s, background 0.15s, border-color 0.15s, box-shadow 0.15s, color 0.15s;
@@ -538,12 +620,10 @@
 .site-btn-primary {
   color: var(--accent-ink);
   background: var(--accent-fill);
-  box-shadow: 0 8px 24px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
 .site-btn-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 32px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  background: color-mix(in srgb, var(--accent-fill) 85%, #fff);
 }
 
 .site-btn-primary:disabled {
@@ -579,16 +659,12 @@
   scroll-margin-top: 80px;
 }
 
-.band-title {
+.site .band-title {
   max-width: 52rem;
-  margin-bottom: 44px;
-  font: 650 clamp(32px, 4vw, 52px)/1.05 var(--sans);
-  letter-spacing: -0.035em;
-}
-
-.band-title em {
-  color: var(--accent);
-  font-size: 1.1em;
+  margin: 0 auto 20px;
+  text-align: center;
+  font: 700 clamp(32px, 4.2vw, 55px)/1.15 var(--sans);
+  letter-spacing: -0.02em;
 }
 
 /* --------------------------------------------------------- footer */
@@ -628,10 +704,11 @@
 }
 
 .gallery-sub {
-  margin: 0;
-  max-width: 36rem;
+  margin: 0 auto;
+  max-width: 40rem;
+  text-align: center;
   color: var(--dim);
-  font-size: 17px;
+  font-size: clamp(17px, 1.6vw, 22px);
 }
 
 .gallery-band {
@@ -702,7 +779,7 @@
   inset: 0;
   display: grid;
   place-items: center;
-  font: italic 400 72px/1 var(--display);
+  font: 700 64px/1 var(--sans);
   color: rgba(232, 238, 244, 0.25);
   background: radial-gradient(120% 90% at 30% 20%, #1E3A48, #0C1119 70%);
 }
@@ -842,11 +919,6 @@
 .auth-title {
   font: 650 38px/1.05 var(--sans);
   letter-spacing: -0.04em;
-}
-
-.auth-title em {
-  color: var(--accent);
-  font-size: 1.1em;
 }
 
 .auth-sub {
@@ -1008,13 +1080,27 @@
 
 /* ------------------------------------------------------- responsive */
 @media (max-width: 960px) {
-  /* the pages are routes now, so the links can't hide: a second row that
-   * scrolls sideways */
+  /* two rows: brand and actions, then the links scrolling sideways;
+   * folded, one row of the mark and the links */
   .site-nav {
     flex-wrap: wrap;
-    row-gap: 8px;
-    border-radius: 24px;
+    row-gap: 2px;
+    height: auto;
+    min-height: 56px;
+    padding: 8px 8px 6px 14px;
+    border-radius: 28px;
   }
+
+  .site-nav[data-collapsed] {
+    flex-wrap: nowrap;
+    width: calc(100% - 32px);
+    padding: 6px 8px 6px 14px;
+  }
+
+  .site-nav[data-collapsed] .site-brand-word,
+  .site-nav[data-collapsed] .site-actions { display: none; }
+
+  .site-nav[data-collapsed] .site-links { order: 0; width: auto; flex: 1; margin: 0; }
 
   .site-links {
     order: 3;
@@ -1022,11 +1108,6 @@
     margin-left: 0;
     overflow-x: auto;
     scrollbar-width: none;
-  }
-
-  /* the scroller would clip the glow into a square */
-  .site-links-pill {
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
   }
 
   .auth {

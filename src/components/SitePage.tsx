@@ -16,14 +16,32 @@ export function SitePage({ children, contact = true }: { children: React.ReactNo
         {children}
         {contact && <ContactBand />}
         <footer className="site-foot lp-foot">
-          <span className="lp-foot-brand">RCAAS<span className="site-brand-tld">.tech</span></span>
-          <span className="site-foot-dim">Reality Capture As A Service. A GeoNova Solutions and I.STEM Lab product.</span>
-          <span className="site-foot-links">
-            <Link href="/gallery" transitionTypes={['nav-forward']}>Gallery</Link>
-            <a href="https://geonova.com.np/about-us" target="_blank" rel="noreferrer">GeoNova</a>
-            <a href="https://www.linkedin.com/company/geonova-solutions-pvt-ltd/" target="_blank" rel="noreferrer">LinkedIn</a>
+          <div className="lp-foot-top">
+            <div>
+              <span className="lp-foot-brand">RCAAS<span className="site-brand-tld">.tech</span></span>
+              <p className="site-foot-dim">Reality Capture As A Service. A GeoNova Solutions and I.STEM Lab product.</p>
+            </div>
+            <nav className="lp-foot-cols" aria-label="Footer">
+              <div>
+                <p className="lp-foot-h">Explore</p>
+                <Link href="/work" transitionTypes={['nav-forward']}>Work</Link>
+                <Link href="/services" transitionTypes={['nav-forward']}>Services</Link>
+                <Link href="/how-it-works" transitionTypes={['nav-forward']}>How it works</Link>
+                <Link href="/gallery" transitionTypes={['nav-forward']}>Gallery</Link>
+              </div>
+              <div>
+                <p className="lp-foot-h">Company</p>
+                <Link href="/about" transitionTypes={['nav-forward']}>About</Link>
+                <Link href="/contact" transitionTypes={['nav-forward']}>Contact</Link>
+                <a href="https://geonova.com.np/about-us" target="_blank" rel="noreferrer">GeoNova</a>
+                <a href="https://www.linkedin.com/company/geonova-solutions-pvt-ltd/" target="_blank" rel="noreferrer">LinkedIn</a>
+              </div>
+            </nav>
+          </div>
+          <div className="lp-foot-base">
+            <span>GeoNova Solutions Pvt. Ltd., Kathmandu</span>
             <Link href="/login">Team sign-in</Link>
-          </span>
+          </div>
         </footer>
       </div>
     </ViewTransition>
@@ -61,10 +79,8 @@ export function ContactWays() {
 function ContactBand() {
   return (
     <section className="lp-contact" aria-label="Contact">
-      <div>
-        <h2>Have a space worth <em>walking</em>?</h2>
-        <p>Tell us what it is and where. We will scan it, publish it and hand you a link.</p>
-      </div>
+      <h2>Have a space worth <em>walking</em>?</h2>
+      <p>Tell us what it is and where. We will scan it, publish it and hand you a link.</p>
       <ContactWays />
     </section>
   );

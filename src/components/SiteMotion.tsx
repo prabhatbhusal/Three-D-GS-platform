@@ -1,10 +1,10 @@
 'use client';
 
-/* The marketing pages' scroll-driven footage, in the manner of XGRIDS' product
- * pages: a pinned canvas that scrubs an image sequence as you scroll, and a
- * sticky media panel that changes with the step you're reading. Footage comes
- * from src/lib/media.ts; a page only renders these when it has some. Styles
- * are in landing.css. */
+/* The marketing pages' scroll-driven media, in the manner of XGRIDS' Lixel K1
+ * page: a pinned scene played by the scroll (an image sequence, or the tour's
+ * photos flown through in CSS 3D), segmented tabs over one large picture,
+ * and a sticky media panel that changes with the step you're
+ * reading. Footage comes from src/lib/media.ts. Styles are in landing.css. */
 
 import { useEffect, useRef, useState } from 'react';
 import type { Media } from '../lib/media';
@@ -110,18 +110,102 @@ export function FrameScrub({ frames, captions, label }: { frames: string[]; capt
   }, [frames, captions.length]);
 
   return (
-    <section ref={ref} className="lp-scrub" style={{ height: `${(captions.length + 1) * 100}vh` }} aria-label={label}>
+    <section ref={ref} className="lp-scrub" style={{ height: `${(captions.length + 1) * 100}vh` }} aria-label={label} data-nav-dark>
       <div className="lp-scrub-pin">
         <canvas ref={canvasRef} className="lp-scrub-canvas" aria-hidden />
         <div className="lp-scrub-shade" aria-hidden />
-        {captions.map((c, i) => (
-          <div key={i} className={`lp-scrub-cap${i === step ? ' is-on' : ''}`} aria-hidden={i !== step}>{c}</div>
-        ))}
-        <div className="lp-scrub-rail" aria-hidden>
-          {captions.map((_, i) => <span key={i} className={i === step ? 'is-on' : undefined} />)}
-        </div>
+        <Captions captions={captions} step={step} />
       </div>
     </section>
+  );
+}
+
+/**
+ * A fly-through without WebGL: the tour's photos hang in CSS 3D space over
+ * a survey-grid floor, and the scroll carries the camera forward through
+ * them, one photo and one caption per screen of scroll. The scroll only
+ * writes one number (--p); the browser's compositor does the 3D. Reduced
+ * motion gets a plain crossfade (landing.css).
+ */
+export function FlyThrough({ images, captions, label }: { images: string[]; captions: React.ReactNode[]; label: string }) {
+  const ref = useRef<HTMLElement | null>(null);
+  const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    const el = ref.current!;
+    const scroller = el.closest('.site') ?? window;
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const p = pinProgress(el);
+      el.style.setProperty('--p', p.toFixed(4));
+      setStep(Math.min(captions.length - 1, Math.floor(p * captions.length)));
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
+    update();
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(raf);
+      scroller.removeEventListener('scroll', onScroll);
+    };
+  }, [captions.length]);
+
+  return (
+    <section ref={ref} className="lp-scrub lp-fly" aria-label={label} data-nav-dark
+      style={{ height: `${(captions.length + 1) * 100}vh`, '--n': images.length } as React.CSSProperties}>
+      <div className="lp-scrub-pin">
+        <div className="lp-fly-stage" aria-hidden>
+          <div className="lp-fly-floor" />
+          {images.map((src, i) => (
+            // Plain <img>: static stills from /public, no optimiser in the static export.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img key={src} src={src} alt="" decoding="async" loading={i ? 'lazy' : 'eager'}
+              className={`lp-fly-card${Math.round(step * (images.length - 1) / Math.max(1, captions.length - 1)) === i ? ' is-on' : ''}`}
+              style={{ '--i': i, '--s': i % 2 ? 1 : -1 } as React.CSSProperties} />
+          ))}
+        </div>
+        <div className="lp-scrub-shade" aria-hidden />
+        <Captions captions={captions} step={step} />
+      </div>
+    </section>
+  );
+}
+
+function Captions({ captions, step }: { captions: React.ReactNode[]; step: number }) {
+  return (
+    <>
+      {captions.map((c, i) => (
+        <div key={i} className={`lp-scrub-cap${i === step ? ' is-on' : ''}`} aria-hidden={i !== step}>{c}</div>
+      ))}
+      <div className="lp-scrub-rail" aria-hidden>
+        {captions.map((_, i) => <span key={i} className={i === step ? 'is-on' : undefined} />)}
+      </div>
+    </>
+  );
+}
+
+/** A row of segmented tabs over one large picture: pick a tab, its line of
+ *  text and its picture change. The first is what renders without JS. */
+export function ImageTabs({ items, alt }: { items: { label: string; body: string; image: string }[]; alt: string }) {
+  const [on, setOn] = useState(0);
+  return (
+    <div className="lp-tabs">
+      <div className="lp-tabs-bar">
+        {items.map((it, i) => (
+          <button key={it.label} type="button" aria-pressed={i === on}
+            className={i === on ? 'is-on' : undefined} onClick={() => setOn(i)}>{it.label}</button>
+        ))}
+      </div>
+      <p className="lp-tabs-body" aria-live="polite">{items[on].body}</p>
+      <div className="lp-tabs-media">
+        {items.map((it, i) => (
+          // Plain <img>: static stills from /public, no optimiser in the static export.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={it.label} src={it.image} alt={i === on ? alt : ''} aria-hidden={i !== on}
+            className={i === on ? 'is-on' : undefined} loading="lazy" decoding="async" />
+        ))}
+      </div>
+    </div>
   );
 }
 

@@ -9,8 +9,7 @@ import { useEffect, useRef } from 'react';
  * no SDK, nothing that competes with a real tour for GPU or bytes.
  *
  * Motion: one sweep on load, then only pointer parallax. Reduced-motion gets
- * the finished frame. Rendering stops while the canvas is off-screen or the
- * tab is hidden.
+ * the finished frame. Rendering stops while the canvas is off-screen or the tab is hidden.
  */
 
 type Pt = { x: number; y: number; z: number; c: [number, number, number]; s: number; d: number };
@@ -170,11 +169,11 @@ export function SplatField({ className = '' }: { className?: string }) {
           ctx.drawImage(sprite(p.c), sx - size / 2, sy - size / 2, size, size);
         } else if (edge < 0.18) {
           ctx.globalAlpha = 1;
-          ctx.fillStyle = '#C8F3FC';
+          ctx.fillStyle = '#DCE5FF';
           ctx.fillRect(sx - 1.2, sy - 1.2, 2.4, 2.4);
         } else {
           ctx.globalAlpha = 0.5;
-          ctx.fillStyle = '#4FC3D9';
+          ctx.fillStyle = '#6F8FFF';
           ctx.fillRect(sx - 0.6, sy - 0.6, 1.2, 1.2);
         }
       }

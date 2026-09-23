@@ -1,25 +1,40 @@
 /* Copy for the marketing pages (/, /work, /services, /how-it-works, /about).
  * Facts come from GeoNova's published case studies (geonova.com.np). Keep
- * them sourced: a number on these pages is a promise to a client. */
+ * them sourced: a number on these pages is a promise to a client. Scanner
+ * figures (±1.2 cm, 200,000 points a second, 360°) are XGRIDS' published
+ * Lixel K1 specs (xgrids.com/intl/lixelk1). */
 
 export const SECTORS = [
-  'Hotels & resorts', 'Colleges & schools', 'Heritage & temples', 'Bridges & roads',
-  'Real estate', 'Museums', 'Banquet & event halls', 'Film & VFX sets', 'Facility management'
+  { t: 'Hotels and resorts', b: 'Rooms, halls and restaurants, with an enquiry form in every one.' },
+  { t: 'Colleges and schools', b: 'Labs and classrooms for students and parents who can’t visit yet.' },
+  { t: 'Heritage and temples', b: 'A measured record for conservation, and a tour for everyone else.' },
+  { t: 'Bridges and roads', b: 'A digital baseline for maintenance, captured while traffic keeps moving.' },
+  { t: 'Real estate', b: 'Apartments and offices buyers can walk before they book a visit.' },
+  { t: 'Banquet and event halls', b: 'The room as it will look on the day, from every seat.' }
 ];
 
+// Before and after, one card each on the home page.
 export const WINS = [
-  { t: 'Hours, not days', b: 'Chilancho Stupa took 51 minutes on site. The 576 m Gwarko Overpass, under two hours.' },
-  { t: 'One walk, every output', b: 'Tour, point cloud, plans and BIM model, all from the same capture.' },
-  { t: 'Survey-grade', b: '±1 cm relative accuracy from a scanner that fits in one hand.' },
-  { t: 'Opens anywhere', b: 'No app and no plugin. One link that works on an ordinary phone.' }
+  { from: 'Days', to: 'Hours', b: 'The 576 m Gwarko Overpass took under two hours on site.' },
+  { from: 'Photos', to: 'The room', b: 'Visitors walk the space instead of flicking through an album.' },
+  { from: 'An app', to: 'One link', b: 'No app and no plugin. It opens on an ordinary phone.' },
+  { from: 'Looking', to: 'Enquiring', b: 'An enquiry form inside the tour, so interest becomes a lead.' }
+];
+
+// The tour's visitor modes (CLAUDE.md §6.1), shown as tabs on the home page.
+export const MODES = [
+  { t: 'Viewpoints', b: 'Jump between the best views of the space, and look around freely at each.' },
+  { t: 'Walk', b: 'First person, at eye height, with walls that stop you and a joystick on phones.' },
+  { t: 'Orbit', b: 'Circle the middle of the room to take the whole of it in.' },
+  { t: 'Fly', b: 'Free flight, like a 3D editor: W A S D on a keyboard, drag to look.' }
 ];
 
 // Icons are 24-unit stroke paths, drawn in landing.css's .lp-spec-ic.
 export const SPECS = [
-  { n: '±1 cm', k: 'Relative accuracy', ic: 'M12 3v4M12 17v4M3 12h4M17 12h4M12 12m-5 0a5 5 0 1 0 10 0a5 5 0 1 0-10 0' },
+  { n: '±1.2 cm', k: 'Relative accuracy', ic: 'M12 3v4M12 17v4M3 12h4M17 12h4M12 12m-5 0a5 5 0 1 0 10 0a5 5 0 1 0-10 0' },
   { n: '200,000', k: 'Points a second', ic: 'M4.9 7a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0-2.2 0M10.9 5a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0-2.2 0M16.9 8a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0-2.2 0M6.9 13a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0-2.2 0M13.9 12a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0-2.2 0M3.9 18a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0-2.2 0M10.9 18a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0-2.2 0M17.9 16a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0-2.2 0' },
   { n: '360°', k: 'LiDAR field of view', ic: 'M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0-18 0M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18' },
-  { n: '73.5M', k: 'Points in two case studies', ic: 'M4 17l5-5 4 4 7-8M4 20h16' },
+  { n: '37.7M', k: 'Points on one overpass', ic: 'M4 17l5-5 4 4 7-8M4 20h16' },
   { n: '0.6 km', k: 'Corridor in one walk', ic: 'M3 18c4-9 9-12 18-12M16 3l5 3-3 5' },
   { n: '0', k: 'Apps to install', ic: 'M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM11 18h2' }
 ];
@@ -65,13 +80,6 @@ export const WORK: Work[] = [
     stats: [['37.7M', 'points'], ['1 h 58 m', 'on site'], ['0.6 km', 'corridor'], ['52 GB', 'raw data']],
     ships: ['Georeferenced point cloud', 'BIM-compatible model', 'Engineering drawings'],
     href: 'https://geonova.com.np/case-studies/3d-scanning-and-documentation-of-gwarko-overpass'
-  },
-  {
-    slug: 'chilancho', place: 'Chilancho Stupa', where: 'Kirtipur, Kathmandu', when: 'September 2025', sector: 'Heritage', status: 'done',
-    body: 'One of Kirtipur’s oldest Buddhist monuments: the dome, harmika, pinnacle, four corner chaityas and the courtyard, preserved as a 1:1 digital record.',
-    stats: [['35.8M', 'points'], ['51 min', 'on site'], ['1.0 cm', 'accuracy'], ['28 GB', 'raw data']],
-    ships: ['1:1 model', 'Plans and elevations', 'Deformation analysis', 'Virtual tour'],
-    href: 'https://geonova.com.np/case-studies/3d-documentation-and-digital-preservation-of-chilancho-stupa'
   },
   {
     slug: 'madan-ashrit', place: 'Madan Ashrit Memorial Technical School', where: 'Gothatar, Kathmandu', sector: 'Education', status: 'live',

@@ -1,16 +1,12 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Instrument_Serif } from 'next/font/google';
+import { Inter } from 'next/font/google';
+import { Curtain } from '../components/Curtain';
 import './globals.css';
 
-// Exposed as CSS variables only (no `className` on <body>) so each is opt-in
+// Exposed as a CSS variable only (no `className` on <body>) so it is opt-in
 // per surface. editor.css and site.css map --sans to Inter; the tour's --sans
-// stays whatever a client's theme sets. The serif is the marketing site's
-// display face only.
+// stays whatever a client's theme sets.
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
-const display = Instrument_Serif({
-  subsets: ['latin'], weight: '400', style: ['normal', 'italic'],
-  variable: '--font-display', display: 'swap'
-});
 
 export const metadata: Metadata = {
   title: { default: 'RCAAS.tech', template: '%s — RCAAS.tech' },
@@ -32,7 +28,7 @@ export const viewport: Viewport = {
 // attribute before React hydrates. Key must match lib/theme.ts.
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-theme="dark" suppressHydrationWarning className={`${inter.variable} ${display.variable}`}>
+    <html lang="en" data-theme="dark" suppressHydrationWarning className={inter.variable}>
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -42,6 +38,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <div id="root">{children}</div>
+        {/* here, not in a page: it stays drawn while the page under it changes */}
+        <Curtain />
       </body>
     </html>
   );

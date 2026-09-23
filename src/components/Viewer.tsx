@@ -8,6 +8,7 @@ import { zoomOrbit, scaleFlySpeed, walkerCfg } from '../lib/walkerConfig';
 import { bookingFor, sceneHasAudio, subscribeDoc } from '../lib/sceneDoc';
 import { safeUrl } from '../lib/api';
 import { setMuted, unlockAudio, useSound } from '../lib/audio';
+import { closeCurtain, openCurtain } from './Curtain';
 import { TouchControls } from './TouchControls';
 import { HotspotMarkers, HotspotPanel } from './HotspotMarkers';
 import { EnquiryPanel } from './EnquiryPanel';
@@ -61,9 +62,16 @@ export function Viewer({ state, isTouch, autoStart = false, tour = false }: View
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  const [entering, setEntering] = useState(false);
   const enter = () => {
+    if (entering) return;
     unlockAudio(); // §6.3: the enter tap is the gesture — resume the context here, synchronously
-    setEnteredByUser(true);
+    setEntering(true);
+    // a curtain closes over the start screen and opens on the room
+    closeCurtain().then(() => {
+      setEnteredByUser(true);
+      requestAnimationFrame(openCurtain);
+    });
   };
 
   return (
@@ -78,6 +86,7 @@ export function Viewer({ state, isTouch, autoStart = false, tour = false }: View
           ready={ready || failed}
           progress={state?.progress ?? 0}
           onEnter={enter}
+          entering={entering}
         />
       )}
 
@@ -152,19 +161,22 @@ interface EnterGateProps {
   ready: boolean;
   progress: number;
   onEnter: () => void;
+  entering: boolean;
 }
 
 /** A hero over the room itself: the scene streams in behind it, so by the
  *  time the button is live the visitor is already looking at the space. */
-function EnterGate({ brand, place, tagline, ready, progress, onEnter }: EnterGateProps) {
+function EnterGate({ brand, place, tagline, ready, progress, onEnter, entering }: EnterGateProps) {
   const pct = Math.round((progress ?? 0) * 100);
+  // arrived behind the home page's curtain: open it on this screen
+  useEffect(() => { openCurtain(); }, []);
   return (
     <div className="vw-enter">
       <div className="vw-enter-in">
         <p className="vw-enter-brand">{brand}</p>
         <h1 className="vw-enter-mark">{place ?? brand}</h1>
         {tagline && <p className="vw-enter-sub">{tagline}</p>}
-        <button className="vw-enter-btn" onClick={onEnter} disabled={!ready}>
+        <button className="vw-enter-btn" onClick={onEnter} disabled={!ready || entering}>
           <span className="vw-enter-play" aria-hidden>{Icon.play}</span>
           <span>{ready ? 'Start virtual tour' : `Preparing the space ${pct}%`}</span>
         </button>

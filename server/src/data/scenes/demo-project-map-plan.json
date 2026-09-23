@@ -1,0 +1,211 @@
+{
+  "id": "demo-project-map-plan",
+  "version": 2,
+  "propertyId": "demo-project",
+  "title": "map plan",
+  "splat": {
+    "format": "lcc2",
+    "variants": {
+      "high": {
+        "assetId": "ast_905dccf51a3d",
+        "meta": "lcc2-result/Madan_3_Computerlab.lcc2",
+        "bytes": 40197128
+      }
+    }
+  },
+  "transform": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "scale": 1
+  },
+  "unitScale": 1,
+  "spawn": {
+    "position": [
+      5.94,
+      -0.09,
+      -1.98
+    ],
+    "yaw": -4.56,
+    "eyeHeight": 1.65
+  },
+  "camera": {
+    "fov": 60,
+    "near": 0.25,
+    "far": 300,
+    "mode": "viewpoint"
+  },
+  "viewpoints": [],
+  "hotspots": [],
+  "tracks": [
+    {
+      "id": "vp-demo-project-map-plan-muecycrl1",
+      "label": "Viewpoint 1",
+      "loop": false,
+      "autoplayOnLoad": false,
+      "keyframes": [
+        {
+          "t": 0,
+          "position": [
+            -3.59,
+            4.44,
+            -0.73
+          ],
+          "target": [
+            -0.97,
+            3,
+            -0.95
+          ],
+          "easing": "easeInOutCubic"
+        }
+      ],
+      "cues": [],
+      "audio": null,
+      "seconds": 4,
+      "thumb": null
+    },
+    {
+      "id": "vp-demo-project-map-plan-muecydrl2",
+      "label": "Viewpoint 2",
+      "loop": false,
+      "autoplayOnLoad": false,
+      "keyframes": [
+        {
+          "t": 0,
+          "position": [
+            -3.59,
+            4.44,
+            -0.73
+          ],
+          "target": [
+            -0.97,
+            3,
+            -0.95
+          ],
+          "easing": "easeInOutCubic"
+        }
+      ],
+      "cues": [],
+      "audio": null,
+      "seconds": 4,
+      "thumb": null
+    },
+    {
+      "id": "vp-demo-project-map-plan-muecye7l3",
+      "label": "Viewpoint 3",
+      "loop": false,
+      "autoplayOnLoad": false,
+      "keyframes": [
+        {
+          "t": 0,
+          "position": [
+            -3.59,
+            4.44,
+            -0.73
+          ],
+          "target": [
+            -0.97,
+            3,
+            -0.95
+          ],
+          "easing": "easeInOutCubic"
+        }
+      ],
+      "cues": [],
+      "audio": null,
+      "seconds": 4,
+      "thumb": null
+    },
+    {
+      "id": "vp-demo-project-map-plan-muecyeih4",
+      "label": "Viewpoint 4",
+      "loop": false,
+      "autoplayOnLoad": false,
+      "keyframes": [
+        {
+          "t": 0,
+          "position": [
+            -3.59,
+            4.44,
+            -0.73
+          ],
+          "target": [
+            -0.97,
+            3,
+            -0.95
+          ],
+          "easing": "easeInOutCubic"
+        }
+      ],
+      "cues": [],
+      "audio": null,
+      "seconds": 4,
+      "thumb": null
+    },
+    {
+      "id": "vp-demo-project-map-plan-muecyeop5",
+      "label": "Viewpoint 5",
+      "loop": false,
+      "autoplayOnLoad": false,
+      "keyframes": [
+        {
+          "t": 0,
+          "position": [
+            -3.59,
+            4.44,
+            -0.73
+          ],
+          "target": [
+            -0.97,
+            3,
+            -0.95
+          ],
+          "easing": "easeInOutCubic"
+        }
+      ],
+      "cues": [],
+      "audio": null,
+      "seconds": 4,
+      "thumb": null
+    },
+    {
+      "id": "vp-demo-project-map-plan-muecyex66",
+      "label": "Viewpoint 6",
+      "loop": false,
+      "autoplayOnLoad": false,
+      "keyframes": [
+        {
+          "t": 0,
+          "position": [
+            -3.59,
+            4.44,
+            -0.73
+          ],
+          "target": [
+            -0.97,
+            3,
+            -0.95
+          ],
+          "easing": "easeInOutCubic"
+        }
+      ],
+      "cues": [],
+      "audio": null,
+      "seconds": 4,
+      "thumb": null
+    }
+  ],
+  "audio": null,
+  "cta": null,
+  "theme": null,
+  "booking": null,
+  "neighbours": [],
+  "status": "draft"
+}

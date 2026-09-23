@@ -3,37 +3,41 @@
 Read by `src/lib/media.ts`. A slot shows on the site only if its file is here;
 an empty slot leaves that section in its plain design.
 
-Everything here now is cut from GeoNova's Chilancho Stupa capture
-(`media-src/Chilancho Sample.mp4`, the 4K master, kept out of `public/` and
-out of git). Only Chilancho's own footage goes in `work/chilancho.*`: the other
-projects stay without footage until they have their own.
+Everything here now is stills from our own published splat tour of a college
+computer lab (the `computer-lab2` space: its four track thumbnails, 2519 px
+wide, taken from the scene document). The Chilancho Stupa footage that used to
+fill these slots was removed on 2026-09-23.
 
 | Slot | Page | Now | Format |
 |---|---|---|---|
-| `hero.mp4` + `hero.jpg` | Home, behind the name | Chilancho, whole clip | 1600 wide, H.264, no audio, ≤ 4 MB; the jpg is its poster |
-| `sequence/001.webp` … | Home, pinned scroll | Chilancho at 6 fps (62 frames), scrubbed by scroll | 1200 wide WebP, ~90 KB each |
-| `work/<slug>.jpg|mp4` | Work, one per project | `chilancho` only. Slugs: `gwarko`, `chilancho`, `madan-ashrit`, `nepathya`, `basera` | 21:9 crop shown; 1280–1600 wide |
-| `services/<k>.jpg|mp4` | Services, sticky panel | Chilancho stills, splat or point cloud per service: `tour`, `cloud`, `plan`, `heritage`, `infra`, `embed` | 16:10, 1600 wide |
-| `how/1…4.jpg|mp4` | How it works, sticky panel | 1 and 3 stills, 2 and 4 clips | 16:10, 1600 wide, clips ≤ 2 MB |
-| `about.mp4` + `about.jpg` | About, behind the mission | Chilancho point cloud | as hero |
+| `hero.jpg` (+ optional `hero.mp4`) | Home, full-screen behind the name | Lab still | ≥ 1600 wide; a clip: H.264, no audio, ≤ 4 MB, the jpg is its poster |
+| `sequence/001.webp` … | Home, pinned scroll scene | Empty: the scene flies through `tour/` in CSS 3D instead | 1200 wide WebP, ~90 KB each |
+| `tour/1…4.jpg` | Home, the fly-through (one per caption) and the "four ways in" tabs (Viewpoints, Walk, Orbit, Fly) | Lab stills | ≥ 1600 wide, shown 2:1 |
+| `bleed.jpg` (+ optional `.mp4`) | Home, full-width band behind "We sell you enquiries" | Lab still | as hero |
+| `work/<slug>.jpg\|mp4` | Work, one per project | Empty. Slugs: `gwarko`, `madan-ashrit`, `nepathya`, `basera` | 21:9 crop shown; 1280–1600 wide |
+| `services/<k>.jpg\|mp4` | Services, sticky panel | Empty. Keys: `tour`, `cloud`, `plan`, `heritage`, `infra`, `embed` | 16:10, 1600 wide |
+| `how/1…4.jpg\|mp4` | How it works, sticky panel | Empty | 16:10, 1600 wide, clips ≤ 2 MB |
+| `about.jpg\|mp4` | About, behind the mission | Empty | as hero |
 
-The home page's collage appears once three projects have `work/` footage.
+`services/` and `how/` switch their page to the sticky-panel layout as soon as
+one of their slots has a file.
 
-Re-cut from the master (Git Bash, from the repo root):
+Cut a clip or a still from a master (Git Bash, from the repo root; masters
+live in `media-src/`, gitignored, never in `public/`):
 
 ```sh
-SRC="media-src/Chilancho Sample.mp4"
-# a clip: from 4.8 s to 10.3 s, 1280 wide, 0.4 s fades so it loops softly
+SRC="media-src/<master>.mp4"
+# a clip: 5.5 s, 1280 wide, 0.4 s fades so it loops softly
 ffmpeg -ss 4.8 -to 10.3 -i "$SRC" -vf "scale=1280:-2,fade=t=in:st=0:d=0.4,fade=t=out:st=5.1:d=0.4" \
-  -c:v libx264 -preset slow -crf 33 -pix_fmt yuv420p -movflags +faststart -an public/media/work/chilancho.mp4
-# its poster, and a still
-ffmpeg -ss 5.3 -i "$SRC" -frames:v 1 -vf scale=1600:-2 -q:v 4 public/media/work/chilancho.jpg
-# the scroll sequence
+  -c:v libx264 -preset slow -crf 28 -pix_fmt yuv420p -movflags +faststart -an public/media/hero.mp4
+# its poster
+ffmpeg -ss 5.3 -i "$SRC" -frames:v 1 -vf scale=1600:-2 -q:v 4 public/media/hero.jpg
+# a scroll sequence
 ffmpeg -i "$SRC" -vf "fps=6,scale=1200:-2" -c:v libwebp -quality 58 public/media/sequence/%03d.webp
 ```
 
-Point-cloud footage is dense linework and compresses badly: keep clips at
-CRF 33–34, not the usual 23–28 (the whole hero at CRF 27 was 23 MB).
+Point-cloud footage is dense linework and compresses badly: keep those clips
+at CRF 33–34.
 
 Pages are prerendered: after replacing files, rebuild (`npm run build`); the
 dev server picks them up on reload.

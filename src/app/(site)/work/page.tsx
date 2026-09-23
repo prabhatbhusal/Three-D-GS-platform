@@ -6,14 +6,14 @@ import { STATUS, WORK } from '../../../lib/siteContent';
 
 export const metadata: Metadata = {
   title: 'Work',
-  description: 'Places RCAAS.tech has captured: Gwarko Overpass, Chilancho Stupa, Madan Ashrit and Nepathya colleges, and Basera Boutique Hotel.'
+  description: 'Places RCAAS.tech has captured: Gwarko Overpass, Madan Ashrit and Nepathya colleges, and Basera Boutique Hotel.'
 };
 
 export default function WorkPage() {
   return (
     <SitePage>
       <section className="lp-band">
-        <PageHead label="Field log" lede="From a stupa of Licchavi and Malla-period art to a four-lane overpass to the classroom next door.">
+        <PageHead label="Field log" lede="From a four-lane overpass to the classroom next door and the hotel we are scanning now.">
           Places we have <em>captured</em>
         </PageHead>
         <ol className="lp-log">

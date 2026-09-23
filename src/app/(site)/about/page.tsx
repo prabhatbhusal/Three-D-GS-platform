@@ -43,7 +43,7 @@ export default function AboutPage() {
 
       {/* the mission over the team's own footage, edge to edge */}
       {film && (
-        <section className="lp-bleed">
+        <section className="lp-bleed" data-nav-dark>
           <div className="lp-bleed-media" aria-hidden><MediaFill m={film} lazy /></div>
           {QUOTE}
         </section>

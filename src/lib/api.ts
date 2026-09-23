@@ -117,6 +117,10 @@ export async function publishSceneNow(id: string): Promise<PublishResult> {
 export const unpublishScene = (id: string) => request(`/api/scenes/${id}/unpublish`, { method: 'POST' });
 export const revertScene = (id: string) => request<SceneDoc>(`/api/scenes/${id}/revert`, { method: 'POST' });
 export const getGallery = () => request<GalleryItem[]>('/api/gallery');
+/** Draw (or redraw) a space's floor plan from its scan; stored with the asset. */
+export const buildFloorPlan = (assetId: string, title: string) =>
+  request<{ size: [number, number]; floorArea: number; walls: number }>(
+    `/api/assets/${assetId}/floorplan?title=${encodeURIComponent(title)}`, { method: 'POST' });
 /** For server components, which have no browser cookies or CORS to worry about. */
 export const API_BASE_URL = API_BASE;
 

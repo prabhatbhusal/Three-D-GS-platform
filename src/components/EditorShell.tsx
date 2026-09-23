@@ -15,7 +15,7 @@ import { playClip, setMuted, stopClip, useSound } from '../lib/audio';
 import { uiConfig, setUiConfig, useUiConfig } from '../lib/uiConfig';
 import {
   saveScene, getSession, logout, getPublishState, publishSceneNow, unpublishScene, revertScene,
-  resolveAsset, safeUrl, getProperties
+  resolveAsset, safeUrl, getProperties, assetUrl, buildFloorPlan
 } from '../lib/api';
 import type { SessionUser, PublishState } from '../lib/api';
 import { HotspotMarkers } from './HotspotMarkers';
@@ -716,6 +716,7 @@ function WorldInspector({ state, pose, onBump }: { state: ViewerState; pose: Pos
       </Section>
 
       <BookingSection sceneId={state.activeId} />
+      <FloorPlanSection sceneId={state.activeId} />
 
       <Section title="Start view">
         <p className="ed2-pose">
@@ -974,6 +975,57 @@ function AudioSection({ hs, setPayload }: { hs: Hotspot; setPayload: (patch: Hot
         <p className="ed2-warn ed2-fine">Add a transcript. Many visitors never turn sound on, and they miss everything it says.</p>
       )}
       <p className="ed2-muted ed2-fine">Plays when a visitor opens this hotspot with sound on. AAC .m4a, mono, 96 kbps, 2 MB at most.</p>
+    </Section>
+  );
+}
+
+/**
+ * The space's floor plan, drawn by the server from the scan's own collision
+ * mesh (server/src/floorplan.js): on upload, or here for older scans.
+ */
+function FloorPlanSection({ sceneId }: { sceneId: string }) {
+  const assetId = SCENE_BY_ID[sceneId]?.assetId;
+  const [view, setView] = useState<'plan' | '3d'>('3d');
+  const [status, setStatus] = useState<'loading' | 'ready' | 'none' | 'building'>('loading');
+  const [error, setError] = useState('');
+  const [bust, setBust] = useState(0);
+  useEffect(() => { setStatus('loading'); setError(''); }, [assetId]);
+  if (!assetId || assetId.startsWith('local:')) return null;
+  const src = (v: string) => `${assetUrl(assetId, `floorplan/${v}.svg`)}${bust ? `?v=${bust}` : ''}`;
+  const build = async () => {
+    setStatus('building');
+    setError('');
+    try {
+      await buildFloorPlan(assetId, SCENE_BY_ID[sceneId]?.name || 'Floor plan');
+      setBust(Date.now());
+      setStatus('loading');
+    } catch (e) {
+      setError((e as Error).message);
+      setStatus('none');
+    }
+  };
+  return (
+    <Section title="Floor plan">
+      {status !== 'none' && status !== 'building' && (
+        <>
+          <div className="ed2-row">
+            <button className="ed2-export" aria-pressed={view === '3d'} onClick={() => setView('3d')}>3D</button>
+            <button className="ed2-export" aria-pressed={view === 'plan'} onClick={() => setView('plan')}>2D plan</button>
+          </div>
+          <a href={src(view)} target="_blank" rel="noreferrer" title="Open full size to save or print">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={src(view)} alt={`Floor plan of ${SCENE_BY_ID[sceneId]?.name ?? 'this space'}`}
+              style={{ width: '100%', marginTop: 10, borderRadius: 8, display: status === 'ready' ? 'block' : 'none' }}
+              onLoad={() => setStatus('ready')} onError={() => setStatus('none')} />
+          </a>
+        </>
+      )}
+      {status === 'none' && <p className="ed2-muted ed2-fine">No plan yet for this space.</p>}
+      {error && <p className="ed2-muted ed2-fine" role="alert">{error}</p>}
+      <button className="ed2-export" onClick={build} disabled={status === 'building'}>
+        {status === 'building' ? 'Drawing the plan…' : status === 'ready' ? 'Redraw floor plan' : 'Make floor plan'}
+      </button>
+      {status === 'ready' && <p className="ed2-muted ed2-fine">Click the plan to open it full size, to save or print.</p>}
     </Section>
   );
 }

@@ -27,6 +27,7 @@ const CONTENT_TYPES = {
   '.glb': 'model/gltf-binary',
   '.btree': 'application/octet-stream',
   '.json': 'application/json',
+  '.svg': 'image/svg+xml',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.png': 'image/png',

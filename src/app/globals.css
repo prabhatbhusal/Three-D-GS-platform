@@ -57,3 +57,38 @@ body {
   justify-self: center; margin-top: 10px; padding: 11px 22px; border-radius: 999px;
   color: #14110e; background: var(--paper); text-decoration: none; font: 600 14px var(--sans);
 }
+
+/* ---- curtain (Curtain.tsx): the site → tour transition ------------- */
+/* Two panels meet in the middle along a lit seam, then part on the next
+ * scene. Above everything, including the tour's own chrome. */
+.curtain { position: fixed; inset: 0; z-index: 2147483000; pointer-events: auto; }
+.curtain.is-opening { pointer-events: none; }
+.curtain-panel {
+  position: absolute; top: 0; bottom: 0; width: 50.5%;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 64px),
+    linear-gradient(90deg, #0B0C10, #15171F);
+}
+.curtain-l { left: 0; box-shadow: inset -2px 0 0 #3364FF, 10px 0 40px rgba(51, 100, 255, 0.35); }
+.curtain-r { right: 0; transform: scaleX(-1); box-shadow: inset -2px 0 0 #3364FF, 10px 0 40px rgba(51, 100, 255, 0.35); }
+.curtain.is-closing .curtain-l { animation: curtain-in-l 0.65s cubic-bezier(0.76, 0, 0.24, 1) both; }
+.curtain.is-closing .curtain-r { animation: curtain-in-r 0.65s cubic-bezier(0.76, 0, 0.24, 1) both; }
+.curtain.is-opening .curtain-l { animation: curtain-out-l 1s cubic-bezier(0.76, 0, 0.24, 1) both; }
+.curtain.is-opening .curtain-r { animation: curtain-out-r 1s cubic-bezier(0.76, 0, 0.24, 1) both; }
+@keyframes curtain-in-l { from { transform: translateX(-101%); } }
+@keyframes curtain-in-r { from { transform: scaleX(-1) translateX(-101%); } }
+@keyframes curtain-out-l { to { transform: translateX(-101%); } }
+@keyframes curtain-out-r { to { transform: scaleX(-1) translateX(-101%); } }
+/* only if the next scene takes a moment: a line in the seam */
+.curtain-say {
+  position: absolute; left: 50%; top: 50%; margin: 0; translate: -50% -50%;
+  padding: 8px 16px; border-radius: 999px; background: #0B0C10;
+  font: 600 13px/1 var(--font-inter), system-ui, sans-serif; letter-spacing: 0.02em;
+  color: rgba(246, 247, 250, 0.75); white-space: nowrap;
+  opacity: 0; animation: curtain-say 0.3s ease 0.9s both;
+}
+.curtain.is-opening .curtain-say { animation: none; opacity: 0; transition: opacity 0.15s; }
+@keyframes curtain-say { to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .curtain-panel, .curtain-say { animation: none !important; }
+}

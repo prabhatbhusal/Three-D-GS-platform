@@ -27,6 +27,42 @@ export function SiteNav() {
     navRef.current?.closest('.site')?.scrollTo({ top: 0, behavior: 'instant' });
   }, [pathname]);
 
+  // XGRIDS' merge: scrolling down past 200 px folds the pill to just the
+  // mark and the links; any scroll up opens it again. Over a section marked
+  // data-nav-dark (photos, the fly-through) the pill turns dark in either
+  // theme. Attributes, not state: this runs every scrolled frame.
+  useEffect(() => {
+    const nav = navRef.current!;
+    const scroller = nav.closest('.site')!;
+    const links = nav.querySelector<HTMLElement>('.site-links')!;
+    let last = scroller.scrollTop;
+    let raf = 0;
+    const measure = () => nav.style.setProperty('--merged-w', `${links.scrollWidth + 80}px`);
+    const update = () => {
+      raf = 0;
+      const y = scroller.scrollTop;
+      if (y <= 200) nav.removeAttribute('data-collapsed');
+      else if (Math.abs(y - last) > 4) nav.toggleAttribute('data-collapsed', y > last);
+      last = y;
+      const r = nav.getBoundingClientRect();
+      const mid = r.top + r.height / 2;
+      nav.toggleAttribute('data-over-dark', [...scroller.querySelectorAll('[data-nav-dark]')].some((el) => {
+        const b = el.getBoundingClientRect();
+        return mid >= b.top && mid < b.bottom;
+      }));
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
+    measure();
+    update();
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', measure);
+    return () => {
+      cancelAnimationFrame(raf);
+      scroller.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', measure);
+    };
+  }, [pathname]);
+
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [user, setUser] = useState<{ name: string; email: string } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -78,7 +114,7 @@ export function SiteNav() {
     <header className="site-nav" ref={navRef}>
       <Link href="/" transitionTypes={['nav-back']} className="site-brand" aria-label="RCAAS.tech home">
         <span className="site-mark" aria-hidden />
-        <span>RCAAS<span className="site-brand-tld">.tech</span></span>
+        <span className="site-brand-word">RCAAS<span className="site-brand-tld">.tech</span></span>
       </Link>
       <nav className="site-links" aria-label="Main">
         {LINKS.map(([href, label], i) => {
@@ -90,8 +126,8 @@ export function SiteNav() {
               transitionTypes={[i > here ? 'nav-forward' : 'nav-back']}
               aria-current={on ? 'page' : undefined}
             >
-              {/* One pill, one name: React pairs it across the navigation and
-               *  the browser glides it from the old link to the new one. */}
+              {/* One viewfinder, one name: React pairs it across the navigation
+               *  and the browser glides it from the old link to the new one. */}
               {on && (
                 <ViewTransition name="site-nav-pill" share="site-nav-pill" enter="site-nav-pill-in" exit="site-nav-pill-out" default="none">
                   <span className="site-links-pill" aria-hidden />

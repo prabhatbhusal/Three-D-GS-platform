@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { openCurtain } from '../../components/Curtain';
 import { getGallery } from '../../lib/api';
 import { hydrateScenes, limitTour } from '../../lib/scenes';
 import { loadSceneDoc } from '../../lib/sceneDoc';
@@ -58,6 +59,10 @@ export default function TourPage() {
       setGate({ kind: 'ready' });
     })().catch(() => setGate({ kind: 'offline' }));
   }, []);
+
+  // Arrived behind the curtain (the home page's "Walk a live tour"): a
+  // message opens it at once; the 3D opens it when its start screen is up.
+  useEffect(() => { if (gate.kind !== 'checking' && gate.kind !== 'ready') openCurtain(); }, [gate.kind]);
 
   if (gate.kind === 'ready') return <App />;
   if (gate.kind === 'checking') return <div className="tour-msg"><p>Opening the tour…</p></div>;
