@@ -35,7 +35,21 @@ const nextConfig: NextConfig = {
   // NextConfig#webpack is typed `any` by Next itself (webpack's own types
   // aren't a resolvable dependency here), so `config` stays untyped too.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  webpack(config: any) {
+  webpack(config: any, { isServer, nextRuntime, webpack }: { isServer: boolean; nextRuntime?: string; webpack: any }) {
+    // @gltf-transform/core (the studio's 3D-model converter, src/lib/
+    // modelConvert.ts) ships a Node file reader that lazily imports
+    // node:fs / node:path. The studio never calls it, but webpack still
+    // resolves it for the browser, where "node:" is an unknown scheme and
+    // fails every page's compile. Its package.json already says fs/path are
+    // absent in a browser; this makes webpack read "node:fs" as "fs" so that
+    // applies. The Node server build is left alone.
+    if (!isServer || nextRuntime === 'edge') {
+      config.plugins.push(new webpack.NormalModuleReplacementPlugin(/^node:/, (res: { request: string }) => {
+        res.request = res.request.replace(/^node:/, '');
+      }));
+      config.resolve.fallback = { ...config.resolve.fallback, fs: false, path: false };
+    }
+
     // The vendored SDK is pre-minified onto a single ~1.4 MB line with a few
     // misplaced `/* @__PURE__ */` comments Rolldown/Rollup used to warn about
     // (vite.config.js silenced INVALID_ANNOTATION for the same reason).

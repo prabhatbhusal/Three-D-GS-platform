@@ -6,3 +6,9 @@ declare module '*lcc-web-sdk.js' {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   export const LCCRender: any;
 }
+
+// three-mesh-bvh ships types for its workers only on the 'three-mesh-bvh/worker'
+// index; meshModel.ts imports the single worker file directly (see there).
+declare module 'three-mesh-bvh/src/workers/GenerateMeshBVHWorker.js' {
+  export { GenerateMeshBVHWorker } from 'three-mesh-bvh/worker';
+}

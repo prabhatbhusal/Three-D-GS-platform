@@ -90,3 +90,105 @@ test('asset:// references resolve through the asset route', () => {
   assert.equal(resolveAsset('javascript:alert(1)'), null);
   assert.equal(resolveAsset(undefined), null);
 });
+
+/* ---- 3D-model spaces: the model handle must answer like the SDK's ---- */
+
+// three's FileLoader reports progress with ProgressEvent, which Node lacks.
+globalThis.ProgressEvent ??= class extends Event { constructor(t, init = {}) { super(t); Object.assign(this, init); } };
+const { loadMeshModel } = await import('../src/lib/meshModel.ts');
+const { findFloorBelow, isClear } = await import('../src/lib/collision.ts');
+const { guessUpAxis, pointCloudFloor } = await import('../src/lib/modelPrep.ts');
+const { Document, NodeIO } = await import('@gltf-transform/core');
+const { ALL_EXTENSIONS, EXTMeshoptCompression } = await import('@gltf-transform/extensions');
+const { MeshoptEncoder } = await import('meshoptimizer');
+
+/** A 6 x 6 m room, 3 m high, as the converter would upload it: a
+ *  meshopt-compressed .glb, as a data: URL. The floor faces DOWN on purpose:
+ *  scan exports disagree on winding, and collision must not care. */
+async function roomGlb() {
+  const v = [];
+  const quad = (a, b, c, d) => v.push(...a, ...b, ...c, ...a, ...c, ...d);
+  quad([-3, 0, -3], [3, 0, -3], [3, 0, 3], [-3, 0, 3]); // floor, normal pointing down
+  quad([3, 0, -3], [3, 3, -3], [3, 3, 3], [3, 0, 3]);
+  quad([-3, 0, -3], [-3, 0, 3], [-3, 3, 3], [-3, 3, -3]);
+  quad([-3, 0, 3], [3, 0, 3], [3, 3, 3], [-3, 3, 3]);
+  quad([-3, 0, -3], [-3, 3, -3], [3, 3, -3], [3, 0, -3]);
+  const doc = new Document();
+  const buffer = doc.createBuffer();
+  const pos = doc.createAccessor().setType('VEC3').setArray(new Float32Array(v)).setBuffer(buffer);
+  const mesh = doc.createMesh().addPrimitive(doc.createPrimitive().setAttribute('POSITION', pos));
+  doc.createScene().addChild(doc.createNode('room').setMesh(mesh));
+  await MeshoptEncoder.ready;
+  doc.createExtension(EXTMeshoptCompression).setRequired(true)
+    .setEncoderOptions({ method: EXTMeshoptCompression.EncoderMethod.FILTER });
+  const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'meshopt.encoder': MeshoptEncoder });
+  const bytes = await io.writeBinary(doc);
+  return `data:model/gltf-binary;base64,${Buffer.from(bytes).toString('base64')}`;
+}
+
+const body = { eyeHeight: 1.6, radius: 0.3 };
+const settled = (model) => new Promise((r) => { const t = setInterval(() => { if (model.hasCollision()) { clearInterval(t); r(); } }, 20); });
+
+test('a model room collides like an LCC scan: floor found, walls push back', async () => {
+  const model = await loadMeshModel(await roomGlb(), () => {});
+  assert.equal(model.hasCollision(), false, 'collision is built after the first frame, not during load');
+  await settled(model);
+
+  const b = model.getBounds();
+  assert.deepEqual([b.min.x, b.min.y, b.max.y, b.max.z], [-3, 0, 3, 3]);
+
+  const floor = findFloorBelow(model, 0, 0, 2.5, -2, body);
+  assert.ok(floor && Math.abs(floor.y - 1.6) < 0.35, `stands on a floor that faces down: ${JSON.stringify(floor)}`);
+  assert.equal(isClear(model, 0, 1.6, 0, body), true, 'the middle of the room is open');
+
+  const wall = model.intersectsCapsule({ start: { x: 2.85, y: 0.5, z: 0 }, end: { x: 2.85, y: 1.3, z: 0 }, radius: 0.3 });
+  assert.equal(wall.hit, true);
+  assert.ok(wall.delta.x < -0.1, `pushed back into the room, off the +x wall: ${JSON.stringify(wall.delta)}`);
+  model.dispose();
+});
+
+test('moving, turning and scaling the model moves its collision with it', async () => {
+  const model = await loadMeshModel(await roomGlb(), () => {});
+  await settled(model);
+  // What transform.ts applyToRenderer() does: the author transform on root.
+  model.root.position.set(10, 5, 0);
+  model.root.rotation.set(0, Math.PI / 2, 0);
+  model.root.scale.setScalar(2);
+  model.root.updateMatrixWorld(true);
+
+  const floor = findFloorBelow(model, 10, 0, 8, 2, body);
+  assert.ok(floor && Math.abs(floor.y - 6.6) < 0.35, `floor moved up 5 m: ${JSON.stringify(floor)}`);
+  // Scaled x2 the room is 12 m wide, so its walls now sit 6 m from the middle.
+  assert.equal(isClear(model, 10 + 4, 6.6, 0, body), true, 'inside the scaled-up room');
+  const wall = model.intersectsCapsule({ start: { x: 15.85, y: 5.5, z: 0 }, end: { x: 15.85, y: 6.3, z: 0 }, radius: 0.3 });
+  assert.equal(wall.hit, true, 'the turned, scaled wall is where the model now is');
+  const b = model.getBounds();
+  assert.ok(Math.abs(b.max.y - 11) < 1e-6 && Math.abs(b.max.x - 16) < 1e-6, `bounds follow: ${JSON.stringify(b)}`);
+  model.dispose();
+});
+
+test('up axis: a scan wider than tall is upright on its short side; anything else stays Y-up', () => {
+  assert.equal(guessUpAxis({ x: 6, y: 6, z: 3 }), 'z', 'a Z-up room');
+  assert.equal(guessUpAxis({ x: 6, y: 3, z: 6 }), 'y', 'a Y-up room');
+  assert.equal(guessUpAxis({ x: 400, y: 300, z: 25 }), 'z', 'a Z-up campus');
+  assert.equal(guessUpAxis({ x: 10, y: 50, z: 10 }), 'y', 'a tower: nothing clearly shortest, keep Y');
+  assert.equal(guessUpAxis({ x: 2, y: 2, z: 2 }), 'y', 'an object');
+});
+
+test('a point cloud gets a floor to stand on, and walls it can\'t walk through', () => {
+  // A 6 x 6 m room scanned as points: floor, ceiling at 3 m, walls on x = +-3.
+  const pts = [];
+  for (let x = -2.95; x < 3; x += 0.1) for (let z = -2.95; z < 3; z += 0.1) pts.push(x, 0, z, x, 3, z);
+  for (let z = -2.95; z < 3; z += 0.1) for (let y = 0; y <= 3; y += 0.1) pts.push(-3, y, z, 2.99, y, z);
+  const tris = pointCloudFloor(pts);
+  assert.ok(tris.length > 0 && tris.length % 9 === 0, 'whole triangles');
+  const heights = (x0, x1) => {
+    const ys = [];
+    for (let i = 0; i < tris.length; i += 3) if (tris[i] > x0 && tris[i] < x1) ys.push(tris[i + 1]);
+    return { min: Math.min(...ys), max: Math.max(...ys) };
+  };
+  const middle = heights(-1, 1);
+  assert.ok(Math.abs(middle.min) < 1e-6 && Math.abs(middle.max) < 1e-6, `open floor at y = 0 in the middle: ${JSON.stringify(middle)}`);
+  assert.ok(heights(2.8, 3.3).max >= 2.19, 'the wall cells are 2.2 m blocks');
+  assert.equal(pointCloudFloor([]).length, 0);
+});

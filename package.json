@@ -11,12 +11,16 @@
     "test": "node --test test/*.test.mjs && cd server && npm test"
   },
   "dependencies": {
+    "@gltf-transform/core": "^4.5.0",
+    "@gltf-transform/extensions": "^4.5.0",
     "@react-three/fiber": "^9.6.1",
     "framer-motion": "^13.4.0",
+    "meshoptimizer": "^1.2.0",
     "next": "^16.3.5",
     "react": "19.2.7",
     "react-dom": "19.2.7",
-    "three": "^0.164.0"
+    "three": "^0.164.0",
+    "three-mesh-bvh": "^0.9.15"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

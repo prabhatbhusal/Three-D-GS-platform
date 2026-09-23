@@ -58,7 +58,12 @@ export default function StudioPage() {
     <div className="ed2">
       <main className="pl">
         <header className="pl-top">
-          <span className="pl-brand"><span className="ed2-dot" />Studio</span>
+          <span className="pl-brand">
+            <a href="/" className="ed2-home" aria-label="Home" title="Home">
+              <svg viewBox="0 0 24 24" aria-hidden><path d="M3 11 12 4l9 7" /><path d="M5 10v10h5v-6h4v6h5V10" /><rect className="ed2-home-door" x="10.6" y="14.6" width="2.8" height="5" rx="0.6" /></svg>
+            </a>
+            Studio
+          </span>
           <ThemeToggle className="ed2-theme" />
         </header>
 

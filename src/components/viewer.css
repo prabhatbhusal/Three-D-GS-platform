@@ -157,18 +157,19 @@
 }
 .vw-bottom > * { pointer-events: auto; }
 
-/* The filmstrip: numbered views; the one playing outlined in the accent. */
+/* The filmstrip: a photo card per scene, its name over the bottom edge; the
+ * current one outlined in the accent. */
 .vw-tray {
-  display: flex; gap: 8px; padding: 8px; max-width: min(100%, 640px);
+  display: flex; gap: 8px; padding: 8px; max-width: min(100%, 820px);
   overflow-x: auto; scrollbar-width: none; border-radius: 18px;
-  background: linear-gradient(180deg, rgba(30, 24, 19, 0.86), rgba(13, 10, 8, 0.8));
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  background: rgba(16, 13, 11, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.36);
   animation: vw-up 0.3s var(--ease) both;
 }
 .vw-tray::-webkit-scrollbar { display: none; }
 .vw-card {
-  position: relative; flex: 0 0 auto; width: 136px; height: 80px; padding: 0;
+  position: relative; flex: 0 0 auto; width: 152px; height: 88px; padding: 0;
   border: 0; border-radius: 12px; overflow: hidden; cursor: pointer;
   background: radial-gradient(120% 100% at 30% 15%, #4a3d31, #1a1511 75%);
   transition: transform 0.2s var(--ease), box-shadow 0.2s;
@@ -178,69 +179,37 @@
 .vw-card-img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .vw-card-ph { position: absolute; inset: 0 0 18px; display: grid; place-items: center; color: rgba(246, 241, 231, 0.26); }
 .vw-card-ph svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; }
-.vw-card-no {
-  position: absolute; top: 7px; left: 9px;
-  font: 600 10.5px/1 var(--mono, monospace); font-variant-numeric: tabular-nums; color: rgba(255, 255, 255, 0.7);
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
-}
-.vw-card.on .vw-card-no { color: var(--gold); }
 .vw-card-nm {
-  position: absolute; left: 0; right: 0; bottom: 0; padding: 16px 10px 7px;
-  text-align: left; font: 600 12px/1.2 var(--sans); color: #fff;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 10px 9px;
+  text-align: left; font: 700 13px/1.2 var(--sans); color: #fff;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.78));
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-/* The tour bar: ‹ play › (a ring that fills as the view flies), the view's
- * name and count, the filmstrip toggle, and the progress as its bottom edge. */
+/* The tour bar: a compact pill — ‹ Scenes, start over | play/pause ›. */
 .vw-tourbar {
-  position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px;
-  width: min(520px, 100%); padding: 8px 10px 17px 8px; border-radius: 22px; color: #fff;
-  background: linear-gradient(180deg, rgba(30, 24, 19, 0.86), rgba(13, 10, 8, 0.8));
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  display: flex; align-items: center; gap: 2px; padding: 5px; border-radius: 999px; color: #fff;
+  background: rgba(16, 13, 11, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.36);
 }
-.vw-tourbar-transport { display: flex; align-items: center; gap: 2px; }
-.vw-tourbar-step {
+.vw-tourbar svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.vw-tourbar-btn {
   appearance: none; cursor: pointer; display: grid; place-items: center;
-  width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%;
-  color: rgba(255, 255, 255, 0.66); background: transparent; transition: color 0.15s, background 0.15s;
+  width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%;
+  color: rgba(255, 255, 255, 0.78); background: transparent; transition: color 0.15s, background 0.15s;
 }
-.vw-tourbar-step:hover { color: #fff; background: rgba(255, 255, 255, 0.09); }
-.vw-tourbar svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.vw-tourbar-play {
-  position: relative; display: grid; place-items: center; width: 48px; height: 48px;
-  padding: 0; border: 0; border-radius: 50%; cursor: pointer; color: #fff; background: transparent;
-}
-.vw-tourbar .vw-tourbar-ring { position: absolute; inset: 0; width: 48px; height: 48px; transform: rotate(-90deg); overflow: visible; }
-.vw-ring-track { fill: rgba(255, 255, 255, 0.08); stroke: rgba(255, 255, 255, 0.2); stroke-width: 1.5; transition: fill 0.15s; }
-.vw-tourbar-play:hover .vw-ring-track { fill: rgba(255, 255, 255, 0.15); }
-.vw-ring-fill {
-  fill: none; stroke: var(--gold); stroke-width: 2.5; stroke-linecap: round;
-  stroke-dasharray: 132; stroke-dashoffset: 132;
-  animation: vw-ring var(--dur, 4s) linear forwards;
-  filter: drop-shadow(0 0 4px rgba(176, 141, 87, 0.65));
-}
-@keyframes vw-ring { to { stroke-dashoffset: 0 } }
-.vw-tourbar-glyph { position: relative; display: grid; place-items: center; }
-.vw-tourbar .vw-tourbar-glyph svg { width: 18px; height: 18px; stroke-width: 2.4; }
-.vw-tourbar:not(.is-playing) .vw-tourbar-glyph svg { fill: currentColor; stroke-width: 1.2; transform: translateX(1px); }
-.vw-tourbar-now { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-.vw-tourbar-title {
-  font: 400 19px/1.05 var(--serif, Georgia, serif); color: #fff;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  animation: vw-dial-from-right 0.3s var(--ease) both;
-}
-.vw-tourbar-sub { font: 500 11.5px/1.2 var(--sans); color: rgba(246, 241, 231, 0.62); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.vw-count { font: 600 11.5px/1 var(--mono, monospace); font-variant-numeric: tabular-nums; color: var(--gold); }
+.vw-tourbar-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.1); }
+.vw-tourbar:not(.is-playing) .vw-tourbar-play svg { fill: currentColor; stroke-width: 1.2; transform: translateX(1px); }
+.vw-tourbar-sep { width: 1px; height: 22px; margin: 0 4px; background: rgba(255, 255, 255, 0.18); }
 .vw-tourbar-views {
-  display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 13px; cursor: pointer;
-  border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.16); background: rgba(255, 255, 255, 0.05);
-  font: 600 12.5px/1 var(--sans); color: rgba(255, 255, 255, 0.86); transition: background 0.15s, color 0.15s, border-color 0.15s;
+  display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 18px; cursor: pointer;
+  border: 0; border-radius: 999px; background: transparent;
+  font: 600 14px/1 var(--sans); color: rgba(255, 255, 255, 0.86); transition: background 0.15s, color 0.15s;
 }
 .vw-tourbar-views:hover { background: rgba(255, 255, 255, 0.1); }
-.vw-tourbar-views.on { color: #14110e; background: var(--paper); border-color: var(--paper); }
-.vw-tourbar .vw-tourbar-views svg { width: 16px; height: 16px; }
+.vw-tourbar-views.on { color: #14110e; background: var(--paper); }
 
 /* Fly mode's bar: zoom, reset, exit — where the views bar usually sits. */
 .vw-flybar { display: flex; align-items: center; gap: 6px; }
@@ -373,7 +342,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .vw-dial-text, .vw-dial-medal, .vw-tourbar-title { animation: none !important; }
+  .vw-dial-text, .vw-dial-medal { animation: none !important; }
   .vw-dial-thumb, .vw-layers-marker { transition: none; }
 }
 .vw-tb {
@@ -383,21 +352,6 @@
   transition: background 0.15s;
 }
 .vw-tb:hover { background: rgba(20, 17, 14, 0.92); }
-/* progress: the tour bar's glowing bottom edge, one segment per view */
-.vw-segs { position: absolute; left: 18px; right: 18px; bottom: 5px; display: flex; gap: 4px; }
-.vw-seg { position: relative; flex: 1; appearance: none; cursor: pointer; padding: 4px 0; border: 0; background: none; }
-.vw-seg::before {
-  content: ''; display: block; height: 3px; border-radius: 2px;
-  background: rgba(255, 255, 255, 0.18); transition: background 0.15s;
-}
-.vw-seg:hover::before { background: rgba(255, 255, 255, 0.42); }
-.vw-seg-fill {
-  position: absolute; left: 0; top: 4px; height: 3px; width: 0; border-radius: 2px; pointer-events: none;
-  background: var(--gold); box-shadow: 0 0 6px rgba(176, 141, 87, 0.6);
-}
-.vw-seg-fill.done { width: 100%; }
-.vw-seg-fill.live { animation: vw-fill var(--dur, 4s) linear forwards; }
-@keyframes vw-fill { from { width: 0 } to { width: 100% } }
 
 /* ---- popovers: spaces, controls ------------------------------ */
 .vw-pop {
@@ -700,9 +654,6 @@ button.vw-book { border: 0; cursor: pointer; }
   .vw-tr { right: 10px; left: 10px; justify-content: flex-end; flex-wrap: wrap; pointer-events: none; }
   .vw-tr > * { pointer-events: auto; }
   .vw-card { width: 112px; height: 68px; }
-  .vw-tourbar-views span { display: none; }
-  .vw-tourbar-views { padding: 0 10px; }
-  .vw-tourbar { gap: 10px; }
   /* Bottom bar CTA reserves its own strip; the views bar sits above it and
    * the joystick zone above that, so none of the three cover each other
    * (§6.4, §10.2). */

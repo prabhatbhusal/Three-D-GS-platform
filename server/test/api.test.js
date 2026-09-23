@@ -279,6 +279,95 @@ test('a splat finalize still demands an .lcc2 index', async () => {
   assert.match(fin.json.error, /\.lcc2/);
 });
 
+/* ---- 3D models: the studio converts them, the server gets one .glb ---- */
+
+const text = (s) => new TextEncoder().encode(s);
+
+/** Stages each [relPath, bytes] in one asset, then finalizes it. */
+async function uploadModel(files) {
+  const { json: { assetId } } = await api('POST', '/api/assets');
+  for (const [name, bytes] of files) {
+    const r = await api('PUT', `/api/assets/${assetId}/files/chunk?relPath=${encodeURIComponent(name)}&offset=0`,
+      bytes, { 'Content-Type': 'application/octet-stream' });
+    assert.equal(r.status, 200, JSON.stringify(r.json));
+  }
+  return { assetId, fin: await api('POST', `/api/assets/${assetId}/finalize`) };
+}
+
+/** A minimal GLB: header, a JSON chunk, and a BIN chunk of repetitive
+ *  bytes (so gzip visibly shrinks it). Only the JSON matters to the server. */
+function glb(gltf, binBytes = 4096) {
+  const pad4 = (n) => (n + 3) & ~3;
+  const json = Buffer.from(JSON.stringify({ asset: { version: '2.0' }, ...gltf }));
+  const jsonLen = pad4(json.length);
+  const out = Buffer.alloc(12 + 8 + jsonLen + 8 + binBytes, 0x20);
+  out.write('glTF', 0, 'latin1');
+  out.writeUInt32LE(2, 4);
+  out.writeUInt32LE(out.length, 8);
+  out.writeUInt32LE(jsonLen, 12);
+  out.write('JSON', 16, 'latin1');
+  json.copy(out, 20);
+  out.writeUInt32LE(binBytes, 20 + jsonLen);
+  out.write('BIN\0', 24 + jsonLen, 'latin1');
+  out.fill(7, 28 + jsonLen);
+  return new Uint8Array(out);
+}
+const mesh = (mode) => ({ primitives: [{ attributes: { POSITION: 0 }, mode }] });
+
+test('a converted .glb uploads, says mesh or point cloud, and is sent gzipped', async () => {
+  signIn();
+  let { assetId, fin } = await uploadModel([['lobby.glb', glb({ meshes: [mesh(4)], nodes: [{ mesh: 0 }] }, 200000)]]);
+  assert.equal(fin.status, 200, JSON.stringify(fin.json));
+  assert.deepEqual([fin.json.format, fin.json.kind, fin.json.meta], ['glb', 'mesh', 'lobby.glb']);
+  assert.ok(stagingGone(assetId));
+
+  const gz = await fetch(`${BASE}/api/assets/${assetId}/lobby.glb`, { headers: { 'Accept-Encoding': 'gzip' } });
+  assert.equal(gz.headers.get('content-encoding'), 'gzip');
+  assert.ok(Number(gz.headers.get('content-length')) < fin.json.bytes / 10, 'the gzipped copy is what goes out');
+  assert.equal((await gz.arrayBuffer()).byteLength, fin.json.bytes, 'and it unpacks to the same file');
+  const ranged = await fetch(`${BASE}/api/assets/${assetId}/lobby.glb`, { headers: { 'Accept-Encoding': 'gzip', Range: 'bytes=0-3' } });
+  assert.equal(ranged.status, 206, 'a byte range still gets the raw file');
+  assert.equal(ranged.headers.get('content-encoding'), null);
+
+  // A point cloud: drawn as points, plus the hidden walkable floor.
+  ({ fin } = await uploadModel([['scan.glb', glb({
+    meshes: [mesh(0), mesh(4)], nodes: [{ mesh: 0 }, { mesh: 1, name: 'rcaas-collision' }]
+  })]]));
+  assert.equal(fin.json.kind, 'points');
+});
+
+test('a file that isn\'t a GLB, or a model that skipped conversion, is refused', async () => {
+  signIn();
+  let { assetId, fin } = await uploadModel([['fake.glb', text('not really a glb at all, just words')]]);
+  assert.equal(fin.status, 400);
+  assert.match(fin.json.error, /isn't a GLB/);
+  assert.ok(stagingGone(assetId));
+
+  ({ fin } = await uploadModel([['empty.glb', glb({ meshes: [] })]]));
+  assert.match(fin.json.error, /no geometry/);
+
+  ({ fin } = await uploadModel([['hall/hall.fbx', text('Kaydara FBX Binary')], ['hall/wood.jpg', text('jpeg')]]));
+  assert.equal(fin.status, 400);
+  assert.match(fin.json.error, /converted in the studio/);
+});
+
+test('the scene list carries the format, and a large model gets a publish warning', async () => {
+  signIn();
+  const doc = (bytes) => sceneDoc('meshy', {
+    splat: { format: 'glb', variants: { high: { assetId: 'ast_mesh', meta: 'scan.glb', bytes } } }
+  });
+  await api('PUT', '/api/scenes/meshy', doc(80e6));
+  const listed = (await api('GET', '/api/scenes')).json.find((s) => s.id === 'meshy');
+  assert.equal(listed.format, 'glb');
+  const warn = (await api('GET', '/api/scenes/meshy/publish')).json.warnings.join(' ');
+  assert.match(warn, /GLB model is 80 MB and loads whole/);
+  assert.doesNotMatch(warn, /medium or low variant/); // variants are an LCC thing
+
+  await api('PUT', '/api/scenes/meshy', doc(5e6));
+  assert.doesNotMatch((await api('GET', '/api/scenes/meshy/publish')).json.warnings.join(' '), /loads whole/);
+});
+
+
 test('an asset id can never climb out of the data folder', async () => {
   signIn();
   // Raw path: fetch() and a URL string both normalise the %2E%2E segment away

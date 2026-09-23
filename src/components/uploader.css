@@ -197,3 +197,14 @@ p.up-slot-error { color: var(--ed-danger); font-size: 11px; margin: 0; }
   color: var(--ed-text-dim); background: transparent;
   border-color: var(--ed-line); cursor: default;
 }
+
+/* 3D model up axis: one quiet row above the slots */
+.up-axis { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -6px 0 14px; }
+.up-axis span { font-size: 11.5px; color: var(--ed-text-dim); }
+.up-axis select {
+  background: var(--ed-well); color: var(--ed-text); border: 1px solid var(--ed-line);
+  border-radius: var(--ed-r-sm); padding: 6px 10px; font: inherit; font-size: 12px;
+}
+.up-axis select:focus { outline: none; border-color: var(--ed-signal); }
+/* files a model named that weren't picked: a warning, not an error */
+.up-miss { color: var(--ed-text); }

@@ -205,6 +205,7 @@ const Icon = {
   next: <svg viewBox="0 0 24 24"><path d="M18 5v14M6 5l9 7-9 7V5Z" /></svg>,
   play: <svg viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5-12-7.5Z" /></svg>,
   pause: <svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" /></svg>,
+  restart: <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8" /><path d="M3 3v5h5" /></svg>,
   exit: <svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6" /></svg>
 };
 
@@ -411,9 +412,7 @@ function LayersRail({ state }: { state: ViewerState }) {
 }
 
 /**
- * The mode switch, the view tray and the segmented progress bar. One segment
- * per camera track; the one playing fills over its own flight time, the ones
- * before it are full.
+ * The scene tray and, under it, the tour bar: ‹ Scenes, start over | play ›.
  */
 function BottomChrome({ state, showLabels, mode, trayOpen, onToggleTray }: {
   state: ViewerState; showLabels: boolean; mode: string; trayOpen: boolean; onToggleTray: () => void;
@@ -421,12 +420,11 @@ function BottomChrome({ state, showLabels, mode, trayOpen, onToggleTray }: {
   const vps = state.viewpoints || [];
   const [idx, setIdx] = useState(-1);
   const [auto, setAuto] = useState(false);
-  const [run, setRun] = useState(0); // restarts the fill animation
 
 
   const go = (i: number) => {
     const k = (i + vps.length) % vps.length;
-    setIdx(k); setRun((n) => n + 1); setAuto(false);
+    setIdx(k); setAuto(false);
     state.editor.stopSequence();
     state.playViewport(vps[k]);
   };
@@ -434,7 +432,7 @@ function BottomChrome({ state, showLabels, mode, trayOpen, onToggleTray }: {
     const start = idx < 0 ? 0 : idx;
     setAuto(true);
     state.editor.playSequence([...vps.slice(start), ...vps.slice(0, start)], {
-      onIndex: (k) => { setIdx((start + k) % vps.length); setRun((n) => n + 1); },
+      onIndex: (k) => setIdx((start + k) % vps.length),
       // any interruption (a drag, a key, pause) ends the autoplay
       onEnd: () => setAuto(false)
     });
@@ -455,66 +453,37 @@ function BottomChrome({ state, showLabels, mode, trayOpen, onToggleTray }: {
   }
 
   if (!vps.length) return null;
-  const cur = idx >= 0 ? vps[idx] : null;
-  const dur = `${cur?.seconds || 4}s`;
 
   return (
     <div className="vw-bottom">
-      {/* The filmstrip: numbered views, the one playing outlined in the accent. */}
+      {/* The filmstrip: one photo card per scene, the current one outlined in the accent. */}
       {trayOpen && (
         <div className="vw-tray" role="list">
           {vps.map((vp, i) => (
-            <button key={vp.id} role="listitem" className={`vw-card ${i === idx ? 'on' : ''}`} onClick={() => go(i)} title={vp.label}>
+            <button key={vp.id} role="listitem" className={`vw-card ${i === idx ? 'on' : ''}`}
+              aria-current={i === idx ? 'true' : undefined} onClick={() => go(i)} title={vp.label}>
               {vp.thumb
                 ? <img className="vw-card-img" src={vp.thumb} alt="" />
                 : <span className="vw-card-ph" aria-hidden>{Icon.views}</span>}
-              <span className="vw-card-no" aria-hidden>{String(i + 1).padStart(2, '0')}</span>
               {showLabels && <span className="vw-card-nm">{vp.label}</span>}
             </button>
           ))}
         </div>
       )}
 
-      {/* The tour bar: ‹ play › with a ring that fills as the view flies,
-       *  the view's name and count, the filmstrip toggle, and the progress
-       *  segments as its bottom edge. */}
-      <div className={`vw-tourbar ${playing ? 'is-playing' : ''}`}>
-        <div className="vw-tourbar-transport">
-          <button className="vw-tourbar-step" onClick={() => go(idx - 1)} aria-label="Previous view" title="Previous view">{Icon.chevL}</button>
-          <button className="vw-tourbar-play" onClick={() => (playing ? pause() : playAll())} aria-label={playing ? 'Pause' : 'Play the tour'}>
-            <svg className="vw-tourbar-ring" viewBox="0 0 48 48" aria-hidden>
-              <circle className="vw-ring-track" cx="24" cy="24" r="21" />
-              {playing && <circle key={`ring-${run}`} className="vw-ring-fill" cx="24" cy="24" r="21" style={{ '--dur': dur } as React.CSSProperties} />}
-            </svg>
-            <span className="vw-tourbar-glyph">{playing ? Icon.pause : Icon.play}</span>
-          </button>
-          <button className="vw-tourbar-step" onClick={() => go(idx + 1)} aria-label="Next view" title="Next view">{Icon.chevR}</button>
-        </div>
-
-        <div className="vw-tourbar-now" aria-live="polite">
-          <span className="vw-tourbar-title" key={cur?.id ?? 'intro'}>{cur ? cur.label : 'Guided tour'}</span>
-          <span className="vw-tourbar-sub">
-            {cur
-              ? <><b className="vw-count">{idx + 1} / {vps.length}</b>{playing ? ' now flying' : ' paused'}</>
-              : <>{vps.length === 1 ? '1 view' : `${vps.length} views`}, press play</>}
-          </span>
-        </div>
-
-        <button className={`vw-tourbar-views ${trayOpen ? 'on' : ''}`} onClick={onToggleTray} aria-pressed={trayOpen} aria-label="Views" title="Views">
-          {Icon.views}<span>Views</span>
+      {/* The tour bar: ‹ Scenes, start over | play/pause › */}
+      <div className={`vw-tourbar ${playing ? 'is-playing' : ''}`} role="toolbar" aria-label="Tour">
+        <button className="vw-tourbar-btn" onClick={() => go(idx < 0 ? vps.length - 1 : idx - 1)} aria-label="Previous scene" title="Previous scene">{Icon.chevL}</button>
+        <button className={`vw-tourbar-views ${trayOpen ? 'on' : ''}`} onClick={onToggleTray} aria-pressed={trayOpen} title="Scenes">
+          {Icon.views}<span>Scenes</span>
         </button>
-
-        <div className="vw-segs">
-          {vps.map((vp, i) => (
-            <button key={vp.id} className="vw-seg" onClick={() => go(i)} aria-label={`Go to ${vp.label}`} title={vp.label}>
-              <span
-                key={i === idx ? `run-${run}` : 'idle'}
-                className={`vw-seg-fill ${i < idx ? 'done' : ''} ${i === idx ? (playing ? 'live' : 'done') : ''}`}
-                style={{ '--dur': `${vp.seconds || 4}s` } as React.CSSProperties}
-              />
-            </button>
-          ))}
-        </div>
+        <button className="vw-tourbar-btn" onClick={() => go(0)} aria-label="Start over" title="Start over">{Icon.restart}</button>
+        <span className="vw-tourbar-sep" aria-hidden />
+        <button className="vw-tourbar-btn vw-tourbar-play" onClick={() => (playing ? pause() : playAll())}
+          aria-label={playing ? 'Pause' : 'Play the tour'} title={playing ? 'Pause' : 'Play the tour'}>
+          {playing ? Icon.pause : Icon.play}
+        </button>
+        <button className="vw-tourbar-btn" onClick={() => go(idx + 1)} aria-label="Next scene" title="Next scene">{Icon.chevR}</button>
       </div>
     </div>
   );

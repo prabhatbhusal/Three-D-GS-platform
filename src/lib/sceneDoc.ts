@@ -14,7 +14,7 @@ import { getScene, getPublishedScene } from './api';
 import { liveViewpoints, loadTracks } from './viewpoints';
 import { transformFor, loadTransform } from './transform';
 import type { Hotspot, HotspotPayload, HotspotType } from '../@types/hotspot.types';
-import type { Booking, SceneDoc, SplatVariant, Track } from '../@types/scene.types';
+import type { Booking, ModelFormat, SceneDoc, SplatVariant, Track } from '../@types/scene.types';
 
 const doc: Record<string, { hotspots: Hotspot[] }> = {};
 /** Book now per space (§7.6). Loaded with the doc, so the public tour reads
@@ -236,14 +236,15 @@ export function blankSceneDoc(
   id: string,
   title: string,
   variants: { high: SplatVariant; medium?: SplatVariant; low?: SplatVariant },
-  propertyId: string | null = null
+  propertyId: string | null = null,
+  format: ModelFormat = 'lcc2'
 ): SceneDoc {
   return {
     id,
     version: 2,
     propertyId,
     title,
-    splat: { format: 'lcc2', variants },
+    splat: { format, variants },
     transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: 1 },
     unitScale: 1,
     spawn: { position: [0, 1.7, 3], yaw: 0, eyeHeight: 1.65 },

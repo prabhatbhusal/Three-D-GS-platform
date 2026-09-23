@@ -10,6 +10,8 @@ export interface Scene {
   unitScale?: number;
   /** Override for META_FILE, per-scene. */
   meta?: string;
+  /** Absent = lcc2 (every space before 2026-09-23). */
+  format?: ModelFormat;
   /** High-variant asset id (CLAUDE.md §2, §9) — when set, metaPath() resolves
    *  through /api/assets/<id>/... instead of the legacy public/assets/rooms/
    *  convention. Unset for the two hand-authored demo scenes. */
@@ -34,6 +36,7 @@ export interface ApiScene {
   unitScale?: number;
   assetId?: string;
   meta?: string;
+  format?: ModelFormat;
   neighbours?: string[];
   propertyId?: string | null;
 }
@@ -91,9 +94,18 @@ export interface Track {
   thumb?: string | null;
 }
 
+/** How a space's model is stored (§5.2 splat.format). lcc2 streams through
+ *  the XGRIDS SDK; glb is a 3D model (FBX/OBJ/PLY/glTF converted in the
+ *  studio, src/lib/modelConvert.ts) loaded whole by src/lib/meshModel.ts. */
+export type ModelFormat = 'lcc2' | 'glb';
+
 export interface SplatVariant {
   assetId: string;
+  /** The file to load inside the asset: the .lcc2 index, or the .obj/.ply. */
   meta: string;
+  /** Total upload size. Recorded for glb, whose whole file is the bytes
+   *  to first frame (publish warns past 35 MB). */
+  bytes?: number;
 }
 
 export interface SceneDoc {
@@ -102,7 +114,7 @@ export interface SceneDoc {
   propertyId: string | null;
   title: string;
   splat: {
-    format: 'lcc2';
+    format: ModelFormat;
     // high is mandatory (CLAUDE.md §7.5 won't publish without it); medium/low
     // fall back upward when absent (§8.2).
     variants: { high: SplatVariant; medium?: SplatVariant; low?: SplatVariant };

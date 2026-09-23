@@ -13,8 +13,11 @@
  */
 import { createAsset, initAssetFile, uploadAssetChunk, finalizeAsset, finalizeAudio } from './api';
 import type { StagedFile, UploadProgress, UploadResult } from '../@types/upload.types';
+import type { UpChoice } from './modelConvert';
 
 const CHUNK_BYTES = 8 * 1024 * 1024; // 8 MB, per §7.1
+/** Same list as modelConvert.ts, kept here so this file doesn't pull in three. */
+const MODEL_FILE = /\.(fbx|glb|gltf|obj|ply)$/i;
 const MAX_RETRIES_PER_CHUNK = 3;
 
 /* ------------------------------------------------------------------ */
@@ -91,7 +94,9 @@ export function validateExport(files: StagedFile[]): string | null {
   if (files.length === 1 && files[0].relPath.toLowerCase().endsWith('.zip')) return null;
 
   const indexes = files.filter((f) => f.relPath.toLowerCase().endsWith('.lcc2'));
-  if (!indexes.length) return "No .lcc2 index here — that's not a Lixel Studio export folder.";
+  // A 3D model: converted to one .glb in the browser before upload.
+  if (!indexes.length && files.some((f) => MODEL_FILE.test(f.relPath))) return null;
+  if (!indexes.length) return 'No .lcc2 index or 3D model here. Pick a Lixel Studio export folder, or an FBX, OBJ, PLY or GLB model.';
   // The .lcc2 is only an index; on its own it points at tiles that aren't here.
   if (files.length === indexes.length) {
     return 'A .lcc2 on its own is only the index — pick the whole export folder (or a .zip of it) so its data/ tiles come too.';
@@ -144,11 +149,33 @@ async function uploadOneFile(
  *  `onProgress` fires with cumulative bytes across all files in the batch. */
 export async function uploadVariant(
   files: StagedFile[],
-  onProgress: (p: UploadProgress) => void
+  onProgress: (p: UploadProgress) => void,
+  { up = 'auto', onStage = () => {} }: { up?: UpChoice; onStage?: (stage: string) => void } = {}
 ): Promise<UploadResult> {
   const invalid = validateExport(files);
   if (invalid) throw new Error(invalid);
 
+  // A 3D model (no LCC index, not a zip): convert it here, upload one .glb.
+  const isZip = files.length === 1 && files[0].relPath.toLowerCase().endsWith('.zip');
+  if (!isZip && !files.some((f) => f.relPath.toLowerCase().endsWith('.lcc2'))) {
+    const { convertModel } = await import('./modelConvert');
+    const c = await convertModel(files, { up, onStage });
+    onStage('');
+    const result = await sendFiles([{ relPath: c.file.name, file: c.file }], onProgress);
+    return {
+      ...result,
+      converted: {
+        from: files.reduce((n, f) => n + f.file.size, 0),
+        triangles: c.triangles, points: c.points, up: c.up, toMetres: c.toMetres, missing: c.missing
+      }
+    };
+  }
+
+  return sendFiles(files, onProgress);
+}
+
+/** Create an asset, push every file 8 MB at a time, finalize. */
+async function sendFiles(files: StagedFile[], onProgress: (p: UploadProgress) => void): Promise<UploadResult> {
   const created = await createAsset();
   if (!created?.assetId) throw new Error('Could not start the upload — the server is unreachable.');
   const { assetId } = created;

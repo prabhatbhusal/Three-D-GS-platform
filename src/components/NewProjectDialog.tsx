@@ -5,18 +5,19 @@ import { filesFromDataTransfer, filesFromFileList, uploadVariant } from '../lib/
 import { createProperty, getScenes, saveScene } from '../lib/api';
 import { blankSceneDoc } from '../lib/sceneDoc';
 import { hydrateScenes } from '../lib/scenes';
-import { formatBytes, freeSceneId, slugify } from './Uploader';
+import { formatBytes, freeSceneId, slugify, ModelNote, PICK_ACCEPT, UpAxisSelect } from './Uploader';
+import type { UpChoice } from '../lib/modelConvert';
 import type { StagedFile, UploadProgress, UploadResult } from '../@types/upload.types';
 
 const TITLE_MAX = 80;
-type Source = 'lcc2' | 'video360';
+type Source = 'lcc2' | 'model' | 'video360';
 
-/** "Bar_Restro" (a folder), "Bar_Restro.zip" or "…/Bar_Restro.lcc2" -> "Bar Restro". */
+/** "Bar_Restro" (a folder), "Bar_Restro.zip", "…/Bar_Restro.lcc2" or "Lobby.fbx" -> "Bar Restro". */
 function nameFromUpload(files: StagedFile[]): string {
   const first = files[0]?.relPath ?? '';
   const raw = files.length === 1 ? first.split('/').pop()!.replace(/\.[^.]+$/, '')
     : first.includes('/') ? first.split('/')[0]
-      : (files.find((f) => f.relPath.toLowerCase().endsWith('.lcc2'))?.relPath ?? '').replace(/\.lcc2$/i, '');
+      : (files.find((f) => /\.(lcc2|fbx|glb|gltf|obj|ply)$/i.test(f.relPath))?.relPath ?? '').replace(/\.(lcc2|fbx|glb|gltf|obj|ply)$/i, '');
   return raw.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
@@ -43,6 +44,8 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
   const [dragOver, setDragOver] = useState(false);
+  const [up, setUp] = useState<UpChoice>('auto');
+  const [stage, setStage] = useState('');
   const folderRef = useRef<HTMLInputElement>(null);
   const zipRef = useRef<HTMLInputElement>(null);
   const uploading = status === 'uploading';
@@ -59,7 +62,7 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
 
   const take = (files: StagedFile[]) => {
     if (!files.length || uploading) return;
-    if (files.some(isVideo) && !files.some((f) => /\.(lcc2|zip)$/i.test(f.relPath))) {
+    if (files.some(isVideo) && !files.some((f) => /\.(lcc2|zip|fbx|glb|gltf|obj|ply)$/i.test(f.relPath))) {
       setStatus('error');
       setUploadError('Turning 360 video into a space isn’t available yet. Process the capture in Lixel Studio and drop its export folder (or a .zip of it) here.');
       return;
@@ -70,9 +73,10 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
     setUploadError('');
     setResult(null);
     setProgress({ bytesSent: 0, bytesTotal: files.reduce((n, f) => n + f.file.size, 0) });
-    uploadVariant(files, setProgress)
+    uploadVariant(files, setProgress, { up, onStage: setStage })
       .then((r) => { setResult(r); setStatus('done'); })
-      .catch((e: unknown) => { setStatus('error'); setUploadError(e instanceof Error ? e.message : 'The upload failed. Try again.'); });
+      .catch((e: unknown) => { setStatus('error'); setUploadError(e instanceof Error ? e.message : 'The upload failed. Try again.'); })
+      .finally(() => setStage(''));
   };
 
   const pick = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -91,7 +95,8 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
       if (result) {
         const name = spaceName.trim() || title.trim();
         const id = freeSceneId(`${p.id}-${slugify(name)}`);
-        await saveScene(id, blankSceneDoc(id, name, { high: { assetId: result.assetId, meta: result.meta } }, p.id));
+        const high = { assetId: result.assetId, meta: result.meta, bytes: result.bytes };
+        await saveScene(id, blankSceneDoc(id, name, { high }, p.id, result.format ?? 'lcc2'));
         hydrateScenes(await getScenes());
       }
       location.assign(`/studio/${p.id}`);
@@ -132,6 +137,18 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
                 </span>
               </button>
               <button
+                role="radio" aria-checked={source === 'model'} className={`np-source ${source === 'model' ? 'on' : ''}`}
+                onClick={() => setSource('model')}
+              >
+                <span className="np-source-ic" aria-hidden>
+                  <svg viewBox="0 0 24 24"><path d="M12 2 3 7v10l9 5 9-5V7l-9-5Z" /><path d="m3 7 9 5 9-5M12 12v10" /></svg>
+                </span>
+                <span className="np-source-txt">
+                  <b>3D model</b>
+                  <span>FBX · OBJ · PLY · GLB</span>
+                </span>
+              </button>
+              <button
                 role="radio" aria-checked={source === 'video360'} className={`np-source ${source === 'video360' ? 'on' : ''}`}
                 onClick={() => setSource('video360')}
               >
@@ -165,18 +182,32 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
                     <span className="np-drop-ic" aria-hidden>
                       <svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5" /><path d="M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" /></svg>
                     </span>
-                    <p className="np-drop-title">
-                      Drop the export folder here or <button className="np-link" onClick={() => folderRef.current?.click()}>browse</button>
-                    </p>
-                    <p className="np-drop-sub">
-                      The whole folder Lixel Studio made: the .lcc2 index and its data tiles.{' '}
-                      <button className="np-link" onClick={() => zipRef.current?.click()}>Pick a .zip instead</button>
-                    </p>
+                    {source === 'model' ? (
+                      <>
+                        <p className="np-drop-title">
+                          Drop the model here or <button className="np-link" onClick={() => zipRef.current?.click()}>pick files</button>
+                        </p>
+                        <p className="np-drop-sub">
+                          An .fbx, .obj (with its .mtl), .ply or .glb, with its textures. It is converted here, upright and compressed.{' '}
+                          <button className="np-link" onClick={() => folderRef.current?.click()}>Pick its folder instead</button>
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="np-drop-title">
+                          Drop the export folder here or <button className="np-link" onClick={() => folderRef.current?.click()}>browse</button>
+                        </p>
+                        <p className="np-drop-sub">
+                          The whole folder Lixel Studio made: the .lcc2 index and its data tiles.{' '}
+                          <button className="np-link" onClick={() => zipRef.current?.click()}>Pick a .zip instead</button>
+                        </p>
+                      </>
+                    )}
                   </>
                 )}
                 {uploading && (
                   <div className="np-progress">
-                    <p className="np-drop-title">Uploading… {pct}%</p>
+                    <p className="np-drop-title">{stage ? `Converting: ${stage}…` : `Uploading… ${pct}%`}</p>
                     <div className="np-bar"><div style={{ width: `${pct}%` }} /></div>
                     <p className="np-drop-sub">
                       {formatBytes(progress?.bytesSent ?? 0)} of {formatBytes(progress?.bytesTotal ?? 0)}. A dropped connection resumes where it stopped.
@@ -186,10 +217,10 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
                 {status === 'done' && result && (
                   <>
                     <span className="np-drop-ic is-ok" aria-hidden>✓</span>
-                    <p className="np-drop-title">Export uploaded</p>
+                    <p className="np-drop-title">{result.format && result.format !== 'lcc2' ? 'Model uploaded' : 'Export uploaded'}</p>
                     <p className="np-drop-sub">
                       {result.splatCount !== null && <>{(result.splatCount / 1e6).toFixed(1)}M splats · </>}
-                      {formatBytes(result.bytes)} · {result.fileCount} files ·{' '}
+                      {result.converted ? <><ModelNote result={result} />{' '}</> : <>{formatBytes(result.bytes)} · {result.fileCount} files ·{' '}</>}
                       <button className="np-link" onClick={() => folderRef.current?.click()}>Replace</button>
                     </p>
                   </>
@@ -207,8 +238,10 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
               </div>
             )}
 
+            {source === 'model' && <UpAxisSelect value={up} onChange={setUp} />}
+
             <div className="np-chips" aria-hidden>
-              {['LCC2', 'ZIP'].map((c) => <span key={c} className="np-chip">{c}</span>)}
+              {['LCC2', 'ZIP', 'FBX', 'OBJ', 'PLY', 'GLB'].map((c) => <span key={c} className="np-chip">{c}</span>)}
               {['INSV', 'MP4', 'MOV'].map((c) => <span key={c} className="np-chip is-off">{c}</span>)}
             </div>
 
@@ -217,7 +250,7 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
               // @ts-expect-error -- webkitdirectory has no React prop type, but the DOM attribute works
               webkitdirectory=""
             />
-            <input ref={zipRef} type="file" accept=".zip,application/zip" hidden onChange={pick} />
+            <input ref={zipRef} type="file" accept={PICK_ACCEPT} multiple hidden onChange={pick} />
           </section>
 
           {/* ---------------- settings ---------------- */}

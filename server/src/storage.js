@@ -24,6 +24,7 @@ const CONTENT_TYPES = {
   '.lcc2': 'application/octet-stream',
   '.sog': 'application/octet-stream',
   '.ply': 'application/octet-stream',
+  '.glb': 'model/gltf-binary',
   '.btree': 'application/octet-stream',
   '.json': 'application/json',
   '.jpg': 'image/jpeg',

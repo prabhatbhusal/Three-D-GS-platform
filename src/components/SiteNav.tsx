@@ -2,13 +2,31 @@
 
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useLayoutEffect, useRef, useState, ViewTransition } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { getSession, logout } from '../lib/api';
 import { ThemeToggle } from './ThemeToggle';
 
+// In page order: a link to the right of the current page slides the next
+// page in from the right (nav-forward), one to the left from the left.
+const LINKS = [
+  ['/work', 'Work'], ['/services', 'Services'], ['/how-it-works', 'How it works'],
+  ['/about', 'About'], ['/gallery', 'Gallery'], ['/contact', 'Contact']
+] as const;
+
 export function SiteNav() {
   const router = useRouter();
+  const pathname = usePathname();
+  const here = LINKS.findIndex(([href]) => href === pathname);
+  const navRef = useRef<HTMLElement | null>(null);
+
+  // The layout's .site is the scroll container and it persists across
+  // pages, so a new page would open at the old one's scroll position.
+  // Layout effect: before the view transition takes its new snapshot.
+  useLayoutEffect(() => {
+    navRef.current?.closest('.site')?.scrollTo({ top: 0, behavior: 'instant' });
+  }, [pathname]);
+
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [user, setUser] = useState<{ name: string; email: string } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -57,17 +75,37 @@ export function SiteNav() {
     : 'U';
 
   return (
-    <header className="site-nav">
-      <Link href="/" className="site-brand" aria-label="threedview.services home">
+    <header className="site-nav" ref={navRef}>
+      <Link href="/" transitionTypes={['nav-back']} className="site-brand" aria-label="RCAAS.tech home">
         <span className="site-mark" aria-hidden />
-        <span>threedview<span className="site-brand-tld">.services</span></span>
+        <span>RCAAS<span className="site-brand-tld">.tech</span></span>
       </Link>
       <nav className="site-links" aria-label="Main">
-        <Link href="/#how">How it works</Link>
-        <Link href="/#features">Features</Link>
-        <Link href="/gallery">Gallery</Link>
+        {LINKS.map(([href, label], i) => {
+          const on = i === here;
+          return (
+            <Link
+              key={href}
+              href={href}
+              transitionTypes={[i > here ? 'nav-forward' : 'nav-back']}
+              aria-current={on ? 'page' : undefined}
+            >
+              {/* One pill, one name: React pairs it across the navigation and
+               *  the browser glides it from the old link to the new one. */}
+              {on && (
+                <ViewTransition name="site-nav-pill" share="site-nav-pill" enter="site-nav-pill-in" exit="site-nav-pill-out" default="none">
+                  <span className="site-links-pill" aria-hidden />
+                </ViewTransition>
+              )}
+              <span className="site-links-label">{label}</span>
+            </Link>
+          );
+        })}
       </nav>
       <div className="site-actions">
+        {/* plain <a>: the studio needs a full page load for its LCCRender singleton (§12) */}
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+        {user && <a href="/studio" className="site-btn site-btn-primary">Open studio</a>}
         <ThemeToggle />
         {user ? (
           <div className="site-user-menu" ref={menuRef}>

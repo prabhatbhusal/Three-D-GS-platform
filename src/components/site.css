@@ -1,10 +1,11 @@
 /* ================================================================= */
 /*  Marketing site + sign-in (/, /login).                             */
 /*                                                                    */
-/*  Same deep blue-black and cyan as the studio so the step from the  */
-/*  home page into the product feels like one place. The difference   */
-/*  is voice: a display serif carries headlines, italics carry the    */
-/*  one word that matters, and a faint dot grid nods to point clouds. */
+/*  One saturated violet does the work (links, buttons, the active    */
+/*  nav pill), teal only ever as its partner in the brand gradient.   */
+/*  Revised 2026-09-23 from a pale cyan, on request: vibrant, but one */
+/*  hue, so it stays balanced. A display serif carries headlines and  */
+/*  italics carry the one word that matters.                          */
 /*                                                                    */
 /*  globals.css locks html/body to overflow:hidden for the 3D app, so */
 /*  .site is its own full-screen scroll container.                    */
@@ -18,9 +19,12 @@
   --line-lit: #2E3A49;
   --text: #E8EEF4;
   --dim: #8C96A5;
-  --accent: #4FC3D9;
-  --accent-ink: #04212A;
-  --violet: #A99BFF;
+  --accent: #9D8BFF;       /* text and strokes: 7:1 on the dark ground */
+  --accent-fill: #6E4FFF;  /* filled buttons: white text at 5:1 */
+  --accent-glow: rgba(110, 79, 255, 0.34);
+  --accent-ink: #FFFFFF;
+  --teal: #2DD4BF;
+  --violet: #B79BFF;
   /* Dark-only values light mode has to flip. Anything showing 3D content
      (the splat frames, the auth art) stays dark in both themes — light
      chrome around photographic 3D is fine, light behind it is not. */
@@ -30,7 +34,7 @@
   --placeholder: #5E6878;
   --danger: #FF8B8B;
   --danger-ink: #2A0B0B;
-  --hero-grad: linear-gradient(100deg, #7FE0F0 10%, var(--accent) 45%, var(--violet) 95%);
+  --hero-grad: linear-gradient(100deg, var(--teal) 0%, #7C6BFF 55%, var(--violet) 100%);
   --sans: var(--font-inter), 'Segoe UI', system-ui, sans-serif;
   --display: var(--font-display), 'Iowan Old Style', Georgia, serif;
   --r: 20px;
@@ -44,8 +48,8 @@
   font: 400 16px/1.6 var(--sans);
   -webkit-font-smoothing: antialiased;
   background:
-    radial-gradient(900px 520px at 12% -8%, rgba(79, 195, 217, 0.16), transparent 70%),
-    radial-gradient(760px 520px at 100% 8%, rgba(169, 155, 255, 0.11), transparent 70%),
+    radial-gradient(900px 520px at 12% -8%, rgba(110, 79, 255, 0.16), transparent 70%),
+    radial-gradient(760px 520px at 100% 8%, rgba(45, 212, 191, 0.08), transparent 70%),
     radial-gradient(var(--grid) 1px, transparent 1.2px) 0 0 / 22px 22px,
     var(--bg);
 }
@@ -53,8 +57,8 @@
 /* ------------------------------------------------------------ light */
 /* Set on <html> by the inline script in layout.tsx (stored choice, else
    the OS preference) and flipped by ThemeToggle. Tokens only — no
-   component knows which theme it is in. The accent darkens because the
-   studio cyan fails contrast on paper. */
+   component knows which theme it is in. The accent deepens because the
+   dark theme's violet fails contrast on paper. */
 :root[data-theme='light'] .site {
   --bg: #F7F9FC;
   --panel: #FFFFFF;
@@ -63,16 +67,19 @@
   --line-lit: #BCC7D4;
   --text: #0E1620;
   --dim: #56626F;
-  --accent: #14788D;
+  --accent: #5A3FE6;
+  --accent-fill: #5A3FE6;
+  --accent-glow: rgba(90, 63, 230, 0.26);
   --accent-ink: #FFFFFF;
-  --violet: #5B4ECB;
+  --teal: #0F8F80;
+  --violet: #8B3FE6;
   --grid: rgba(14, 22, 32, 0.07);
   --glass: rgba(255, 255, 255, 0.88);
   --sh: rgba(19, 33, 51, 0.12);
   --placeholder: #8A96A4;
   --danger: #B3271E;
   --danger-ink: #FFFFFF;
-  --hero-grad: linear-gradient(100deg, #0C6377 10%, var(--accent) 45%, var(--violet) 95%);
+  --hero-grad: linear-gradient(100deg, var(--teal) 0%, var(--accent) 55%, var(--violet) 100%);
 }
 
 :root[data-theme='light'] .auth-error {
@@ -109,15 +116,6 @@
 .site h2,
 .site h3 {
   margin: 0;
-}
-
-.dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 4px rgba(79, 195, 217, 0.18);
 }
 
 /* ------------------------------------------------------------ nav */
@@ -168,16 +166,85 @@
 }
 
 .site-links a {
+  position: relative;
+  isolation: isolate;
   padding: 8px 12px;
   border-radius: 999px;
   font-size: 14px;
   color: var(--dim);
-  transition: color 0.15s, background 0.15s;
+  white-space: nowrap;
+  transition: color 0.2s;
 }
 
-.site-links a:hover {
-  color: var(--text);
+/* hover: a faint pill grows in from the middle */
+.site-links a::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  border-radius: inherit;
   background: var(--raise);
+  opacity: 0;
+  transform: scale(0.7);
+  transition: opacity 0.2s, transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.site-links a:hover { color: var(--text); }
+.site-links a:hover::before { opacity: 1; transform: none; }
+.site-links a[aria-current='page'] { color: var(--text); }
+
+/* The current page's pill. It is a named view transition (SiteNav), so on
+ * navigation the browser glides it from the old link to the new one, like
+ * the tour's mode dial thumb. */
+.site-links-pill {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--accent-fill) 22%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent), 0 4px 18px var(--accent-glow);
+}
+
+/* -------------------------------------------- page transitions */
+/* React's <ViewTransition> (SitePage, SiteNav) names the parts; these are
+ * the motions. The old page leaves fast, the new one arrives softer. */
+::view-transition { pointer-events: none; }
+
+::view-transition-old(.nav-forward),
+::view-transition-old(.nav-back) {
+  animation: 180ms ease-in both site-vt-fade reverse, 380ms cubic-bezier(0.4, 0, 0.2, 1) both site-vt-slide reverse;
+}
+
+::view-transition-new(.nav-forward),
+::view-transition-new(.nav-back) {
+  animation: 280ms ease-out 120ms both site-vt-fade, 460ms cubic-bezier(0.2, 0.8, 0.2, 1) both site-vt-slide;
+}
+
+::view-transition-old(.nav-forward) { --site-vt-x: -56px; }
+::view-transition-new(.nav-forward) { --site-vt-x: 56px; }
+::view-transition-old(.nav-back) { --site-vt-x: 56px; }
+::view-transition-new(.nav-back) { --site-vt-x: -56px; }
+
+::view-transition-group(.site-nav-pill) {
+  z-index: 50;
+  animation-duration: 480ms;
+  animation-timing-function: cubic-bezier(0.3, 1.3, 0.4, 1);
+}
+
+::view-transition-new(.site-nav-pill-in) { animation: 300ms ease-out both site-vt-pop; }
+::view-transition-old(.site-nav-pill-out) { animation: 200ms ease-in both site-vt-pop reverse; }
+
+@keyframes site-vt-fade { from { opacity: 0; filter: blur(4px); } }
+@keyframes site-vt-slide { from { translate: var(--site-vt-x) 0; } }
+@keyframes site-vt-pop { from { opacity: 0; scale: 0.6; } }
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
 }
 
 .site-actions {
@@ -244,7 +311,7 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--accent-ink);
   font: 700 12px/1 var(--sans);
 }
@@ -470,13 +537,13 @@
 
 .site-btn-primary {
   color: var(--accent-ink);
-  background: var(--accent);
-  box-shadow: 0 8px 24px rgba(79, 195, 217, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  background: var(--accent-fill);
+  box-shadow: 0 8px 24px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
 .site-btn-primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 12px 32px rgba(79, 195, 217, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  box-shadow: 0 12px 32px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
 .site-btn-primary:disabled {
@@ -504,134 +571,6 @@
   color: var(--text);
 }
 
-/* ----------------------------------------------------------- hero */
-.hero {
-  width: min(1180px, calc(100% - 32px));
-  margin: 0 auto;
-  padding: 88px 0 56px;
-  display: grid;
-  grid-template-columns: 1.15fr 1fr;
-  gap: 56px;
-  align-items: center;
-}
-
-.hero-kicker {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0 0 22px;
-  padding: 6px 14px 6px 10px;
-  border-radius: 999px;
-  font-size: 13px;
-  color: var(--dim);
-  background: var(--panel);
-  border: 1px solid var(--line);
-}
-
-.hero-title {
-  font: 650 clamp(44px, 5.6vw, 80px)/1 var(--sans);
-  letter-spacing: -0.045em;
-}
-
-.hero-title em {
-  font-size: 1.12em;
-  letter-spacing: -0.02em;
-  padding-right: 0.04em;
-  background: var(--hero-grad);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-.hero-sub {
-  margin: 26px 0 34px;
-  max-width: 34rem;
-  font-size: 18px;
-  color: var(--dim);
-}
-
-.hero-cta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.splat-frame {
-  position: relative;
-  aspect-ratio: 5 / 4;
-  border-radius: 28px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  background: radial-gradient(120% 90% at 50% 30%, #121A26, #07090D 75%);
-  box-shadow: 0 40px 120px var(--sh), 0 0 0 8px rgba(20, 27, 38, 0.45), 0 0 80px rgba(79, 195, 217, 0.08);
-}
-
-.splat-canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.splat-chip {
-  position: absolute;
-  top: 18px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-size: 12.5px;
-  font-weight: 550;
-  background: rgba(7, 10, 15, 0.72);
-  border: 1px solid var(--line);
-}
-
-.splat-chip-l {
-  left: 18px;
-}
-
-.splat-chip-r {
-  right: 18px;
-  color: var(--accent);
-}
-
-.splat-chip .dot {
-  width: 6px;
-  height: 6px;
-}
-
-/* ---------------------------------------------------------- proof */
-.proof {
-  width: min(1180px, calc(100% - 32px));
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-}
-
-.proof div {
-  padding: 26px 28px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.proof div+div {
-  border-left: 1px solid var(--line);
-}
-
-.proof strong {
-  font: italic 400 34px/1.1 var(--display);
-}
-
-.proof span {
-  color: var(--dim);
-  font-size: 14.5px;
-}
-
 /* ---------------------------------------------------------- bands */
 .band {
   width: min(1180px, calc(100% - 32px));
@@ -647,187 +586,9 @@
   letter-spacing: -0.035em;
 }
 
-.band-title em,
-.closer h2 em {
+.band-title em {
   color: var(--accent);
   font-size: 1.1em;
-}
-
-.steps {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  position: relative;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-}
-
-.step {
-  position: relative;
-  padding: 28px 26px 30px;
-  border-radius: var(--r);
-  background: linear-gradient(180deg, var(--raise), var(--panel));
-  border: 1px solid var(--line);
-}
-
-.step-n {
-  display: block;
-  margin-bottom: 38px;
-  font: italic 400 56px/1 var(--display);
-  color: transparent;
-  -webkit-text-stroke: 1px var(--line-lit);
-}
-
-.step:first-child .step-n {
-  -webkit-text-stroke-color: var(--accent);
-}
-
-.step h3 {
-  font-size: 20px;
-  letter-spacing: -0.02em;
-  margin-bottom: 8px;
-}
-
-.step p {
-  margin: 0;
-  color: var(--dim);
-  font-size: 15px;
-}
-
-/* the scan line that runs through the three steps */
-.steps::before {
-  content: '';
-  position: absolute;
-  left: 26px;
-  right: 26px;
-  top: 108px;
-  height: 1px;
-  background: linear-gradient(90deg, var(--accent), rgba(79, 195, 217, 0.1) 70%, transparent);
-  z-index: 1;
-  pointer-events: none;
-}
-
-/* ---------------------------------------------------------- bento */
-.bento {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-}
-
-.tile {
-  position: relative;
-  overflow: hidden;
-  min-height: 230px;
-  padding: 28px;
-  border-radius: var(--r);
-  gap: 0;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  transition: border-color 0.2s, transform 0.2s;
-}
-
-.tile:hover {
-  border-color: var(--line-lit);
-  transform: translateY(-2px);
-}
-
-.tile-wide {
-  grid-column: span 2;
-}
-
-.tile h3 {
-  margin-top: 36px;
-  font-size: 21px;
-  letter-spacing: -0.02em;
-  margin-bottom: 8px;
-  max-width: 22rem;
-}
-
-.tile p {
-  margin: 0;
-  color: var(--dim);
-  font-size: 15px;
-  max-width: 30rem;
-}
-
-.tile-ic {
-  margin-bottom: auto;
-  flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: var(--ic) center / 22px no-repeat, var(--tint);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
-}
-
-/* soft wash in each tile's corner, in its own tint */
-.tile::after {
-  content: '';
-  position: absolute;
-  width: 280px;
-  height: 280px;
-  right: -110px;
-  top: -130px;
-  border-radius: 50%;
-  background: var(--tint);
-  opacity: 0.16;
-  filter: blur(50px);
-  pointer-events: none;
-}
-
-.tile-stream {
-  --tint: #2B7F92;
-  --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M4 7h10M4 12h16M4 17h7'/%3E%3Ccircle cx='18' cy='7' r='1.6'/%3E%3Ccircle cx='15' cy='17' r='1.6'/%3E%3C/svg%3E");
-}
-
-.tile-lead {
-  --tint: #3F7A52;
-  --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='1.8' stroke-linejoin='round'%3E%3Cpath d='M4 5h16v11H9l-5 4z'/%3E%3Cpath d='M8 10h8' stroke-linecap='round'/%3E%3C/svg%3E");
-}
-
-.tile-fly {
-  --tint: #5B4E9A;
-  --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M3 18c4-9 9-12 18-12'/%3E%3Cpath d='M16 3l5 3-3 5'/%3E%3C/svg%3E");
-}
-
-.tile-phone {
-  --tint: #8A5A2E;
-  --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='1.8'%3E%3Crect x='7' y='3' width='10' height='18' rx='2.5'/%3E%3Cpath d='M11 18h2' stroke-linecap='round'/%3E%3C/svg%3E");
-}
-
-.tile-studio {
-  --tint: #2F5E8C;
-  --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='1.8' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='16' rx='2.5'/%3E%3Cpath d='M9 4v16M3 9h6'/%3E%3C/svg%3E");
-}
-
-/* --------------------------------------------------------- closer */
-.closer {
-  position: relative;
-  overflow: hidden;
-  width: min(1180px, calc(100% - 32px));
-  margin: 120px auto 0;
-  padding: 72px 32px;
-  border-radius: 28px;
-  text-align: center;
-  background:
-    radial-gradient(600px 260px at 50% 0%, rgba(79, 195, 217, 0.18), transparent 70%),
-    var(--panel);
-  border: 1px solid var(--line);
-}
-
-.closer h2 {
-  font: 650 clamp(30px, 4vw, 50px)/1.05 var(--sans);
-  letter-spacing: -0.035em;
-}
-
-.closer p {
-  margin: 14px auto 30px;
-  max-width: 30rem;
-  color: var(--dim);
 }
 
 /* --------------------------------------------------------- footer */
@@ -954,7 +715,7 @@
   border-radius: 999px;
   font: 600 12.5px var(--sans);
   color: var(--accent-ink);
-  background: var(--accent);
+  background: var(--accent-fill);
   opacity: 0;
   transform: translateY(6px);
   transition: opacity 0.2s, transform 0.2s;
@@ -1178,7 +939,7 @@
 .auth-field input:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 4px rgba(79, 195, 217, 0.14);
+  box-shadow: 0 0 0 4px var(--accent-glow);
 }
 
 .auth-pw {
@@ -1247,27 +1008,25 @@
 
 /* ------------------------------------------------------- responsive */
 @media (max-width: 960px) {
-  .hero {
-    grid-template-columns: 1fr;
-    padding-top: 56px;
-    gap: 40px;
+  /* the pages are routes now, so the links can't hide: a second row that
+   * scrolls sideways */
+  .site-nav {
+    flex-wrap: wrap;
+    row-gap: 8px;
+    border-radius: 24px;
   }
 
   .site-links {
-    display: none;
+    order: 3;
+    width: 100%;
+    margin-left: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
   }
 
-  .steps,
-  .bento {
-    grid-template-columns: 1fr;
-  }
-
-  .steps::before {
-    display: none;
-  }
-
-  .tile-wide {
-    grid-column: auto;
+  /* the scroller would clip the glow into a square */
+  .site-links-pill {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
   }
 
   .auth {
@@ -1300,15 +1059,6 @@
 
   .site-btn-quiet {
     display: none;
-  }
-
-  .proof {
-    grid-template-columns: 1fr;
-  }
-
-  .proof div+div {
-    border-left: 0;
-    border-top: 1px solid var(--line);
   }
 
   .site-foot-links {

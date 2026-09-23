@@ -7,20 +7,61 @@ import { blankSceneDoc } from '../lib/sceneDoc';
 import { hydrateScenes, SCENE_BY_ID } from '../lib/scenes';
 import type { StagedFile, UploadProgress, UploadResult, VariantTier } from '../@types/upload.types';
 import type { SplatVariant } from '../@types/scene.types';
+import type { UpChoice } from '../lib/modelConvert';
 import './uploader.css';
 
 interface SlotState {
   status: 'idle' | 'uploading' | 'done' | 'error';
   fileCount?: number;
   progress?: UploadProgress;
+  /** What converting a 3D model is doing, before any bytes go up. */
+  stage?: string;
   result?: UploadResult;
   error?: string;
 }
 
 const IDLE: SlotState = { status: 'idle' };
 
+/** Files a picker offers: an LCC export's index and zip, a 3D model and the
+ *  .mtl, .bin and textures it names. */
+export const PICK_ACCEPT = '.zip,application/zip,.lcc2,.fbx,.obj,.mtl,.ply,.glb,.gltf,.bin,.jpg,.jpeg,.png,.webp,.tga,.dds';
+
+/** Which way is up in a 3D model. Auto fits scans; set it for anything else. */
+export function UpAxisSelect({ value, onChange }: { value: UpChoice; onChange: (v: UpChoice) => void }) {
+  return (
+    <label className="up-axis">
+      <span>3D model up axis</span>
+      <select value={value} onChange={(e) => onChange(e.target.value as UpChoice)}>
+        <option value="auto">Auto</option>
+        <option value="y">Y is up</option>
+        <option value="z">Z is up</option>
+      </select>
+    </label>
+  );
+}
+
+/** What converting a 3D model did, and what it couldn't find. */
+export function ModelNote({ result }: { result: UploadResult }) {
+  const c = result.converted;
+  if (!c) return null;
+  const what = c.triangles
+    ? `${c.triangles >= 1e6 ? `${(c.triangles / 1e6).toFixed(1)}M` : c.triangles.toLocaleString()} triangles`
+    : `${c.points >= 1e6 ? `${(c.points / 1e6).toFixed(1)}M` : c.points.toLocaleString()} points, with a floor to walk on`;
+  const fixes = [c.up === 'z' && 'turned Z-up to Y-up', c.toMetres !== 1 && `scaled ×${c.toMetres} to metres`].filter(Boolean);
+  return (
+    <>
+      {what}. {formatBytes(c.from)} became {formatBytes(result.bytes)}{fixes.length ? `, ${fixes.join(', ')}` : ''}.
+      {c.missing.length > 0 && (
+        <span className="up-miss">
+          {' '}Not in what you picked, so drawn without: {c.missing.slice(0, 4).join(', ')}{c.missing.length > 4 ? ` and ${c.missing.length - 4} more` : ''}. Pick the whole folder to include them.
+        </span>
+      )}
+    </>
+  );
+}
+
 const VARIANT_COPY: Record<VariantTier, { label: string; hint: string }> = {
-  high: { label: 'High', hint: 'Full-fidelity export — required.' },
+  high: { label: 'High', hint: 'Full-fidelity export, or a 3D model (FBX, OBJ, PLY, GLB). Required.' },
   medium: { label: 'Medium', hint: 'Optional — falls back to High if missing.' },
   low: { label: 'Low', hint: 'Optional — falls back to Medium, then High.' }
 };
@@ -66,6 +107,7 @@ export function Uploader({ propertyId = null, onClose, onCreated }: UploaderProp
   // whole transfer.
   const [session, setSession] = useState<'checking' | 'in' | 'out'>('checking');
   const [sessionError, setSessionError] = useState('');
+  const [up, setUp] = useState<UpChoice>('auto');
 
   useEffect(() => {
     getSession()
@@ -84,10 +126,10 @@ export function Uploader({ propertyId = null, onClose, onCreated }: UploaderProp
     if (!files.length) return;
     const bytesTotal = files.reduce((sum, f) => sum + f.file.size, 0);
     setSlot(tier, { status: 'uploading', fileCount: files.length, progress: { bytesSent: 0, bytesTotal }, error: undefined, result: undefined });
-    uploadVariant(files, (p) => setSlot(tier, { progress: p }))
-      .then((result) => setSlot(tier, { status: 'done', result }))
-      .catch((err: unknown) => setSlot(tier, { status: 'error', error: err instanceof Error ? err.message : 'Upload failed.' }));
-  }, [setSlot]);
+    uploadVariant(files, (p) => setSlot(tier, { progress: p }), { up, onStage: (stage) => setSlot(tier, { stage }) })
+      .then((result) => setSlot(tier, { status: 'done', result, stage: '' }))
+      .catch((err: unknown) => setSlot(tier, { status: 'error', stage: '', error: err instanceof Error ? err.message : 'Upload failed.' }));
+  }, [setSlot, up]);
 
   const canCreate = title.trim().length > 0 && slots.high.status === 'done' && !creating;
 
@@ -97,13 +139,17 @@ export function Uploader({ propertyId = null, onClose, onCreated }: UploaderProp
     setCreateError('');
     try {
       const id = freeSceneId(propertyId ? `${propertyId}-${slugify(title)}` : slugify(title));
+      const high = slots.high.result;
+      const format = high.format ?? 'lcc2';
       const variants: { high: SplatVariant; medium?: SplatVariant; low?: SplatVariant } = {
-        high: { assetId: slots.high.result.assetId, meta: slots.high.result.meta }
+        high: { assetId: high.assetId, meta: high.meta, bytes: high.bytes }
       };
-      if (slots.medium.result) variants.medium = { assetId: slots.medium.result.assetId, meta: slots.medium.result.meta };
-      if (slots.low.result) variants.low = { assetId: slots.low.result.assetId, meta: slots.low.result.meta };
+      // Medium/low are lower-density LCC exports (§8.2); a 3D model has none.
+      const lcc = (r?: UploadResult) => r && (r.format ?? 'lcc2') === 'lcc2';
+      if (format === 'lcc2' && lcc(slots.medium.result)) variants.medium = { assetId: slots.medium.result!.assetId, meta: slots.medium.result!.meta };
+      if (format === 'lcc2' && lcc(slots.low.result)) variants.low = { assetId: slots.low.result!.assetId, meta: slots.low.result!.meta };
 
-      await saveScene(id, blankSceneDoc(id, title.trim(), variants, propertyId));
+      await saveScene(id, blankSceneDoc(id, title.trim(), variants, propertyId, format));
       hydrateScenes(await getScenes()); // pulls the new scene (+ its assetId) into the runtime list
       onCreated(id);
     } catch (err) {
@@ -123,6 +169,8 @@ export function Uploader({ propertyId = null, onClose, onCreated }: UploaderProp
         <p className="up-sub">
           Upload a Lixel Studio export — the whole folder, or a .zip of it. It holds the .lcc2 index
           (named after the capture, e.g. Library.lcc2) next to its data/ tiles. Pick the folder, not the .lcc2 on its own.
+          Or a 3D model: FBX, OBJ (with its .mtl), PLY or GLB, with its textures. Pick its folder or its files, not a
+          .zip. It is converted here, upright and compressed, before it uploads.
         </p>
 
         <label className="up-field">
@@ -138,9 +186,13 @@ export function Uploader({ propertyId = null, onClose, onCreated }: UploaderProp
 
         {session === 'in' && (
           <>
+            <UpAxisSelect value={up} onChange={setUp} />
             <div className="up-slots">
               {(['high', 'medium', 'low'] as const).map((tier) => (
-                <VariantSlot key={tier} tier={tier} state={slots[tier]} onFiles={(files) => runUpload(tier, files)} />
+                <VariantSlot
+                  key={tier} tier={tier} state={slots[tier]} onFiles={(files) => runUpload(tier, files)}
+                  off={tier !== 'high' && !!slots.high.result?.format && slots.high.result.format !== 'lcc2'}
+                />
               ))}
             </div>
 
@@ -203,7 +255,11 @@ function SignIn({ error, onSignedIn }: { error: string; onSignedIn: () => void }
 
 /* -------------------------------------------------------------------- */
 
-function VariantSlot({ tier, state, onFiles }: { tier: VariantTier; state: SlotState; onFiles: (files: StagedFile[]) => void }) {
+function VariantSlot({ tier, state, onFiles, off = false }: {
+  tier: VariantTier; state: SlotState; onFiles: (files: StagedFile[]) => void;
+  /** A 3D-model space has one model, no lower-density variants. */
+  off?: boolean;
+}) {
   const folderInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -220,6 +276,15 @@ function VariantSlot({ tier, state, onFiles }: { tier: VariantTier; state: SlotS
     if (e.target.files?.length) onFiles(filesFromFileList(e.target.files));
     e.target.value = '';
   };
+
+  if (off) {
+    return (
+      <div className="up-slot up-slot-idle">
+        <div className="up-slot-top"><span className="up-slot-label">{copy.label}</span></div>
+        <p className="up-slot-hint">Not used for a 3D model. It loads as one file.</p>
+      </div>
+    );
+  }
 
   const pct = state.progress?.bytesTotal ? Math.round((state.progress.bytesSent / state.progress.bytesTotal) * 100) : 0;
 
@@ -243,13 +308,14 @@ function VariantSlot({ tier, state, onFiles }: { tier: VariantTier; state: SlotS
               Drop folder here or browse
             </button>
             <button type="button" className="up-browse-zip" onClick={() => zipInputRef.current?.click()}>
-              or pick a .zip file
+              or pick files (.zip, or a model's files)
             </button>
           </div>
         </>
       )}
 
-      {state.status === 'uploading' && (
+      {state.status === 'uploading' && state.stage && <p className="up-progress-txt">Converting: {state.stage}…</p>}
+      {state.status === 'uploading' && !state.stage && (
         <div className="up-progress">
           <div className="up-progress-track"><div className="up-progress-bar" style={{ width: `${pct}%` }} /></div>
           <p className="up-progress-txt">
@@ -264,6 +330,7 @@ function VariantSlot({ tier, state, onFiles }: { tier: VariantTier; state: SlotS
           {state.result.splatCount !== null && (
             <>{(state.result.splatCount / 1e6).toFixed(1)}M splats<br /></>
           )}
+          {state.result.converted && <><ModelNote result={state.result} /><br /></>}
           {formatBytes(state.result.bytes)} · {state.result.fileCount} file{state.result.fileCount === 1 ? '' : 's'}
           {' — '}<button type="button" className="up-relink" onClick={() => folderInputRef.current?.click()}>replace</button>
         </p>
@@ -290,8 +357,9 @@ function VariantSlot({ tier, state, onFiles }: { tier: VariantTier; state: SlotS
       />
       {/* .lcc2 is accepted here only so it's visible in the dialog — picking one
           alone is a dead end, and validateExport says so in plain words rather
-          than leaving the creator staring at a folder-only picker. */}
-      <input ref={zipInputRef} type="file" accept=".zip,application/zip,.lcc2" multiple hidden onChange={onBrowsePick} />
+          than leaving the creator staring at a folder-only picker. A 3D
+          model's .mtl, .bin and textures can be picked alongside it. */}
+      <input ref={zipInputRef} type="file" accept={PICK_ACCEPT} multiple hidden onChange={onBrowsePick} />
     </div>
   );
 }

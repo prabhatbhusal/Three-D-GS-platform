@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { useSceneManager, LCC_MODEL_MATRIX } from '../lib/useSceneManager';
+import { useSceneManager } from '../lib/useSceneManager';
 import { Gizmo, useSceneTransform } from './Gizmo';
 import { transformFor, setTransform, IDENTITY } from '../lib/transform';
 import { walkerCfg } from '../lib/walkerConfig';
@@ -145,7 +145,7 @@ function Stage({ onState, viewerMode }: StageProps) {
   // Saved tracks, hotspots and placement for whichever space is open.
   // The public tour reads the published copy; the studio (and its Preview) the draft.
   useEffect(() => { loadSceneDoc(mgr.activeId, isPublicTour() ? 'published' : 'draft'); }, [mgr.activeId]);
-  useSceneTransform(mgr.renderer, mgr.activeId, mgr.unitScale, LCC_MODEL_MATRIX);
+  useSceneTransform(mgr.renderer, mgr.activeId, mgr.unitScale, mgr.baseMatrix);
 
   const playViewport = useCallback(
     (vp: Viewpoint) => { setFlying(true); play(vp, { onDone: () => setFlying(false) }); },

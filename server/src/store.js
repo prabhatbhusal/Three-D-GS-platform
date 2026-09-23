@@ -60,6 +60,8 @@ export async function listScenes() {
     // public/assets/rooms/ convention (CLAUDE.md §2, §9).
     assetId: s.splat?.variants?.high?.assetId,
     meta: s.splat?.variants?.high?.meta,
+    // Which loader the client uses: the LCC SDK, or meshModel.ts for obj/ply.
+    format: s.splat?.format ?? 'lcc2',
     neighbours: s.neighbours ?? [],
     propertyId: s.propertyId ?? null
   }));
@@ -124,8 +126,17 @@ export function publishChecks(doc) {
     warnings.push('The start view is still the default. Visitors may open facing a wall; set one in the Scene panel.');
   }
   const v = doc.splat?.variants ?? {};
-  if (high?.assetId && (!v.medium || !v.low)) {
+  const streams = (doc.splat?.format ?? 'lcc2') === 'lcc2';
+  if (streams && high?.assetId && (!v.medium || !v.low)) {
     warnings.push('No medium or low variant, so phones load the full model. It still works, just slower to first frame.');
+  }
+  // An OBJ/PLY doesn't stream: the whole file is the bytes to first frame,
+  // and constraint 2 budgets that at 35 MB even on the high tier.
+  if (!streams && Number(high?.bytes) > 35e6) {
+    warnings.push(
+      `This ${doc.splat.format.toUpperCase()} model is ${(high.bytes / 1e6).toFixed(0)} MB and loads whole before the first frame, ` +
+      'so phones wait a long time or run out of memory. For a large space, upload the Lixel Studio LCC export instead: it streams.'
+    );
   }
   if (!doc.tracks?.length) warnings.push('No camera tracks, so the tour bar will be empty.');
 

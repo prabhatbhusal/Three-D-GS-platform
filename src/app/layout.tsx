@@ -13,7 +13,7 @@ const display = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: { default: 'threedview.services', template: '%s — threedview.services' },
+  title: { default: 'RCAAS.tech', template: '%s — RCAAS.tech' },
   icons: { icon: '/favicon.svg' }
 };
 

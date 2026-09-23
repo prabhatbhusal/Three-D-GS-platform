@@ -18,6 +18,7 @@ import { promises as fs, createWriteStream, createReadStream, mkdirSync } from '
 import path from 'path';
 import { randomUUID } from 'crypto';
 import yauzl from 'yauzl';
+import zlib from 'zlib';
 import { requireEditorSession } from '../middleware/auth.js';
 import * as storage from '../storage.js';
 import { DATA_DIR } from '../dataDir.js';
@@ -255,6 +256,70 @@ async function finalizeAudio(assetId, res) {
   return res.json({ assetId, bytes: size, file: relPath });
 }
 
+/* -------------------------------------------------------------------- */
+/* 3D models — FBX / OBJ / PLY / glTF. The studio converts them in the   */
+/* browser (src/lib/modelConvert.ts: upright, metres, centred, a floor   */
+/* for point clouds, meshopt-compressed) and uploads one .glb. This     */
+/* checks it is one, and keeps a gzipped copy to send (§3 budgets).     */
+/* -------------------------------------------------------------------- */
+
+const MODEL_SOURCE = /\.(fbx|obj|ply|gltf)$/i;
+
+/** Reads the start of a GLB: its header and JSON chunk, never the geometry
+ *  (§7.1). Returns { kind } or { error }. */
+export function inspectGlb(head, name) {
+  if (head.length < 20 || head.toString('latin1', 0, 4) !== 'glTF') return { error: `${name} isn't a GLB file.` };
+  if (head.readUInt32LE(4) !== 2) return { error: `${name} is glTF version ${head.readUInt32LE(4)}; only version 2 loads.` };
+  const jsonLength = head.readUInt32LE(12);
+  if (head.toString('latin1', 16, 20) !== 'JSON' || 20 + jsonLength > head.length) {
+    return { error: `${name} has no readable scene description. Export it again.` };
+  }
+  let gltf;
+  try {
+    gltf = JSON.parse(head.toString('utf8', 20, 20 + jsonLength));
+  } catch {
+    return { error: `${name} has a corrupt scene description. Export it again.` };
+  }
+  // mode 0 = POINTS. The converter adds a hidden floor to a point cloud, on
+  // a node named rcaas-collision, so "points" means: everything *drawn* is
+  // points. (The exporter names nodes, not meshes.)
+  const meshes = gltf.meshes ?? [];
+  if (!meshes.some((m) => m.primitives?.length)) return { error: `${name} has no geometry in it.` };
+  const hidden = new Set((gltf.nodes ?? []).filter((n) => n.name === 'rcaas-collision').map((n) => n.mesh));
+  const drawn = meshes.filter((_, i) => !hidden.has(i)).flatMap((m) => m.primitives ?? []);
+  return { kind: drawn.length && drawn.every((p) => p.mode === 0) ? 'points' : 'mesh' };
+}
+
+async function finalizeGlb(assetId, relPath, res) {
+  const reject = async (msg) => {
+    await fs.rm(path.join(STAGING_DIR, assetId), { recursive: true, force: true });
+    return res.status(400).json({ error: msg });
+  };
+  const full = stagingFile(assetId, relPath);
+  const { size } = await fs.stat(full);
+  if (!size) return reject(`${relPath} uploaded empty. Upload it again.`);
+  // Header + JSON: the JSON chunk is the scene description, a few MB at most.
+  const fh = await fs.open(full, 'r');
+  let head;
+  try {
+    const want = Math.min(size, 16 * 1024 * 1024);
+    head = Buffer.alloc(want);
+    await fh.read(head, 0, want, 0);
+  } finally {
+    await fh.close();
+  }
+  const found = inspectGlb(head, relPath);
+  if (found.error) return reject(found.error);
+
+  await storage.put(assetId, relPath, createReadStream(full));
+  // Meshopt data is laid out to compress well; the read route sends this
+  // copy to any client that accepts gzip and didn't ask for a byte range.
+  await storage.put(assetId, `${relPath}.gz`, createReadStream(full).pipe(zlib.createGzip({ level: 6 })));
+  await fs.rm(path.join(STAGING_DIR, assetId), { recursive: true, force: true });
+  return res.json({ assetId, bytes: size, fileCount: 1, meta: relPath, format: 'glb', kind: found.kind, splatCount: null, bbox: null });
+}
+
+
 assetsRouter.post('/:assetId/finalize', requireEditorSession, async (req, res, next) => {
   const { assetId } = req.params;
   try {
@@ -285,6 +350,14 @@ assetsRouter.post('/:assetId/finalize', requireEditorSession, async (req, res, n
       }
     }
 
+    // One .glb: a 3D model the studio converted (FBX/OBJ/PLY/glTF).
+    if (relPaths.length === 1 && relPaths[0].toLowerCase().endsWith('.glb')) return await finalizeGlb(assetId, relPaths[0], res);
+    // A model that skipped the studio's conversion: inside a zip, most likely.
+    if (!relPaths.some((p) => p.toLowerCase().endsWith('.lcc2')) && relPaths.some((p) => MODEL_SOURCE.test(p))) {
+      await fs.rm(path.join(STAGING_DIR, assetId), { recursive: true, force: true });
+      return res.status(400).json({ error: "3D models are converted in the studio before upload. Pick the model's folder or its files, not a .zip." });
+    }
+
     // The index is NOT reliably called meta.lcc2 — Lixel Studio names it after
     // the capture (Library.lcc2, Bar_Restro.lcc2, ...), and a folder can hold
     // more than one, including a stale one left over from an earlier export.
@@ -296,7 +369,7 @@ assetsRouter.post('/:assetId/finalize', requireEditorSession, async (req, res, n
       .sort((a, b) => a.split('/').length - b.split('/').length || a.localeCompare(b));
     if (!indexPaths.length) {
       await fs.rm(path.join(STAGING_DIR, assetId), { recursive: true, force: true });
-      return res.status(400).json({ error: 'No .lcc2 index found in the upload — pick the whole Lixel Studio export.' });
+      return res.status(400).json({ error: 'No .lcc2 index, .obj or .ply found in the upload. Pick the whole Lixel Studio export, or an OBJ/PLY model.' });
     }
 
     const staged = new Set(relPaths);
@@ -371,6 +444,18 @@ assetsRouter.get('/:assetId/*', async (req, res, next) => {
     const range = req.headers.range;
     res.setHeader('Accept-Ranges', 'bytes');
     res.setHeader('Content-Type', contentType);
+    res.setHeader('Vary', 'Accept-Encoding');
+
+    // A whole-file read of a model: send the gzipped copy finalizeGlb made.
+    // Byte ranges (the LCC SDK's tiles) always get the raw file.
+    if (!range && /\bgzip\b/.test(req.headers['accept-encoding'] ?? '') && relPath.toLowerCase().endsWith('.glb')) {
+      const gz = await storage.stat(req.params.assetId, `${relPath}.gz`).catch(() => null);
+      if (gz) {
+        res.setHeader('Content-Encoding', 'gzip');
+        res.setHeader('Content-Length', gz.bytes);
+        return storage.get(req.params.assetId, `${relPath}.gz`).pipe(res);
+      }
+    }
 
     if (range) {
       const match = /^bytes=(\d*)-(\d*)$/.exec(range);

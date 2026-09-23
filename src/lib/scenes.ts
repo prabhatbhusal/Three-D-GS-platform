@@ -183,6 +183,7 @@ export function hydrateScenes(apiScenes: ApiScene[] | null | undefined) {
       existing.assetId = s.assetId;
       if (typeof s.meta === 'string') existing.meta = s.meta;
     }
+    if (s.format) existing.format = s.format;
     if (Array.isArray(s.neighbours)) existing.neighbours = s.neighbours;
     if (s.propertyId !== undefined) existing.propertyId = s.propertyId;
   }

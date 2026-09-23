@@ -23,6 +23,21 @@ export interface UploadResult {
    *  a folder-picker upload keeps the chosen folder's own name as the first
    *  path segment (e.g. "bar-restro/meta.lcc2"). */
   meta: string;
+  /** Absent from older servers = lcc2. */
+  format?: import('./scene.types').ModelFormat;
+  /** glb only: a surface, or bare points (a point cloud). */
+  kind?: 'mesh' | 'points';
+  /** Set when the studio converted a 3D model before upload (modelConvert.ts). */
+  converted?: {
+    /** Bytes picked, before conversion. */
+    from: number;
+    triangles: number;
+    points: number;
+    up: 'y' | 'z';
+    toMetres: number;
+    /** Files the model named that weren't picked (textures, .mtl). */
+    missing: string[];
+  };
 }
 
 export type VariantTier = 'high' | 'medium' | 'low';

@@ -11,7 +11,7 @@ export default function SettingsPage() {
         <header className="detail-header">
           <Link href="/" className="site-brand" aria-label="Home">
             <span className="site-mark" aria-hidden />
-            <span>threedview<span className="site-brand-tld">.services</span></span>
+            <span>RCAAS<span className="site-brand-tld">.tech</span></span>
           </Link>
           <Link href="/gallery" className="site-btn site-btn-ghost">Back to gallery</Link>
         </header>

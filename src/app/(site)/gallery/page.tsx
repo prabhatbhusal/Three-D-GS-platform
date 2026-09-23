@@ -1,9 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { connection } from 'next/server';
-import { SiteNav } from '../../components/SiteNav';
-import { API_BASE_URL, type GalleryItem } from '../../lib/api';
-import '../../components/site.css';
+import { SitePage } from '../../../components/SitePage';
+import { API_BASE_URL, type GalleryItem } from '../../../lib/api';
 
 export const metadata: Metadata = {
   title: 'Gallery',
@@ -38,9 +37,7 @@ export default async function GalleryPage() {
   const items = await published();
 
   return (
-    <main className="site">
-      <SiteNav />
-
+    <SitePage>
       <section className="band gallery-head">
         <h1 className="band-title">Step inside a <em>published</em> space</h1>
         <p className="gallery-sub">Live Gaussian splat tours, published from the studio. Open one to walk it.</p>
@@ -52,7 +49,9 @@ export default async function GalleryPage() {
         )}
         {items?.length === 0 && (
           <p className="gallery-empty">
-            Nothing is published yet. Open a space in the <Link href="/studio">studio</Link> and choose Publish.
+            {/* plain <a>: the studio needs a full page load (§12) */}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+            Nothing is published yet. Open a space in the <a href="/studio">studio</a> and choose Publish.
           </p>
         )}
         {!!items?.length && (
@@ -82,15 +81,6 @@ export default async function GalleryPage() {
           </ul>
         )}
       </section>
-
-      <footer className="site-foot">
-        <span>threedview.services</span>
-        <span className="site-foot-dim">A GeoNova and I.STEM Lab product</span>
-        <span className="site-foot-links">
-          <Link href="/">Home</Link>
-          <Link href="/login">Sign in</Link>
-        </span>
-      </footer>
-    </main>
+    </SitePage>
   );
 }

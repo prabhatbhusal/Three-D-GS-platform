@@ -28,6 +28,7 @@ const toApiScene = (d: SceneDoc & { tagline?: string; outdoor?: boolean }): ApiS
   unitScale: d.unitScale,
   assetId: d.splat?.variants?.high?.assetId,
   meta: d.splat?.variants?.high?.meta,
+  format: d.splat?.format,
   neighbours: d.neighbours
 });
 

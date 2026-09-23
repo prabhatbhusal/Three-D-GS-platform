@@ -11,7 +11,7 @@ export default function ProfilePage() {
         <header className="detail-header">
           <Link href="/" className="site-brand" aria-label="Home">
             <span className="site-mark" aria-hidden />
-            <span>threedview<span className="site-brand-tld">.services</span></span>
+            <span>RCAAS<span className="site-brand-tld">.tech</span></span>
           </Link>
           <Link href="/gallery" className="site-btn site-btn-ghost">Back to gallery</Link>
         </header>
@@ -28,7 +28,7 @@ export default function ProfilePage() {
             </div>
             <div className="detail-card">
               <span className="detail-label">Email</span>
-              <strong>editor@threedview.services</strong>
+              <strong>editor@rcaas.tech</strong>
             </div>
             <div className="detail-card">
               <span className="detail-label">Role</span>

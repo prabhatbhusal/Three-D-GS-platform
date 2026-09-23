@@ -1,4 +1,4 @@
-# threedview.services — brief, developer guide and working agreement
+# RCAAS.tech — brief, developer guide and working agreement
 
 Revision C — 2026-09-13. Supersedes the earlier "Splatspace" brief.
 Incorporates the Platform Design minutes of 8 September 2026 (GeoNova Solutions).
@@ -49,8 +49,12 @@ no gain. So: "project" on screen in the studio, "property" everywhere else.
 
 ### 0.3 What changed in revision B
 
-1. **Product name is threedview.services.** A GeoNova / I.STEM Lab brand. The
-   internal name "Splatspace" is retired — not in code, copy or filenames.
+1. **Product name is RCAAS.tech** (Reality Capture As A Service; the site's
+   URL), decided 2026-09-23, replacing threedview.services. A GeoNova / I.STEM
+   Lab brand. "threedview" survives only in `localStorage` keys
+   (`threedview-theme`, `threedview.muted`, …) — renaming them would reset every
+   visitor's saved settings for no gain. The internal name "Splatspace" is
+   retired — not in code, copy or filenames.
 2. **Third-person / avatar mode is removed** `[remove]` — §6.1.
 3. **Conversion is the core product objective.** In-experience lead capture and
    a persistent CTA are first-class features, not an add-on. Every design
@@ -170,6 +174,16 @@ the task is wrong.
   a `meta.lcc2` LOD/streaming index, and that index does not detach from the
   SDK — a PlayCanvas port would lose LOD, collision and byte-range streaming,
   blowing the byte and TTFF budgets.
+  **Second path, 2026-09-23 (owner's request): 3D-model spaces.** FBX,
+  OBJ (+MTL), PLY and glTF/GLB are converted **in the studio, on upload**
+  (`src/lib/modelConvert.ts`) into one meshopt-compressed `.glb` — upright,
+  in metres, centred, a walkable floor added to point clouds — and only that
+  file is uploaded (`splat.format: "glb"`). Visitors load it with three's
+  GLTFLoader in `src/lib/meshModel.ts`, which returns a handle with the SDK
+  renderer's own methods (`root`, `getBounds`, `intersectsCapsule`,
+  `hasCollision`), so the studio, walker, gizmo, hotspots, publish and tour
+  are the same code for both; only `useSceneManager` branches, on
+  `splat.format`. It does not stream (§19).
 - **Frontend:** React + Next.js App Router, at `/`, in TypeScript (`.ts`/`.tsx`
   under `src/`, loosely typed — `any` only at the vendored-SDK/Three.js
   boundary, see `src/@types/vendor.d.ts`). `src/components/` is flat (no
@@ -202,6 +216,18 @@ Frontend runtime deps are exactly: `next`, `@react-three/fiber`, `react`,
 `react-dom`, `three` (r164), plus the vendored SDK. `@react-three/drei` is
 approved **for `TransformControls` only** (§7.2) — a genuine need, not a
 convenience.
+
+Approved 2026-09-23 for 3D-model spaces (§4 renderer, second path), none
+with native code:
+
+- `three-mesh-bvh` — collision on model meshes of any size; built in a worker.
+  In the viewer, loaded only for a model space.
+- `@gltf-transform/core`, `@gltf-transform/extensions`, `meshoptimizer` —
+  write the compressed `.glb`. **Studio only**, dynamically imported on
+  upload; never in a visitor's bundle (the viewer decodes with the decoder
+  inside `three`). `@gltf-transform/functions` was **not** taken: it pulls in
+  `sharp`, a ~30 MB native image library. `next.config.mts` maps `node:fs`
+  away for the browser build (gltf-transform's unused Node reader).
 
 Backend runtime deps are exactly: `express`, `cors`, `cookie-parser`,
 `jsonwebtoken`, `dotenv`, `yauzl`. `yauzl` is approved **for zip-upload
@@ -278,8 +304,11 @@ page does the work.
 
   // One logical model, up to three exported variants (§8.2).
   // "high" is mandatory; medium/low fall back to it if absent.
+  // format "glb": a 3D model converted on upload (§7.1) — one model, high
+  // only, `meta` is the .glb and `bytes` is recorded (the whole file is the
+  // bytes to first frame).
   "splat": {
-    "format": "lcc2",
+    "format": "lcc2",               // | "glb"
     "variants": {
       "high":   { "assetId": "ast_7k2m", "meta": "meta.lcc2",
                   "splatCount": 2840000, "bytes": 78000000 },
@@ -367,6 +396,8 @@ Every new schema field needs a migration path. v1 → v2:
 | hotspot `type: "audio"` | new type; older readers that don't know it should treat it as `text` with its transcript |
 | `hotspots[].payload.audio` / `.transcript` absent | none — no audio |
 | `propertyId` absent | `null` — listed under "Not in a property yet" in the studio |
+| `splat.format` absent | `"lcc2"`. `"glb"` is a new value (2026-09-23), not a new field; an older client that doesn't know it would hand the file to the LCC SDK and fail to load it. FBX/OBJ/PLY are never stored as-is: they arrive as `"glb"` |
+| `splat.variants.high.bytes` absent | unknown: no large-model publish warning |
 
 Migrations live in `server/src/migrate.js` `[build]` and run **on read**, not as
 a one-off script. A scene authored last month must open today without anyone
@@ -547,6 +578,35 @@ creator should never type a coordinate to do normal work. Numeric fields stay,
 behind a collapsed "Numbers" disclosure, for debugging.
 
 ### 7.1 Upload a model `[built]`
+
+**3D models (2026-09-23):** both upload screens (New project's "3D model"
+source, New space's High slot) also take an **FBX, OBJ (+MTL), PLY or
+glTF/GLB** — its folder, or its files picked together, with its textures;
+**not a .zip** (the server refuses a raw model and says why). `uploadVariant`
+converts it in the browser first (`modelConvert.ts`), showing "Converting:
+…", then uploads the one `.glb`:
+
+- **Upright:** an *Up axis* choice (Auto / Y / Z). Auto turns a model Z-up
+  when its Z side is clearly the shortest, as a room or site scan's is
+  (`guessUpAxis`, tested); otherwise it keeps Y, the glTF/OBJ/FBX default.
+  Verified on bar-restro's own Lixel mesh: detected Z-up, stood up.
+- **Metres:** FBX `UnitScaleFactor` (usually cm → ×0.01). Centred, floor at 0.
+- **Materials:** OBJ/PLY colour (texture or vertex colour) is captured
+  light, so unlit; FBX/glTF stay lit PBR. Colour textures go out as JPEG.
+- **Point clouds:** a hidden `rcaas-collision` floor from the points —
+  median-smoothed cell floors, 2.2 m blocks where points fill body height
+  (`pointCloudFloor`, tested) — so Walk works on them.
+- **Missing files** (a texture the model names that wasn't picked, or the
+  `.mtl`): a warning on the panel, drawn in the material's colour, not a
+  failure — artist FBX files often name paths on someone else's PC. Paths
+  resolve exactly, then by file name, then by name without extension
+  (a `.jpg` the FBX names, re-saved as `.jpeg`).
+- A **Gaussian-splat PLY** is refused (it needs the LCC path).
+
+Finalize (`inspectGlb`) checks the GLB header and scene JSON, reports
+`kind` (`mesh` / `points`) and stores a gzipped copy the read route sends
+to clients that accept gzip without a byte range. Medium and low slots are
+LCC-only. The steps below are the LCC path.
 
 1. Studio → **New space** → drop the Lixel Studio export folder, or a single
    `.zip` of it. It must contain `meta.lcc2` and its tiled `.sog` set. A zip
@@ -926,8 +986,11 @@ the top of `src/components/editor.css` and `uploader.css` inherits them.
   only**. The chrome is now monochrome, so it is plain full contrast — white on
   dark, near-black on light. Earlier passes used cyan `#4FC3D9` and, before
   that, survey yellow `#E8C547`; both are gone. If a second accent appears,
-  delete it. Gizmo axis colours are the one exception — red/green/blue axes are
-  a convention, not decoration.
+  delete it. Gizmo axis colours are one exception — red/green/blue axes are
+  a convention, not decoration. The other (2026-09-23, on request) is the
+  **Home** button (`.ed2-home`, top-left of the studio): it wears the brand
+  mark's teal-to-violet gradient from `site.css .site-mark`, because it *is*
+  the logo. Nothing else in the studio takes those colours.
 - Object kinds are told apart by a small tinted icon tile on the row, not by
   colouring the row itself.
 - Numeric readouts (coordinates, FOV, eye height, splat count, frame time,
@@ -969,11 +1032,11 @@ tour: place name top-left; top-right a row of dark round icon buttons
 (Spaces, Sound, HD, Controls, Full screen), then Book now (§7.6) and Exit;
 the **mode dial** top centre (§6.1 — no Floor plan, §20 #2; under 1180 px
 wide and on phones it drops below the top buttons); the bottom is one
-**centred** column — a filmstrip of numbered view cards, then the **tour
-bar**: ‹ ›, a round play button whose ring fills over the current view's
-flight, the view's name in the serif with `1 / 3 now flying` under it, a
-**Views** toggle for the filmstrip, and progress segments along its bottom
-edge (click one to jump). The bar counts as playing across the short pause
+**centred** column — a filmstrip of photo cards with the name over each
+(2026-09-23, the owner's reference), then the **tour bar**, one compact pill:
+‹, a **Scenes** toggle for the filmstrip, start over (back to the first
+view), a divider, play / pause, ›. The on-screen word is "Scenes" by request;
+they are the space's tracks (§0.2). The bar counts as playing across the short pause
 between views, so Pause always pauses. In Orbit/Fly the bar becomes zoom (or
 fly speed), reset and exit. The studio
 preview's Exit preview sits bottom-left. The enquiry CTA sits bottom-right; Book now and enquiry open as light cards at the right. **Layers:** the
@@ -1034,11 +1097,12 @@ load gives each property a clean `LCCRender` singleton.
 | Route | What | Status |
 |---|---|---|
 | `/` | Marketing home — static, server-rendered | `[built]` |
+| `/work`, `/services`, `/how-it-works`, `/about`, `/contact` | One marketing page each (2026-09-23; they were `#` sections of `/` before), server-rendered | `[built]` |
 | `/login` | Sign in / create account (`?mode=signup`, `?next=` same-site paths only) | `[built]` |
 | `/studio` | Project list: one card per client (click to open; ⋯ → Rename / Delete project), the last-opened project first and tagged. **New project** opens a large dialog: input type (Lixel Studio export — folder or .zip, the same upload path as the studio uploader; 360 camera video shown as *Coming soon*, not built), drop zone, project name and first-space name (taken from the export). Create opens the project with that space already loaded. "Not in a project yet" always shows when spaces are unfiled, with **Group into a project** (defaults to "Demo project") or a per-space Move to…. Signed-out visitors are sent to `/login` | `[built]` |
 | `/studio/<property>` | The editor, scoped to that project's spaces before the 3D mounts. The top bar shows **Projects / <current project ▾>** — the switcher lists every project and opens any of them. Leaving with unsaved edits triggers the browser's "Leave site?" prompt. No spaces yet → uploader. New uploads get the id `<property>-<title>` | `[built]` |
 | `/tour` | Visitor viewer, **published spaces only**. `?space=<id>` picks one (default: newest published); `?embed=1` hides Exit 3D. Unpublished or unknown → a message, and the 3D never mounts. **Interim**, until `/t/<property>/<space>` exists | `[built]` |
-| `/gallery` | Every published space, rendered per request | `[built]` |
+| `/gallery` | Every published space, rendered per request. Shares the marketing layout | `[built]` |
 
 Still to build:
 
@@ -1082,7 +1146,10 @@ for ambient declarations).
 |---|---|
 | `src/lib/transform.ts` | Scene transform store (degrees, YXZ, uniform scale), `applyToRenderer()` (§17), gizmo tool state. `[built]` |
 | `src/components/Gizmo.tsx` | Move / rotate / scale handles (`G`/`R`/`T`, Ctrl snaps) and `useSceneTransform()`, which applies placement in studio and tour. `[built]` |
-| `src/components/SiteNav.tsx`, `src/app/gallery/page.tsx` | Marketing nav; public gallery of published spaces. |
+| `src/app/(site)/` | Route group for every marketing page and `/gallery`. Its `layout.tsx` holds the `.site` scroll container and the nav, so the nav survives navigation. Each `page.tsx` wraps its body in `SitePage`. |
+| `src/components/SiteNav.tsx` | Marketing nav. The current page's pill is a React `<ViewTransition name="site-nav-pill">`, so it glides from link to link; links are tagged `nav-forward` / `nav-back` by their order; resets `.site` to the top on each page change. |
+| `src/components/SitePage.tsx` | A marketing page body: a `<ViewTransition>` that slides it out and in by the link's direction (motions in `site.css`), the contact band and footer. Must be rendered by each page, not the layout — a layout never enters or exits. |
+| `src/lib/siteContent.ts` | The marketing copy and case-study numbers (keep every number sourced from geonova.com.np). |
 | `src/app/studio/page.tsx`, `src/app/studio/[property]/page.tsx` | Project list (create, rename, delete, last opened), and the editor scoped to one project (§12). `src/lib/useStudioSession.ts` is their shared sign-in gate. The editor's project switcher and unsaved-edits guard are `ProjectSwitcher` / `LeaveGuard` in `EditorShell.tsx`. `[built]` |
 | `src/lib/audio.ts` | One `AudioContext`, gesture unlock, mute persistence, visibility pause, hotspot clip playback (§6.3). `[built]` for hotspot audio |
 | `src/components/BookingCard.tsx` + `src/lib/booking.ts` | The Book now card (§7.6) and its pure date/link helpers. `[built]` |
@@ -1098,7 +1165,10 @@ for ambient declarations).
 | `src/lib/walkerConfig.ts` | Live tunable movement + camera settings (mode, eye height, radius, near plane, speed), in world units. Scene manager fills scale-derived defaults; studio sliders write here; walker reads it every frame. |
 | `src/lib/uiConfig.ts` | Visitor-facing presentation (brand, labels, accent) driven by the Look tab. |
 | `src/lib/deviceTier.ts` | Tier guess + measured downgrade + persistence (§8.1). |
-| `src/lib/useSceneManager.ts` | Loads one scene at a time. Measures the bbox → `unitScale` → rescales walker + camera near/far. |
+| `src/lib/useSceneManager.ts` | Loads one scene at a time. Measures the bbox → `unitScale` → rescales walker + camera near/far. `"glb"` spaces go to `meshModel.ts` (imported on demand) instead of `LCCRender.load`; `baseMatrix` is identity for them (converted upright), not the LCC Z-up fix. |
+| `src/lib/meshModel.ts` | Loads a model space's `.glb` (GLTFLoader + three's meshopt decoder) behind the SDK renderer's interface (§4). Hides the `rcaas-collision` floor; restores point size from node extras; a hemisphere + sun light for lit materials. Collision: every surface merged in model space (moving the model never rebuilds it) into a `three-mesh-bvh` BVH built in a worker (main-thread fallback), queried with a closest-point capsule push — two-sided, since scan exports disagree on winding. Tested in `test/client.test.mjs` on a meshopt `.glb` with a downward-facing floor, including the §17 move/turn/scale check. `[built]` |
+| `src/lib/modelConvert.ts` | Studio-only: FBX/OBJ/PLY/glTF → one meshopt `.glb` on upload (§7.1). Resolves the files a model names against the picked files; strips lights, cameras and animation. `[built]` |
+| `src/lib/modelPrep.ts` | Pure: `guessUpAxis`, and `pointCloudFloor` (a point cloud's walkable floor). Tested. `[built]` |
 | `src/lib/useCameraDirector.ts` | Cinematic engine — Catmull-Rom spline through a track's shots, ease in/out, hands back. Interruptible by any input. |
 | `src/lib/useLccWalker.ts` | Walk / fly / orbit controller on the SDK's `intersectsCapsule` collision. Owns the mandatory `LCCRender.update()`. |
 | `src/lib/sceneDoc.ts` | Renderer-agnostic scene doc — session hotspot store, `sceneDocFor()` and `exportSceneJSON()`. Update to schema v2. |
@@ -1108,17 +1178,20 @@ for ambient declarations).
 | `src/lib/api.ts` | Client for the Node API. Every call best-effort; the app never blocks on it. Also the asset-upload endpoints (create/init/chunk/finalize/delete, §7.1). |
 | `src/lib/upload.ts` | Chunked resumable upload engine — folder walking (drag-and-drop + `webkitdirectory` browse), 8 MB chunks, resume-from-server-offset. A lone `.zip` passes through untouched; the server extracts it on finalize (§7.1). |
 | `src/components/App.tsx` | Canvas + shell + preview + hotspot projection. Owns the `dpr` cap — now tier-driven. |
-| `src/components/Viewer.tsx` | Visitor experience, laid out as in §10.2's as-built note — hero enter gate (where the `AudioContext` resumes, §6.3), place name, top-right icons + sound toggle + Book now + Exit 3D, mode dial, layers spine, view filmstrip + tour bar (play ring, segmented progress), hotspots, joystick. Reused as the studio's Preview. |
+| `src/components/Viewer.tsx` | Visitor experience, laid out as in §10.2's as-built note — hero enter gate (where the `AudioContext` resumes, §6.3), place name, top-right icons + sound toggle + Book now + Exit 3D, mode dial, layers spine, scene filmstrip + tour bar pill (‹ Scenes, start over, play ›), hotspots, joystick. Reused as the studio's Preview. |
 | `src/components/TouchControls.tsx` | Floating mobile thumb-stick + Run/Jump. Writes `mobileInput.ts`. |
 | `src/components/HotspotMarkers.tsx` + `hotspots.css` | Hotspot callouts (ring, leader line, card) in tour and studio, and the slide-up panel with Listen + transcript. |
 | `src/components/EditorShell.tsx` + `editor.css` | Studio UI — top bar, left scene tree, right inspector, bottom filmstrip. Inter (`next/font/google`) is scoped here via `--sans` (§10.1) — the tour keeps its own theme font. |
 | `src/components/Uploader.tsx` + `uploader.css` | New-space upload panel — high/medium/low slots, live progress, validation errors naming the missing file (§7.1). Opened from the Scenes group's ＋ in `EditorShell`. |
 | `src/components/EnquiryPanel.tsx` | Persistent CTA + enquiry card over the scene (§6.4). Open state can be owned by the Viewer (one card at a time) or by itself (no-WebGL fallback). |
 | `src/app/layout.tsx` | Root layout — Inter (`--font-inter`) and Instrument Serif (`--font-display`, marketing site only). |
-| `src/app/page.tsx` + `src/components/site.css` | Marketing home (§12). `site.css` also styles `/login`; `.site` is its own scroll container because `globals.css` locks `body` for the 3D app. |
+| `src/app/(site)/page.tsx` + `src/components/landing.css` | Marketing home (§12), revised again 2026-09-23 in the manner of XGRIDS' K1 page (which is photo/video footage scrubbed by scroll, not live 3D): the name over a looping clip of our Chilancho Stupa capture, then that capture as a pinned, scroll-scrubbed image sequence with three captions, then sectors, benefit tiles, specs, and a card per page. Other pages: Work opens each project's footage out to full width as it scrolls in; Services and How it works pin a media panel beside the steps; About puts the mission over full-bleed footage. Every footage block renders only if its file exists (`src/lib/media.ts`); without it the page keeps its plain design. Sections rise in via CSS `animation-timeline: view()`. `landing.css` styles every page in the group. |
+| `src/components/SiteMotion.tsx` | `FrameScrub` (pinned canvas scrubbing an image sequence by scroll; first frame at once, the rest streamed in order), `StepMedia` (sticky footage beside steps, IntersectionObserver picks the current one, only its clip plays), `MediaFill` (a clip over its poster; reduced motion gets the poster). No animation library. |
+| `src/lib/media.ts` + `public/media/` | Footage by slot name, read from disk at render/build time. Slots and how to re-cut them: `public/media/README.md`. All of it is cut from the 4K Chilancho master in `media-src/` (gitignored, never in `public/`: it is 258 MB). Only Chilancho gets `work/` footage; the other projects stay plain until they have their own. |
+| `src/components/site.css` | Tokens, nav, buttons, footer and the page-transition motions for every marketing page. One saturated violet accent (`--accent` for text, `--accent-fill` under white text), teal only inside the brand gradient — revised from pale cyan 2026-09-23 on request. Also styles `/login` and `/gallery`; `.site` is its own scroll container because `globals.css` locks `body` for the 3D app. |
 | `src/app/login/page.tsx` + `src/components/AuthPanel.tsx` | Sign in / create account. |
 | `src/app/studio/page.tsx`, `src/app/tour/page.tsx` | Mount `App.tsx` via `next/dynamic({ ssr: false })`; the studio page gates on the session first. |
-| `src/components/SplatField.tsx` | Hero illustration — a procedural lounge as LiDAR points turning into splats under a scan sweep. 2D canvas, no WebGL. Honours reduced motion (static final frame) and pauses off-screen. |
+| `src/components/SplatField.tsx` | The sign-in page's art — a procedural lounge as LiDAR points turning into splats under a scan sweep. 2D canvas, no WebGL. Honours reduced motion (static final frame) and pauses off-screen. |
 | `server/src/routes/scenes.js` | Scene list / get (public) / save (session only), plus publish / unpublish / revert (session) and the published read + `galleryRouter` (public), §7.5. |
 | `server/src/routes/auth.js` | `/signup` (needs team access code), `/login` (email + password, or legacy shared password alone), `/logout`, `/session` (returns the user). Rate-limited per IP. |
 | `server/src/usersStore.js` | Accounts — one JSON per user named by an email hash; scrypt + timingSafeEqual. |
@@ -1250,8 +1323,6 @@ before `context.resume()` loses the gesture.
 - `no appKey` console warning from the SDK is expected for now.
 - Accounts have no password reset, no email verification and no admin list —
   a forgotten password means deleting the user file by hand.
-- The home page says quality adapts to the device; while the §8 max-graphics
-  override is active, that is not true.
 - Embed tokens are issued but not enforced by the viewer.
 - Studio edits (tracks, hotspots, placement, start view, name) are unsaved until
   **Save space** in the top bar, which saves the open space only and shows what
@@ -1277,6 +1348,25 @@ before `context.resume()` loses the gesture.
 - Floor1 and Floor4 have no tracks and the placeholder start view
   `[0, 1.7, 3]`. Fly copes (see §6.1), but set a start view and author a
   track on each.
+- **3D-model spaces don't stream.** The whole `.glb` downloads (gzipped)
+  before the first frame; publish warns past 35 MB. For big spaces use the
+  LCC export. Visitors don't parse text any more (binary, and the BVH builds
+  in a worker), but the **studio tab** does the conversion on the main
+  thread, so a very large FBX/OBJ freezes it for a while during upload.
+- Compression is lossless meshopt only (no quantisation — that needs
+  `@gltf-transform/functions`, see §4). A coloured point cloud can come out
+  *larger* than its binary PLY (glTF stores colour as floats: 150k points,
+  2.2 MB → 3.4 MB before gzip). Meshes shrink (a PLY mesh: 348 KB → 66 KB).
+- Auto up-axis goes by size, so a **Z-up tower** (taller than wide) stays on
+  its side: pick "Z is up" on upload, or turn it with the gizmo.
+- FBX: animations are dropped (a space is static); PSD textures aren't
+  supported by three and draw untextured. Tested 2026-09-23 on a real
+  artist FBX (a loft among towers, in cm, 45k triangles, 23 textures):
+  26 MB of FBX + textures → 19.6 MB `.glb`, under the 35 MB publish
+  warning. The FBX's `EmissiveFactor` must be carried
+  (`emissiveIntensity`) or every surface renders flat white.
+- If the BVH worker can't start, three-mesh-bvh logs an unhandled rejection
+  before the main-thread fallback takes over; collision still works.
 - "360 camera video" in the New project dialog is a placeholder: nothing
   turns 360 footage into a splat.
 - A space can only be moved into a project from the "Not in a project yet"
