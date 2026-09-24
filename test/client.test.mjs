@@ -4,7 +4,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cardBox, nearestIds, CARD_W, CARD_H } from '../src/lib/hotspotLayout.ts';
+import { cardBox, nearestIds, showsCard, NEAR_DISTANCE, CARD_W, CARD_H } from '../src/lib/hotspotLayout.ts';
 import { safeUrl, resolveAsset, assetUrl } from '../src/lib/api.ts';
 import { bookingHref, stayProblem, nightsBetween, isoDay } from '../src/lib/booking.ts';
 
@@ -72,6 +72,20 @@ test('only the nearest few hotspots get a card', () => {
   assert.deepEqual([...nearestIds(list, 2)].sort(), ['close', 'near']);
   assert.equal(nearestIds(list, 10).size, 4);
   assert.deepEqual(list.map((m) => m.id), ['far', 'near', 'mid', 'close'], 'input left in its order');
+});
+
+test('a text hotspot\'s reveal setting overrides the nearest-few default', () => {
+  // no `reveal` (or an old doc that predates the field): today's behaviour, unchanged
+  assert.equal(showsCard(undefined, 0.2, true), true, 'in the nearest few');
+  assert.equal(showsCard(undefined, 0.2, false), false, 'not in the nearest few, even up close');
+
+  // 'near': only within NEAR_DISTANCE, whether or not it's one of the nearest few
+  assert.equal(showsCard('near', NEAR_DISTANCE, true), true, 'right at the threshold');
+  assert.equal(showsCard('near', NEAR_DISTANCE + 0.01, true), false, 'just past it, even if it would\'ve been carded');
+  assert.equal(showsCard('near', 0.4, false), true, 'close enough although not in the nearest few');
+
+  // 'always': every time, at any distance
+  assert.equal(showsCard('always', 500, false), true);
 });
 
 test('only http(s) links reach a visitor page', () => {

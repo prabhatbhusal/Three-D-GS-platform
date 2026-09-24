@@ -2,13 +2,20 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  createProperty, deleteProperty, getProperties, getScenes, moveSceneToProperty, renameProperty, LAST_PROJECT_KEY
+  createProperty, deleteProperty, getProperties, getProperty, getScenes, moveSceneToProperty, renameProperty,
+  addPropertyMember, removePropertyMember, getSession, LAST_PROJECT_KEY, type SessionUser
 } from '../../lib/api';
 import { useStudioSession } from '../../lib/useStudioSession';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { NewProjectDialog } from '../../components/NewProjectDialog';
+import { TeamDialog } from '../../components/TeamDialog';
 import type { ApiScene, Property } from '../../@types/scene.types';
 import '../../components/editor.css';
+
+/** Owner/admin can rename, delete or share it; a project without an owner
+ *  (made before ownership existed) is everyone's to manage, same as always. */
+const canManage = (p: Property, me: SessionUser | null) =>
+  !me || me.role === 'admin' || p.ownerId === null || p.ownerId === me.id;
 
 /**
  * The studio's front door: one card per client project (a "property" in the
@@ -27,10 +34,14 @@ export default function StudioPage() {
   const [scenes, setScenes] = useState<ApiScene[]>([]);
   const [error, setError] = useState('');
   const [last, setLast] = useState<string | null>(null);
+  const [me, setMe] = useState<SessionUser | null>(null);
+  const [team, setTeam] = useState(false);
 
   useEffect(() => {
     try { setLast(localStorage.getItem(LAST_PROJECT_KEY)); } catch { /* private mode */ }
   }, []);
+
+  useEffect(() => { getSession().then((s) => setMe(s?.user ?? null)).catch(() => {}); }, []);
 
   const load = useCallback(() => {
     setError('');
@@ -64,8 +75,12 @@ export default function StudioPage() {
             </a>
             Studio
           </span>
-          <ThemeToggle className="ed2-theme" />
+          <span className="pl-top-actions">
+            {me?.role === 'admin' && <button className="pl-btn" onClick={() => setTeam(true)}>Team</button>}
+            <ThemeToggle className="ed2-theme" />
+          </span>
         </header>
+        {team && <TeamDialog onClose={() => setTeam(false)} />}
 
         <section className="pl-body">
           <div className="pl-head">
@@ -93,7 +108,7 @@ export default function StudioPage() {
           {properties && properties.length > 0 && (
             <div className="pl-grid">
               {ordered.map((p) => (
-                <ProjectCard key={p.id} project={p} current={p.id === last} onChanged={load} />
+                <ProjectCard key={p.id} project={p} current={p.id === last} me={me} onChanged={load} />
               ))}
             </div>
           )}
@@ -123,14 +138,17 @@ export default function StudioPage() {
   );
 }
 
-/** One project: open it, or rename / delete it from the ⋯ menu. */
-function ProjectCard({ project, current, onChanged }: { project: Property; current: boolean; onChanged: () => void }) {
+/** One project: open it, or rename / delete / share it from the ⋯ menu — the
+ *  menu only offers actions its owner or an admin can actually do. */
+function ProjectCard({ project, current, me, onChanged }: { project: Property; current: boolean; me: SessionUser | null; onChanged: () => void }) {
   const [menu, setMenu] = useState(false);
   const [renaming, setRenaming] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [draft, setDraft] = useState(project.title);
   const [error, setError] = useState('');
   const menuRef = useRef<HTMLDivElement | null>(null);
   const count = project.spaceCount ?? 0;
+  const mine = canManage(project, me);
 
   useEffect(() => {
     if (!menu) return;
@@ -190,14 +208,90 @@ function ProjectCard({ project, current, onChanged }: { project: Property; curre
         {error && <span className="ed2-warn ed2-fine">{error}</span>}
       </span>
 
-      <div className="pl-menu" ref={menuRef}>
-        <button className="pl-menu-btn" aria-label={`More actions for ${project.title}`} aria-expanded={menu} onClick={() => setMenu((v) => !v)}>⋯</button>
-        {menu && (
-          <div className="pl-menu-list" role="menu">
-            <button role="menuitem" onClick={() => { setMenu(false); setError(''); setDraft(project.title); setRenaming(true); }}>Rename</button>
-            <button role="menuitem" className="is-danger" onClick={remove}>Delete project</button>
-          </div>
-        )}
+      {mine && (
+        <div className="pl-menu" ref={menuRef}>
+          <button className="pl-menu-btn" aria-label={`More actions for ${project.title}`} aria-expanded={menu} onClick={() => setMenu((v) => !v)}>⋯</button>
+          {menu && (
+            <div className="pl-menu-list" role="menu">
+              <button role="menuitem" onClick={() => { setMenu(false); setError(''); setDraft(project.title); setRenaming(true); }}>Rename</button>
+              <button role="menuitem" onClick={() => { setMenu(false); setSharing(true); }}>Share…</button>
+              <button role="menuitem" className="is-danger" onClick={remove}>Delete project</button>
+            </div>
+          )}
+        </div>
+      )}
+      {sharing && <ShareDialog project={project} onClose={() => setSharing(false)} />}
+    </div>
+  );
+}
+
+/** Add or remove teammates from a project's members (§21: this and the Team
+ *  dialog are the whole of "different admins" — ownership at the project
+ *  level, not per-space). Opened from a card's ⋯ menu; owner/admin only,
+ *  enforced again server-side regardless of who can open this dialog. */
+function ShareDialog({ project, onClose }: { project: Property; onClose: () => void }) {
+  const [detail, setDetail] = useState<Property | null>(null);
+  const [email, setEmail] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const load = useCallback(() => { getProperty(project.id).then(setDetail).catch(() => {}); }, [project.id]);
+  useEffect(load, [load]);
+
+  const add = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = email.trim();
+    if (!clean) return;
+    setBusy(true);
+    setError('');
+    try {
+      await addPropertyMember(project.id, clean);
+      setEmail('');
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not add them. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = (userId: string) => {
+    removePropertyMember(project.id, userId).then(load).catch((err: unknown) => {
+      setError(err instanceof Error ? err.message : 'Could not remove them. Try again.');
+    });
+  };
+
+  return (
+    <div className="np-scrim" onClick={onClose}>
+      <div className="pl-dialog" role="dialog" aria-modal="true" aria-label={`Share ${project.title}`} onClick={(e) => e.stopPropagation()}>
+        <header className="np-head">
+          <h2>Share “{project.title}”</h2>
+          <button className="np-x" onClick={onClose} aria-label="Close">✕</button>
+        </header>
+        <div className="pl-dialog-body">
+          <p className="pl-sub">
+            {detail?.ownerName ? <>Owned by <b>{detail.ownerName}</b>.</> : 'No owner set — every teammate can already manage it.'}
+            {' '}Add someone below to give them access without making them the owner.
+          </p>
+          {!!detail?.memberDetails?.length && (
+            <ul className="pl-share-list">
+              {detail.memberDetails.map((u) => (
+                <li key={u.id}>
+                  <span>{u.name} <span className="pl-sub">{u.email}</span></span>
+                  <button type="button" onClick={() => remove(u.id)} aria-label={`Remove ${u.name}`}>✕</button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <form onSubmit={add} className="pl-share-form">
+            <input
+              type="email" required placeholder="teammate@geonova.com.np" value={email}
+              onChange={(e) => setEmail(e.target.value)} disabled={busy}
+            />
+            <button className="pl-btn pl-btn-main" type="submit" disabled={busy}>{busy ? 'Adding…' : 'Add'}</button>
+          </form>
+          {error && <p className="ed2-warn ed2-fine">{error}</p>}
+        </div>
       </div>
     </div>
   );

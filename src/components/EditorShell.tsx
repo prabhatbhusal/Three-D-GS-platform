@@ -15,7 +15,7 @@ import { playClip, setMuted, stopClip, useSound } from '../lib/audio';
 import { uiConfig, setUiConfig, useUiConfig } from '../lib/uiConfig';
 import {
   saveScene, getSession, logout, getPublishState, publishSceneNow, unpublishScene, revertScene,
-  resolveAsset, safeUrl, getProperties, assetUrl, buildFloorPlan
+  resolveAsset, safeUrl, getProperties, assetUrl, buildFloorPlan, uploadFloorPlan, removeFloorPlan
 } from '../lib/api';
 import type { SessionUser, PublishState } from '../lib/api';
 import { HotspotMarkers } from './HotspotMarkers';
@@ -870,8 +870,22 @@ function HotspotInspector({ ed, hs, activeId, onDelete }: HotspotInspectorProps)
 
       {hs.type !== 'audio' && <Section title="Content">
         {hs.type === 'text' && (
-          <textarea className="ed2-name ed2-area" rows={4}
-            value={p.text || ''} onChange={(e) => setPayload({ text: e.target.value })} />
+          <>
+            <textarea className="ed2-name ed2-area" rows={4}
+              value={p.text || ''} onChange={(e) => setPayload({ text: e.target.value })} />
+            <select
+              className="ed2-name" style={{ marginTop: 6 }}
+              value={p.reveal ?? 'auto'}
+              onChange={(e) => {
+                const v = e.target.value;
+                setPayload({ reveal: v === 'auto' ? undefined : (v as 'near' | 'always') });
+              }}
+            >
+              <option value="auto">Show among the nearest few (default)</option>
+              <option value="near">Show only within 1 m — won&apos;t overlap other text</option>
+              <option value="always">Always show, at any distance</option>
+            </select>
+          </>
         )}
         {hs.type === 'image' && (
           <>
@@ -980,18 +994,50 @@ function AudioSection({ hs, setPayload }: { hs: Hotspot; setPayload: (patch: Hot
 }
 
 /**
- * The space's floor plan, drawn by the server from the scan's own collision
- * mesh (server/src/floorplan.js): on upload, or here for older scans.
+ * The space's floor plan: drawn by the server from the scan's own collision
+ * mesh (server/src/floorplan.js) — on upload, or here for older scans — and,
+ * beside it, your own: an architect's drawing or a fire plan, uploaded as an
+ * image (PNG, JPEG or WebP). Uploading again replaces yours; the drawn one
+ * always stays.
  */
 function FloorPlanSection({ sceneId }: { sceneId: string }) {
   const assetId = SCENE_BY_ID[sceneId]?.assetId;
-  const [view, setView] = useState<'plan' | '3d'>('3d');
+  const [view, setView] = useState<'plan' | '3d' | 'mine'>('3d');
   const [status, setStatus] = useState<'loading' | 'ready' | 'none' | 'building'>('loading');
   const [error, setError] = useState('');
   const [bust, setBust] = useState(0);
+  const [mine, setMine] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => { setStatus('loading'); setError(''); }, [assetId]);
+  // Yours, if this space has one — its type is in its name, so try each.
+  useEffect(() => {
+    setMine(null);
+    if (!assetId || assetId.startsWith('local:')) return;
+    let off = false;
+    (async () => {
+      for (const ext of ['png', 'jpg', 'webp']) {
+        const rel = `floorplan/uploaded.${ext}`;
+        const found = await new Promise<boolean>((done) => {
+          const im = new Image();
+          im.onload = () => done(true);
+          im.onerror = () => done(false);
+          im.src = assetUrl(assetId, rel);
+        });
+        if (off) return;
+        if (found) { setMine(rel); setView('mine'); return; }
+      }
+    })();
+    return () => { off = true; };
+  }, [assetId]);
   if (!assetId || assetId.startsWith('local:')) return null;
-  const src = (v: string) => `${assetUrl(assetId, `floorplan/${v}.svg`)}${bust ? `?v=${bust}` : ''}`;
+
+  const v = bust ? `?v=${bust}` : '';
+  const drawnSrc = (w: 'plan' | '3d') => `${assetUrl(assetId, `floorplan/${w}.svg`)}${v}`;
+  const drawn = status !== 'none' && status !== 'building';
+  const showing = view === 'mine' ? (mine ? `${assetUrl(assetId, mine)}${v}` : null) : drawn ? drawnSrc(view) : null;
+  const name = SCENE_BY_ID[sceneId]?.name ?? 'this space';
+
   const build = async () => {
     setStatus('building');
     setError('');
@@ -999,33 +1045,72 @@ function FloorPlanSection({ sceneId }: { sceneId: string }) {
       await buildFloorPlan(assetId, SCENE_BY_ID[sceneId]?.name || 'Floor plan');
       setBust(Date.now());
       setStatus('loading');
+      setView('3d');
     } catch (e) {
       setError((e as Error).message);
       setStatus('none');
     }
   };
+  const upload = async (file: File | undefined) => {
+    if (!file) return;
+    setSending(true);
+    setError('');
+    try {
+      const r = await uploadFloorPlan(assetId, file);
+      if (r) { setMine(r.path); setView('mine'); setBust(Date.now()); }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSending(false);
+    }
+  };
+  const removeMine = async () => {
+    if (!window.confirm('Remove your uploaded floor plan? The one drawn from the scan stays.')) return;
+    setError('');
+    try {
+      await removeFloorPlan(assetId);
+      setMine(null);
+      setView('3d');
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
   return (
     <Section title="Floor plan">
-      {status !== 'none' && status !== 'building' && (
-        <>
-          <div className="ed2-row">
-            <button className="ed2-export" aria-pressed={view === '3d'} onClick={() => setView('3d')}>3D</button>
-            <button className="ed2-export" aria-pressed={view === 'plan'} onClick={() => setView('plan')}>2D plan</button>
-          </div>
-          <a href={src(view)} target="_blank" rel="noreferrer" title="Open full size to save or print">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={src(view)} alt={`Floor plan of ${SCENE_BY_ID[sceneId]?.name ?? 'this space'}`}
-              style={{ width: '100%', marginTop: 10, borderRadius: 8, display: status === 'ready' ? 'block' : 'none' }}
-              onLoad={() => setStatus('ready')} onError={() => setStatus('none')} />
-          </a>
-        </>
+      {(drawn || mine) && (
+        <div className="ed2-row">
+          {drawn && <button className="ed2-export" aria-pressed={view === '3d'} onClick={() => setView('3d')}>3D</button>}
+          {drawn && <button className="ed2-export" aria-pressed={view === 'plan'} onClick={() => setView('plan')}>2D plan</button>}
+          {mine && <button className="ed2-export" aria-pressed={view === 'mine'} onClick={() => setView('mine')}>Yours</button>}
+        </div>
       )}
-      {status === 'none' && <p className="ed2-muted ed2-fine">No plan yet for this space.</p>}
+      {showing && (
+        <a href={showing} target="_blank" rel="noreferrer" title="Open full size to save or print">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={showing} alt={`Floor plan of ${name}`}
+            style={{ width: '100%', marginTop: 10, borderRadius: 8, display: view === 'mine' || status === 'ready' ? 'block' : 'none' }}
+            onLoad={() => { if (view !== 'mine') setStatus('ready'); }}
+            onError={() => { if (view !== 'mine') setStatus('none'); }} />
+        </a>
+      )}
+      {status === 'none' && !mine && <p className="ed2-muted ed2-fine">No plan yet for this space.</p>}
       {error && <p className="ed2-muted ed2-fine" role="alert">{error}</p>}
       <button className="ed2-export" onClick={build} disabled={status === 'building'}>
-        {status === 'building' ? 'Drawing the plan…' : status === 'ready' ? 'Redraw floor plan' : 'Make floor plan'}
+        {status === 'building' ? 'Drawing the plan…' : status === 'ready' ? 'Redraw from the scan' : 'Draw from the scan'}
       </button>
-      {status === 'ready' && <p className="ed2-muted ed2-fine">Click the plan to open it full size, to save or print.</p>}
+      <input
+        ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden
+        onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ''; }}
+      />
+      <button className="ed2-export" onClick={() => fileRef.current?.click()} disabled={sending}>
+        {sending ? 'Uploading…' : mine ? 'Replace your plan…' : 'Upload your own plan…'}
+      </button>
+      {mine && <button className="ed2-export" onClick={removeMine}>Remove yours</button>}
+      <p className="ed2-muted ed2-fine">
+        Yours: an architect&apos;s drawing or a fire plan, as a PNG, JPEG or WebP up to 15 MB (a PDF: export the page as PNG).
+        {(status === 'ready' || mine) && ' Click a plan to open it full size, to save or print.'}
+      </p>
     </Section>
   );
 }

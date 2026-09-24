@@ -76,9 +76,11 @@ export function url(assetId, relPath) {
   return `/api/assets/${assetId}/${relPath}`;
 }
 
-export async function remove(assetId) {
-  const base = resolvePath(assetId);
-  await fs.rm(base, { recursive: true, force: true });
+/** The whole asset — or, given `relPath`, just that one file (an S3 driver:
+ *  delete the prefix, or the one key). Missing is not an error. */
+export async function remove(assetId, relPath) {
+  if (relPath) return fs.rm(resolvePath(assetId, relPath), { force: true });
+  await fs.rm(resolvePath(assetId), { recursive: true, force: true });
 }
 
 export { ASSET_DIR };

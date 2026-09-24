@@ -41,14 +41,21 @@ export interface ApiScene {
   propertyId?: string | null;
 }
 
-/** A client (§5.1): one hotel, college or campus. Spaces point at it. */
+/** A client (§5.1): one hotel, college or campus. Spaces point at it.
+ *  Ownership (2026-09-24): `ownerId: null` means every studio account can
+ *  see and manage it (every project made before ownership existed). */
 export interface Property {
   id: string;
   version: 1;
   title: string;
   createdAt: string;
+  ownerId: string | null;
+  members: string[];
   /** Only on GET /api/properties. */
   spaceCount?: number;
+  /** Only on GET /api/properties/:id (the share panel). */
+  ownerName?: string | null;
+  memberDetails?: { id: string; name: string; email: string }[];
 }
 
 /** Optional Book now card (§7.6). Off unless a hotel asks for it. Everything

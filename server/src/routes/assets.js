@@ -19,6 +19,7 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import yauzl from 'yauzl';
 import zlib from 'zlib';
+import { Readable } from 'stream';
 import { requireEditorSession } from '../middleware/auth.js';
 import * as storage from '../storage.js';
 import { buildFloorPlan } from '../floorplan.js';
@@ -489,6 +490,60 @@ assetsRouter.post('/:assetId/floorplan', requireEditorSession, async (req, res, 
     const plan = await buildFloorPlan(req.params.assetId, String(req.query.title || 'Floor plan').slice(0, 80));
     if (!plan) return res.status(422).json({ error: 'This space has no collision mesh to draw a plan from. Upload the full Lixel Studio export.' });
     res.json(plan);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* -------------------------------------------------------------------- */
+/* Your own floor plan — an architect's drawing, a fire plan — beside     */
+/* the one drawn from the scan. One per space; a new one replaces it.     */
+/* PNG, JPEG or WebP by their first bytes. Not SVG: it can carry script   */
+/* and is served from this origin. Not PDF: an <img> can't show it.       */
+/* -------------------------------------------------------------------- */
+
+const PLAN_MAX = 15 * 1024 * 1024;
+const PLAN_KINDS = [
+  ['png', (b) => b.length > 8 && b.readUInt32BE(0) === 0x89504e47 && b.readUInt32BE(4) === 0x0d0a1a0a],
+  ['jpg', (b) => b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff],
+  ['webp', (b) => b.length > 12 && b.toString('latin1', 0, 4) === 'RIFF' && b.toString('latin1', 8, 12) === 'WEBP']
+];
+const clearUploadedPlan = (assetId) =>
+  Promise.all(PLAN_KINDS.map(([ext]) => storage.remove(assetId, `floorplan/uploaded.${ext}`)));
+
+assetsRouter.put(
+  '/:assetId/floorplan/upload',
+  requireEditorSession,
+  express.raw({ type: () => true, limit: PLAN_MAX }),
+  async (req, res, next) => {
+    try {
+      // ponytail: local driver — an S3 driver needs its own "does this asset exist"
+      try { await fs.stat(path.join(storage.ASSET_DIR, req.params.assetId)); } catch {
+        return res.status(404).json({ error: 'Asset not found.' });
+      }
+      const body = req.body;
+      if (!Buffer.isBuffer(body) || !body.length) return res.status(400).json({ error: 'Choose an image of the floor plan to upload.' });
+      const kind = PLAN_KINDS.find(([, is]) => is(body))?.[0];
+      if (!kind) return res.status(415).json({ error: 'Use a PNG, JPEG or WebP image. For a PDF, export the page as a PNG first.' });
+      await clearUploadedPlan(req.params.assetId);
+      const rel = `floorplan/uploaded.${kind}`;
+      await storage.put(req.params.assetId, rel, Readable.from([body]));
+      res.status(201).json({ path: rel, bytes: body.length });
+    } catch (err) {
+      next(err);
+    }
+  },
+  // only reached when express.raw refuses the body
+  (err, req, res, next) => {
+    if (err.type === 'entity.too.large') return res.status(413).json({ error: 'That image is over 15 MB. Export it smaller and try again.' });
+    next(err);
+  }
+);
+
+assetsRouter.delete('/:assetId/floorplan/upload', requireEditorSession, async (req, res, next) => {
+  try {
+    await clearUploadedPlan(req.params.assetId);
+    res.status(204).end();
   } catch (err) {
     next(err);
   }

@@ -4,7 +4,7 @@ import { Fragment, useEffect, useReducer, useState } from 'react';
 import { projected } from '../lib/hotspotProjector';
 import { hotspotsFor, subscribeDoc } from '../lib/sceneDoc';
 import { SCENE_BY_ID } from '../lib/scenes';
-import { cardBox, nearestIds } from '../lib/hotspotLayout';
+import { cardBox, nearestIds, showsCard } from '../lib/hotspotLayout';
 import { resolveAsset, safeUrl } from '../lib/api';
 import { playClip, setMuted, stopClip, unlockAudio, useSound } from '../lib/audio';
 import type { Hotspot, HotspotType, ProjectedHotspot } from '../@types/hotspot.types';
@@ -78,8 +78,9 @@ export function HotspotMarkers({ sceneId, mode = 'view', selId, onSelect, onOpen
   };
 
   const shown = marks.map((m) => {
-    const showCard = carded.has(m.id) || hover === m.id || (mode === 'edit' && m.id === selId);
-    return { m, hs: byId.get(m.id), box: showCard ? cardBox(m.x, m.y, w, h) : null };
+    const hs = byId.get(m.id);
+    const showCard = showsCard(hs?.payload?.reveal, m.dist, carded.has(m.id)) || hover === m.id || (mode === 'edit' && m.id === selId);
+    return { m, hs, box: showCard ? cardBox(m.x, m.y, w, h) : null };
   });
 
   return (

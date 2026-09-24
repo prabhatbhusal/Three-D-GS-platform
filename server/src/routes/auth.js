@@ -13,7 +13,7 @@
 import { Router } from 'express';
 import { timingSafeEqual } from 'crypto';
 import { issueSession, clearSession, readSession } from '../middleware/auth.js';
-import { createUser, verifyUser } from '../usersStore.js';
+import { createUser, verifyUser, getUserById } from '../usersStore.js';
 
 export const authRouter = Router();
 
@@ -99,10 +99,13 @@ authRouter.post('/logout', (req, res) => {
   res.json({ authenticated: false });
 });
 
-authRouter.get('/session', (req, res) => {
+authRouter.get('/session', async (req, res) => {
   const s = readSession(req);
+  // Role read fresh from the account, not the JWT claim, so a promotion or
+  // demotion shows up on the next load instead of waiting out the cookie.
+  const role = s?.sub ? (await getUserById(s.sub))?.role ?? 'editor' : undefined;
   res.json({
     authenticated: !!s,
-    user: s?.sub ? { id: s.sub, name: s.name, email: s.email } : null
+    user: s?.sub ? { id: s.sub, name: s.name, email: s.email, role } : null
   });
 });

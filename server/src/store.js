@@ -228,6 +228,26 @@ export function propertyIdFor(title) {
   return String(title).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
 }
 
+/** `ownerId`/`members` arrived 2026-09-24; a property saved before then has
+ *  neither. `ownerId: null` means "no owner" — visible and manageable by
+ *  everyone, the same as it always was, so an existing project doesn't
+ *  vanish from anyone's list on upgrade. */
+const fillPropertyDefaults = (doc) => (doc ? { ownerId: null, members: [], ...doc } : doc);
+
+/** Can this session see the project in a list, or open it directly? */
+export function propertyIsVisible(property, session) {
+  if (!session?.sub || session.role === 'admin') return true; // admin, or the legacy full-access session
+  return property.ownerId === null || property.ownerId === session.sub || (property.members ?? []).includes(session.sub);
+}
+
+/** Can this session rename/delete it, or manage who else can see it? Owner
+ *  or admin only — being a member you were added to isn't being in charge
+ *  of it. */
+export function propertyIsManageable(property, session) {
+  if (!session?.sub || session.role === 'admin') return true;
+  return property.ownerId === session.sub;
+}
+
 export async function listProperties() {
   let files;
   try {
@@ -237,14 +257,14 @@ export async function listProperties() {
     throw err;
   }
   const list = await Promise.all(
-    files.filter((f) => f.endsWith('.json')).map(async (f) => JSON.parse(await fs.readFile(path.join(PROPERTIES_DIR, f), 'utf8')))
+    files.filter((f) => f.endsWith('.json')).map(async (f) => fillPropertyDefaults(JSON.parse(await fs.readFile(path.join(PROPERTIES_DIR, f), 'utf8'))))
   );
   return list.sort((a, b) => a.title.localeCompare(b.title));
 }
 
 export async function getProperty(id) {
   if (typeof id !== 'string' || !/^[a-z0-9-]+$/.test(id)) return null;
-  return readRaw(propertyFile(id));
+  return fillPropertyDefaults(await readRaw(propertyFile(id)));
 }
 
 /** Trimmed, non-empty, at most 80 characters — or a 400. */
@@ -255,12 +275,14 @@ function cleanTitle(title) {
   return clean;
 }
 
-/** Throws 400 on a bad title, 409 if a property with the same id exists. */
-export async function createProperty(title) {
+/** Throws 400 on a bad title, 409 if a property with the same id exists.
+ *  `ownerId` is null for the legacy passwordless session, which has no
+ *  account to own it — same as an old project's default, visible to all. */
+export async function createProperty(title, ownerId = null) {
   const clean = cleanTitle(title);
   const id = propertyIdFor(clean);
   if (!id) throw badRequest('Use at least one letter or number in the name.');
-  const doc = { id, version: 1, title: clean, createdAt: new Date().toISOString() };
+  const doc = { id, version: 1, title: clean, ownerId, members: [], createdAt: new Date().toISOString() };
   await fs.mkdir(PROPERTIES_DIR, { recursive: true });
   try {
     // 'wx': never overwrite a property that already has this id.
@@ -304,6 +326,26 @@ export async function deleteProperty(id) {
   }
   await fs.rm(propertyFile(id), { force: true });
   return { id, released };
+}
+
+/** Add a teammate (by user id) to a project's members. Idempotent — adding
+ *  someone already on it just returns the property unchanged. */
+export async function addPropertyMember(id, userId) {
+  const p = await getProperty(id);
+  if (!p) return null;
+  if (p.ownerId === userId) return p; // the owner already sees it
+  const members = p.members.includes(userId) ? p.members : [...p.members, userId];
+  const next = { ...p, members };
+  await fs.writeFile(propertyFile(id), JSON.stringify(next, null, 2));
+  return next;
+}
+
+export async function removePropertyMember(id, userId) {
+  const p = await getProperty(id);
+  if (!p) return null;
+  const next = { ...p, members: p.members.filter((m) => m !== userId) };
+  await fs.writeFile(propertyFile(id), JSON.stringify(next, null, 2));
+  return next;
 }
 
 /** Everything the public gallery shows, newest first. */

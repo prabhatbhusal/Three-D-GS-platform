@@ -65,6 +65,18 @@ export const renameProperty = (id: string, title: string) =>
 export const deleteProperty = (id: string) =>
   request<{ id: string; released: number }>(`/api/properties/${encodeURIComponent(id)}`, { method: 'DELETE' });
 
+/** Share a project with a teammate by the email they sign in with. Owner or admin only. */
+export const addPropertyMember = (id: string, email: string) =>
+  request<Property>(`/api/properties/${encodeURIComponent(id)}/members`, { method: 'POST', body: JSON.stringify({ email }) });
+
+export const removePropertyMember = (id: string, userId: string) =>
+  request<Property>(`/api/properties/${encodeURIComponent(id)}/members/${encodeURIComponent(userId)}`, { method: 'DELETE' });
+
+/** The team list and role changes. Admin-only — the server refuses anyone else. */
+export const getTeam = () => request<SessionUser[]>('/api/team');
+export const setTeamRole = (id: string, role: 'admin' | 'editor') =>
+  request<SessionUser>(`/api/team/${encodeURIComponent(id)}/role`, { method: 'PATCH', body: JSON.stringify({ role }) });
+
 /** The project last opened in this browser, so the list can point back to it. */
 export const LAST_PROJECT_KEY = 'threedview.lastProject';
 
@@ -121,10 +133,21 @@ export const getGallery = () => request<GalleryItem[]>('/api/gallery');
 export const buildFloorPlan = (assetId: string, title: string) =>
   request<{ size: [number, number]; floorArea: number; walls: number }>(
     `/api/assets/${assetId}/floorplan?title=${encodeURIComponent(title)}`, { method: 'POST' });
+
+/** Your own floor plan image for a space (an architect's drawing): PNG, JPEG
+ *  or WebP, 15 MB at most. Replaces any uploaded before; the one drawn from
+ *  the scan stays. Resolves the stored path, e.g. `floorplan/uploaded.png`. */
+export const uploadFloorPlan = (assetId: string, file: File) =>
+  request<{ path: string; bytes: number }>(`/api/assets/${assetId}/floorplan/upload`, {
+    method: 'PUT', body: file, headers: { 'Content-Type': 'application/octet-stream' }
+  });
+
+export const removeFloorPlan = (assetId: string) =>
+  request(`/api/assets/${assetId}/floorplan/upload`, { method: 'DELETE' });
 /** For server components, which have no browser cookies or CORS to worry about. */
 export const API_BASE_URL = API_BASE;
 
-export interface SessionUser { id: string; name: string; email: string }
+export interface SessionUser { id: string; name: string; email: string; role: 'admin' | 'editor' }
 interface SessionReply { authenticated: boolean; user: SessionUser | null }
 
 /** `email` omitted = the legacy shared editor password (server/.env

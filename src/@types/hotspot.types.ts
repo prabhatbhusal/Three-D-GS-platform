@@ -11,6 +11,11 @@ export interface HotspotPayload {
   audio?: string;
   /** What the audio says, for the visitor who never unmutes (§6.3). */
   transcript?: string;
+  /** When its card shows (text hotspots; HotspotMarkers/hotspotLayout.ts).
+   *  Absent: today's default — one of the room's nearest few. 'near': only
+   *  within NEAR_DISTANCE, so close-together labels never overlap. 'always':
+   *  every time it's on screen, at any distance. */
+  reveal?: 'near' | 'always';
 }
 
 export interface Hotspot {

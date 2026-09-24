@@ -833,6 +833,7 @@
   background: var(--ed-panel); border-bottom: 1px solid var(--ed-line);
 }
 .pl-brand { display: flex; align-items: center; gap: 10px; font: 650 14px var(--sans); }
+.pl-top-actions { display: flex; align-items: center; gap: 10px; }
 .pl-body { width: min(1040px, calc(100% - 48px)); margin: 0 auto; padding: 40px 0 64px; }
 .pl-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 24px; }
 .pl h1 { margin: 0; font: 650 28px/1.15 var(--sans); letter-spacing: -0.02em; }
@@ -991,6 +992,40 @@ a.ed2-switch-item:hover { background: var(--ed-raise); }
 .np-body { display: grid; grid-template-columns: 1fr 320px; gap: 18px; padding: 18px 28px 28px; }
 .np h3 { margin: 0 0 12px; font: 650 15px var(--sans); }
 .np-main, .np-side { padding: 20px; border-radius: 14px; background: var(--ed-well); border: 1px solid var(--ed-line); }
+
+/* --------------------------- Share / Team dialogs -------------------------- */
+/* Same scrim/head/close chrome as .np (New project), but single-column and
+ * narrow — those dialogs are a form and a list, not a two-pane uploader. */
+.pl-dialog {
+  width: min(440px, 100%); max-height: calc(100vh - 48px); overflow-y: auto;
+  border-radius: 18px; background: var(--ed-panel); border: 1px solid var(--ed-line);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5); color: var(--ed-text);
+}
+.pl-dialog-body { padding: 4px 28px 28px; display: flex; flex-direction: column; gap: 14px; }
+.pl-share-list, .pl-team-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.pl-share-list li, .pl-team-list li {
+  display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 10px;
+  background: var(--ed-well); border: 1px solid var(--ed-line); font: 600 13px var(--sans);
+}
+.pl-share-list li span:first-child, .pl-team-who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.pl-share-list li button {
+  flex: 0 0 auto; width: 26px; height: 26px; border-radius: 999px; cursor: pointer;
+  color: var(--ed-text-dim); background: transparent; border: 1px solid var(--ed-line);
+}
+.pl-share-list li button:hover { color: var(--ed-danger); border-color: var(--ed-danger); }
+.pl-share-form { display: flex; gap: 8px; }
+.pl-share-form input {
+  flex: 1; min-width: 0; padding: 10px 12px; border-radius: 999px; font: 500 13px var(--sans);
+  color: var(--ed-text); background: var(--ed-well); border: 1px solid var(--ed-line);
+}
+.pl-share-form input:focus { outline: none; border-color: var(--ed-signal); }
+.pl-role-tag {
+  flex: 0 0 auto; padding: 3px 10px; border-radius: 999px; font: 650 11px var(--sans);
+  text-transform: uppercase; letter-spacing: 0.03em;
+}
+.pl-role-tag.is-admin { color: var(--ed-signal); background: color-mix(in srgb, var(--ed-signal) 16%, transparent); }
+.pl-role-tag.is-editor { color: var(--ed-text-dim); background: var(--ed-raise); }
+.pl-team-list button:disabled { opacity: 0.4; cursor: default; }
 
 .np-sources { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .np-source {

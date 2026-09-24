@@ -53,3 +53,18 @@ export function cardBox(x: number, y: number, w: number, h: number): CardBox {
 export function nearestIds<T extends { id: string; dist: number }>(list: T[], n: number): Set<string> {
   return new Set([...list].sort((a, b) => a.dist - b.dist).slice(0, n).map((m) => m.id));
 }
+
+/** How close, in world metres, a "near" hotspot must be before its card
+ *  appears — tight enough that two of them never overlap. */
+export const NEAR_DISTANCE = 1;
+
+/** Whether a hotspot's card should show, from its `reveal` payload setting
+ *  (§ hotspot.types.ts), its distance from the camera, and whether it's one
+ *  of the room's nearest few today (the default when `reveal` isn't set).
+ *  Hover and studio selection are separate overrides — apply them with `||`
+ *  on the result, same as before this existed. */
+export function showsCard(reveal: 'near' | 'always' | undefined, dist: number, inNearestFew: boolean): boolean {
+  if (reveal === 'always') return true;
+  if (reveal === 'near') return dist <= NEAR_DISTANCE;
+  return inNearestFew;
+}

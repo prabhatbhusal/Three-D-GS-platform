@@ -34,7 +34,7 @@ async function passwordMatches(password, stored) {
   return timingSafeEqual(actual, expected);
 }
 
-const publicUser = ({ id, name, email }) => ({ id, name, email });
+const publicUser = ({ id, name, email, role }) => ({ id, name, email, role: role ?? 'editor' });
 
 async function readUser(email) {
   try {
@@ -45,14 +45,69 @@ async function readUser(email) {
   }
 }
 
-/** Returns the public user, or null if that email is already registered. */
+/** Every account file, parsed. Small team (CLAUDE.md §1: three to five
+ *  people) — a directory scan per call is fine; revisit if that grows. */
+async function readAllUsers() {
+  let files;
+  try {
+    files = await fs.readdir(USERS_DIR);
+  } catch (err) {
+    if (err.code === 'ENOENT') return [];
+    throw err;
+  }
+  return Promise.all(
+    files.filter((f) => f.endsWith('.json')).map(async (f) => JSON.parse(await fs.readFile(path.join(USERS_DIR, f), 'utf8')))
+  );
+}
+
+/** Every account, for the admin-only team list. Newest first. */
+export async function listUsers() {
+  const all = await readAllUsers();
+  return all.map(publicUser).sort((a, b) => b.id.localeCompare(a.id));
+}
+
+/** Scans by id — accounts are filed by email hash (see `fileFor`), so there
+ *  is no direct lookup. Null if the account was deleted since the session
+ *  was issued. */
+export async function getUserById(id) {
+  const found = (await readAllUsers()).find((u) => u.id === id);
+  return found ? publicUser(found) : null;
+}
+
+/** For adding a teammate to a project by the email they sign in with. */
+export async function getUserByEmail(email) {
+  const found = await readUser(email);
+  return found ? publicUser(found) : null;
+}
+
+/** Promote or demote an account. Refuses to leave the team with zero admins
+ *  — the one guard rail against locking everyone out. */
+export async function setUserRole(id, role) {
+  if (role !== 'admin' && role !== 'editor') throw new Error('role must be "admin" or "editor"');
+  const all = await readAllUsers();
+  const record = all.find((u) => u.id === id);
+  if (!record) return null;
+  if (record.role === 'admin' && role !== 'admin' && all.filter((u) => u.role === 'admin').length <= 1) {
+    throw Object.assign(new Error('That is the only admin left — promote someone else first.'), { status: 409 });
+  }
+  record.role = role;
+  await fs.writeFile(fileFor(record.email), JSON.stringify(record, null, 2));
+  return publicUser(record);
+}
+
+/** Returns the public user, or null if that email is already registered.
+ *  The first account ever created becomes admin (there is no admin yet to
+ *  invite anyone); every account after that starts as an editor and an
+ *  admin promotes them from the team list. */
 export async function createUser({ name, email, password }) {
   await fs.mkdir(USERS_DIR, { recursive: true });
+  const isFirstAccount = (await readAllUsers()).length === 0;
   const record = {
     id: randomUUID(),
     name: String(name).trim(),
     email: normEmail(email),
     passwordHash: await hashPassword(password),
+    role: isFirstAccount ? 'admin' : 'editor',
     createdAt: new Date().toISOString()
   };
   try {

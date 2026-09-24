@@ -291,67 +291,56 @@ function setHd(on: boolean) {
   setUiConfig({ hd: on });
 }
 
-/** Viewpoints (default), Walk, Orbit (circle the room at eye level) or Fly
- *  (free flight) — §6.1. Floor plan is deliberately not here. Each carries a
+/** Viewpoints (default), Walk, Fly (free flight) or Orbit (circle the room
+ *  at eye level) — §6.1. Floor plan is deliberately not here. Each carries a
  *  one-line promise of what it's for, in the visitor's terms. */
 const MODES = [
   ['viewpoints', 'Viewpoints', Icon.pin, 'Glide between the best spots'],
   ['walk', 'Walk', Icon.walk, 'Move freely, as if you’re there'],
-  ['orbit', 'Orbit', Icon.orbit, 'Circle the room at eye level'],
-  ['fly', 'Fly', Icon.fly, 'Soar anywhere with W A S D']
+  ['fly', 'Fly', Icon.fly, 'Soar anywhere with W A S D'],
+  ['orbit', 'Orbit', Icon.orbit, 'Circle the room at eye level']
 ] as const;
 
 /**
- * The mode dial, top centre — like the mode ring on a camera. Only the
- * current mode shows: its icon in an accent-ringed medallion, its name in the
- * tour's display serif, and what it's for underneath. The arrows (or a swipe
- * on a phone) step to the mode before or after, wrapping round, and the name
- * slides in from the side you went. A segmented track says how many modes
- * there are and where you are. All motion answers a tap (§10.2).
+ * The mode rail, right edge, halfway down: all four modes as round icon
+ * buttons in a column, so every choice is one tap and none is hidden behind
+ * an arrow. The current one sits in a gold ring that glides to the mode you
+ * pick, and its name and promise show beside it; hovering another shows its
+ * name. Arrow keys up/down step between them (a radio group).
  */
 function ModeSlider({ mode }: { mode: string }) {
-  const n = MODES.length;
   const i = Math.max(0, MODES.findIndex(([m]) => m === mode));
-  const at = (k: number) => MODES[(k + n) % n];
-  const [, label, icon, promise] = MODES[i];
-  // Which way the last change went, so the new name enters from that side.
-  const [dir, setDir] = useState<'next' | 'prev'>('next');
-  const go = (step: 1 | -1) => { setDir(step > 0 ? 'next' : 'prev'); setVisitorMode(at(i + step)[0]); };
-  // Swipe on touch screens: a clear horizontal flick changes mode.
-  const swipe = useRef<{ x: number; y: number } | null>(null);
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const step = (k: number) => {
+    const j = (k + MODES.length) % MODES.length;
+    setVisitorMode(MODES[j][0]);
+    refs.current[j]?.focus();
+  };
 
   return (
     <div
-      className="vw-dial" role="group" aria-label="How to move"
-      onPointerDown={(e) => { if (e.pointerType !== 'mouse') swipe.current = { x: e.clientX, y: e.clientY }; }}
-      onPointerUp={(e) => {
-        const s = swipe.current;
-        swipe.current = null;
-        if (!s) return;
-        const dx = e.clientX - s.x;
-        if (Math.abs(dx) > 36 && Math.abs(dx) > Math.abs(e.clientY - s.y) * 1.5) go(dx < 0 ? 1 : -1);
+      className="vw-rail" role="radiogroup" aria-label="How to move"
+      style={{ '--i': i } as React.CSSProperties}
+      onKeyDown={(e) => {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); step(i + 1); }
+        if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); step(i - 1); }
       }}
     >
-      <button className="vw-dial-arrow" onClick={(e) => { e.currentTarget.blur(); go(-1); }} aria-label={`Switch to ${at(i - 1)[1]}`} title={at(i - 1)[1]}>
-        {Icon.chevL}
-      </button>
-
-      <span className="vw-dial-face" aria-live="polite">
-        <span className={`vw-dial-medal is-${dir}`} key={`m-${mode}`} aria-hidden>{icon}</span>
-        <span className={`vw-dial-text is-${dir}`} key={`t-${mode}`}>
-          <span className="vw-dial-name">{label}</span>
-          <span className="vw-dial-promise">{promise}</span>
-        </span>
-      </span>
-
-      <button className="vw-dial-arrow" onClick={(e) => { e.currentTarget.blur(); go(1); }} aria-label={`Switch to ${at(i + 1)[1]}`} title={at(i + 1)[1]}>
-        {Icon.chevR}
-      </button>
-
-      <span className="vw-dial-track" aria-hidden style={{ '--i': i, '--n': n } as React.CSSProperties}>
-        {MODES.map(([m]) => <i key={m} />)}
-        <b className="vw-dial-thumb" />
-      </span>
+      <b className="vw-rail-ring" aria-hidden />
+      {MODES.map(([m, label, icon, promise], k) => (
+        <button
+          key={m} ref={(b) => { refs.current[k] = b; }}
+          type="button" role="radio" aria-checked={k === i} tabIndex={k === i ? 0 : -1}
+          className={`vw-rail-btn${k === i ? ' on' : ''}`}
+          onClick={(e) => { e.currentTarget.blur(); setVisitorMode(m); }}
+        >
+          {icon}
+          <span className="vw-rail-tip">
+            <span className="vw-rail-name">{label}</span>
+            {k === i && <span className="vw-rail-promise">{promise}</span>}
+          </span>
+        </button>
+      ))}
     </div>
   );
 }
@@ -455,7 +444,7 @@ function BottomChrome({ state, showLabels, mode, trayOpen, onToggleTray }: {
   const playing = state.flying || auto;
 
   // One centred column: views tray, transport, progress. Orbit and Fly swap
-  // them for their own controls. The mode switch lives top centre (ModeSlider).
+  // them for their own controls. The mode switch is the rail on the right edge (ModeSlider).
   if (mode === 'fly' || mode === 'orbit') {
     return (
       <div className="vw-bottom">

@@ -272,78 +272,63 @@
 @keyframes vw-spin { to { transform: rotate(360deg) } }
 .vw-phone-only { display: none; }
 
-/* ---- the mode dial, top centre ------------------------------------ */
-/* Like the mode ring on a camera: one mode at a time — an accent-ringed
- * medallion, the name in the display serif, a line on what it's for — with
- * arrows (or a swipe) to turn it, and a track whose thumb glides to the
- * mode you're in. Warm and solid, no blur (§10.2). */
-.vw-dial {
-  position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 14;
-  display: grid; grid-template-columns: 34px minmax(0, 1fr) 34px; align-items: center; gap: 4px;
-  width: 320px; padding: 7px 7px 14px;
-  border-radius: 22px; color: #fff;
+/* ---- the mode rail, right edge, halfway down ----------------------- */
+/* All four modes as round icon buttons in a column. A gold ring glides to
+ * the current one; its name and one-line promise sit to its left, and any
+ * other mode's name shows on hover. Warm and solid, no blur (§10.2). */
+.vw-rail {
+  --btn: 44px; --gap: 8px;
+  position: fixed; right: 14px; top: 50%; transform: translateY(-50%); z-index: 11; /* under the cards (12–13) that open on the right */
+  display: flex; flex-direction: column; gap: var(--gap); padding: 7px;
+  border-radius: 999px;
   background: linear-gradient(180deg, rgba(30, 24, 19, 0.86), rgba(13, 10, 8, 0.8));
   border: 1px solid rgba(255, 255, 255, 0.14);
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  touch-action: pan-y; user-select: none; -webkit-user-select: none;
   animation: vw-fade 0.4s var(--ease) both;
 }
-.vw-dial-arrow {
-  appearance: none; cursor: pointer; display: grid; place-items: center;
-  width: 34px; height: 34px; padding: 0; border: 0; border-radius: 50%;
-  color: rgba(255, 255, 255, 0.66); background: transparent;
-  transition: color 0.15s, background 0.15s;
-}
-.vw-dial-arrow:hover { color: #fff; background: rgba(255, 255, 255, 0.09); }
-.vw-dial-arrow:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
-.vw-dial svg {
-  width: 17px; height: 17px; fill: none; stroke: currentColor;
-  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
-}
-.vw-dial-face {
-  display: flex; align-items: center; justify-content: center; gap: 12px;
-  min-width: 0; overflow: hidden; padding: 1px 0;
-}
-.vw-dial-medal {
-  flex: 0 0 auto; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
-  background: radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.03) 70%);
-  box-shadow: inset 0 0 0 1.5px var(--gold), 0 4px 14px rgba(0, 0, 0, 0.3);
-}
-.vw-dial-medal svg { width: 19px; height: 19px; }
-.vw-dial-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.vw-dial-name { font: 400 21px/1 var(--serif, Georgia, serif); letter-spacing: 0.01em; color: #fff; }
-.vw-dial-promise {
-  font: 500 11.5px/1.2 var(--sans); color: rgba(246, 241, 231, 0.62);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-
-/* turning the dial: the name slides in from the side you went, the icon
- * turns in on its ring */
-.vw-dial-text.is-next { animation: vw-dial-from-right 0.34s var(--ease) both; }
-.vw-dial-text.is-prev { animation: vw-dial-from-left 0.34s var(--ease) both; }
-.vw-dial-medal.is-next { animation: vw-dial-turn-cw 0.42s var(--ease) both; }
-.vw-dial-medal.is-prev { animation: vw-dial-turn-ccw 0.42s var(--ease) both; }
-@keyframes vw-dial-from-right { from { opacity: 0; transform: translateX(16px) } to { opacity: 1; transform: none } }
-@keyframes vw-dial-from-left { from { opacity: 0; transform: translateX(-16px) } to { opacity: 1; transform: none } }
-@keyframes vw-dial-turn-cw { from { opacity: 0; transform: rotate(-110deg) scale(0.7) } to { opacity: 1; transform: none } }
-@keyframes vw-dial-turn-ccw { from { opacity: 0; transform: rotate(110deg) scale(0.7) } to { opacity: 1; transform: none } }
-
-/* where you are: four ticks, and an accent thumb that glides between them */
-.vw-dial-track {
-  position: absolute; left: 50%; bottom: 5px; transform: translateX(-50%);
-  display: flex; gap: 4px; pointer-events: none;
-}
-.vw-dial-track i { width: 14px; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.2); }
-.vw-dial-thumb {
-  position: absolute; left: 0; top: 0; width: 14px; height: 3px; border-radius: 2px;
-  background: var(--gold); box-shadow: 0 0 8px rgba(176, 141, 87, 0.7);
-  transform: translateX(calc(var(--i) * 18px));
+.vw-rail-ring {
+  position: absolute; left: 7px; top: 7px; width: var(--btn); height: var(--btn); border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.04) 70%);
+  box-shadow: inset 0 0 0 1.5px var(--gold), 0 0 16px rgba(176, 141, 87, 0.45);
+  transform: translateY(calc(var(--i) * (var(--btn) + var(--gap))));
   transition: transform 0.38s var(--ease);
 }
+.vw-rail-btn {
+  appearance: none; cursor: pointer; position: relative; display: grid; place-items: center;
+  width: var(--btn); height: var(--btn); padding: 0; border: 0; border-radius: 50%;
+  color: rgba(255, 255, 255, 0.62); background: transparent;
+  transition: color 0.15s, background 0.15s;
+}
+.vw-rail-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
+.vw-rail-btn.on { color: #fff; background: transparent; }
+.vw-rail-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.vw-rail-btn svg {
+  width: 19px; height: 19px; fill: none; stroke: currentColor;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+/* the label, to the left of the rail */
+.vw-rail-tip {
+  position: absolute; right: calc(100% + 16px); top: 50%; transform: translate(6px, -50%);
+  display: flex; flex-direction: column; align-items: flex-end; gap: 3px;
+  padding: 7px 12px; border-radius: 12px; white-space: nowrap; pointer-events: none;
+  background: rgba(13, 10, 8, 0.82); border: 1px solid rgba(255, 255, 255, 0.12);
+  opacity: 0; transition: opacity 0.18s, transform 0.28s var(--ease);
+}
+.vw-rail-btn:hover .vw-rail-tip, .vw-rail-btn:focus-visible .vw-rail-tip { opacity: 1; transform: translate(0, -50%); }
+/* the current mode's label shows for a moment after it changes, then only on hover */
+.vw-rail-btn.on .vw-rail-tip { animation: vw-rail-say 2.6s var(--ease) both; }
+@keyframes vw-rail-say {
+  0% { opacity: 0; transform: translate(6px, -50%); }
+  12%, 78% { opacity: 1; transform: translate(0, -50%); }
+  100% { opacity: 0; transform: translate(0, -50%); }
+}
+.vw-rail-name { font: 400 18px/1 var(--serif, Georgia, serif); letter-spacing: 0.01em; color: #fff; }
+.vw-rail-promise { font: 500 11.5px/1.2 var(--sans); color: rgba(246, 241, 231, 0.62); }
 
 @media (prefers-reduced-motion: reduce) {
-  .vw-dial-text, .vw-dial-medal { animation: none !important; }
-  .vw-dial-thumb, .vw-layers-marker { transition: none; }
+  .vw-rail-ring, .vw-layers-marker { transition: none; }
+  .vw-rail-btn.on .vw-rail-tip { animation: none; }
 }
 .vw-tb {
   appearance: none; cursor: pointer; display: grid; place-items: center;
@@ -407,7 +392,7 @@
 
 /* Under the mode dial, top centre. */
 .vw-hint {
-  position: fixed; left: 50%; top: 84px; transform: translateX(-50%);
+  position: fixed; left: 50%; top: 18px; transform: translateX(-50%);
   z-index: 5; display: flex; align-items: center; gap: 8px;
   padding: 8px 16px; border-radius: 999px; pointer-events: none;
   background: rgba(8, 6, 5, 0.74); border: 1px solid var(--line);
@@ -647,8 +632,9 @@ button.vw-book { border: 0; cursor: pointer; }
   .vw-phone-only { display: contents; }
   .vw-tb-wide span { display: none; }
   .vw-tb.vw-tb-wide { width: 34px; padding: 0; justify-content: center; }
-  .vw-place { top: 136px; left: 14px; max-width: calc(100vw - 28px); }
-  .vw-dial { top: 58px; width: min(310px, calc(100vw - 24px)); }
+  .vw-place { top: 64px; left: 14px; max-width: calc(100vw - 28px); }
+  /* smaller on a phone, and nudged up clear of the views bar and joystick */
+  .vw-rail { --btn: 40px; --gap: 6px; right: 10px; top: 42%; }
   .vw-place-name { font-size: 22px; }
   /* full width so the row can wrap; only the buttons take presses, not the empty strip */
   .vw-tr { right: 10px; left: 10px; justify-content: flex-end; flex-wrap: wrap; pointer-events: none; }
@@ -682,11 +668,9 @@ button.vw-book { border: 0; cursor: pointer; }
   .vw-book { padding: 0 12px; font-size: 12px; margin-left: 0; }
   .vw-pop { left: 10px; right: 10px; width: auto; }
 }
-/* Narrow desktops: the top-right buttons reach the middle, so the slider
- * drops just under them (and the hint under it). */
+/* Narrow desktops: the top-right buttons reach the middle, so the hint drops under them. */
 @media (min-width: 761px) and (max-width: 1180px) {
-  .vw-dial { top: 64px; }
-  .vw-hint { top: 138px; }
+  .vw-hint { top: 64px; }
 }
 /* desktop: the enquiry pill sits bottom-right */
 @media (min-width: 761px) and (pointer: fine) {

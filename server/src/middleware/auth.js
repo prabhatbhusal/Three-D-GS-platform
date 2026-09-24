@@ -5,6 +5,7 @@
  * no account for the legacy shared-password sign-in.
  */
 import jwt from 'jsonwebtoken';
+import { getUserById } from '../usersStore.js';
 
 const SESSION_COOKIE = 'splatspace_session';
 const SESSION_TTL = '12h';
@@ -15,9 +16,14 @@ function secret() {
   return s;
 }
 
-/** `user` is null for the legacy shared-password sign-in. */
+/** `user` is null for the legacy shared-password sign-in, which has no
+ *  account to scope — it keeps the full access it always had, so `role`
+ *  here is 'admin'. `role` is a snapshot for the client to read; anything
+ *  that gates an admin-only action re-checks the real, current role via
+ *  `requireAdmin` below, so a promotion or demotion takes effect at once
+ *  instead of waiting out the session's 12h. */
 export function issueSession(res, user = null) {
-  const claims = user ? { role: 'editor', sub: user.id, name: user.name, email: user.email } : { role: 'editor' };
+  const claims = user ? { role: user.role, sub: user.id, name: user.name, email: user.email } : { role: 'admin' };
   const token = jwt.sign(claims, secret(), { expiresIn: SESSION_TTL });
   res.cookie(SESSION_COOKIE, token, {
     httpOnly: true,
@@ -45,6 +51,22 @@ export function readSession(req) {
 export function requireEditorSession(req, res, next) {
   const session = readSession(req);
   if (!session) return res.status(401).json({ error: 'Sign in to the editor first.' });
+  req.session = session;
+  next();
+}
+
+/** Blocks the request unless the session belongs to an admin, checked fresh
+ *  against the account (not the JWT claim — see issueSession) so a change
+ *  in role never waits out an old cookie. The legacy passwordless session
+ *  (no `sub`) has always had full access and stays admin. */
+export async function requireAdmin(req, res, next) {
+  const session = readSession(req);
+  if (!session) return res.status(401).json({ error: 'Sign in to the editor first.' });
+  if (session.sub) {
+    const user = await getUserById(session.sub);
+    if (!user) return res.status(401).json({ error: 'Your account no longer exists.' });
+    if (user.role !== 'admin') return res.status(403).json({ error: 'Only an admin can do that.' });
+  }
   req.session = session;
   next();
 }

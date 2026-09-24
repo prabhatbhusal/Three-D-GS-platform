@@ -152,6 +152,132 @@ test('delete a property releases its spaces and deletes none', async () => {
 });
 
 /* ---------------------------------------------------------------- */
+/* Accounts and project ownership (2026-09-24)                       */
+/* ---------------------------------------------------------------- */
+
+/** Signs up a named account and returns its own session cookie — separate
+ *  from the shared `cookie`/`signIn()` used by the legacy-password tests
+ *  above, so switching between two people's sessions in one test is just
+ *  swapping which cookie string `cookie` holds. */
+async function signUpUser(name, email) {
+  const res = await api('POST', '/api/auth/signup', { name, email, password: 'plenty-long-8', accessCode: 'test-pass' });
+  assert.equal(res.status, 201, `signup for ${email}`);
+  return { user: res.json.user, cookie: res.headers.get('set-cookie').split(';')[0] };
+}
+
+test('the first account ever created becomes admin; later ones are editors', async () => {
+  // A fresh DATA_DIR (no users yet) would make this deterministic, but the
+  // suite shares one across the whole file — so this only holds if no
+  // account exists yet at this point in the run. It's the first signup test.
+  const first = await signUpUser('First Admin', 'first@geonova.com.np');
+  assert.equal(first.user.role, 'admin');
+
+  const second = await signUpUser('Second Person', 'second@geonova.com.np');
+  assert.equal(second.user.role, 'editor');
+
+  cookie = second.cookie;
+  assert.equal((await api('GET', '/api/team')).status, 403, 'an editor cannot see the team');
+});
+
+test('a project belongs to whoever created it; only the owner, an admin, or a shared member can see it', async () => {
+  const owner = await signUpUser('Gwarko Owner', 'owner@geonova.com.np');
+  const stranger = await signUpUser('Stranger', 'stranger@geonova.com.np');
+
+  cookie = owner.cookie;
+  const made = await api('POST', '/api/properties', { title: 'Gwarko Overpass' });
+  assert.equal(made.status, 201);
+  assert.equal(made.json.ownerId, owner.user.id);
+  const id = made.json.id;
+
+  // the owner sees it in their list and can open it directly
+  assert.ok((await api('GET', '/api/properties')).json.some((p) => p.id === id));
+  assert.equal((await api('GET', `/api/properties/${id}`)).status, 200);
+
+  // a stranger sees neither
+  cookie = stranger.cookie;
+  assert.ok(!(await api('GET', '/api/properties')).json.some((p) => p.id === id), 'not in their list');
+  assert.equal((await api('GET', `/api/properties/${id}`)).status, 404, 'not by id either — no existence leak');
+  // invisible to them entirely, so every action reads as "not found", not
+  // "forbidden" — same reasoning as the GET above
+  assert.equal((await api('PATCH', `/api/properties/${id}`, { title: 'Renamed' })).status, 404, 'cannot rename');
+  assert.equal((await api('DELETE', `/api/properties/${id}`)).status, 404, 'cannot delete');
+  assert.equal((await api('POST', `/api/properties/${id}/members`, { email: 'stranger@geonova.com.np' })).status, 404, 'cannot share it either');
+
+  // the legacy shared-password session is still full-access (old behaviour)
+  signIn();
+  assert.equal((await api('PATCH', `/api/properties/${id}`, { title: 'Gwarko Overpass, Lalitpur' })).status, 200);
+
+  // an admin sees and manages everything without being added
+  const admin = 'first@geonova.com.np'; // created in the previous test, still the only admin
+  const adminLogin = await api('POST', '/api/auth/login', { email: admin, password: 'plenty-long-8' });
+  cookie = adminLogin.headers.get('set-cookie').split(';')[0];
+  assert.ok((await api('GET', '/api/properties')).json.some((p) => p.id === id));
+  assert.equal((await api('GET', `/api/properties/${id}`)).status, 200);
+});
+
+test('sharing a project adds a member who can then see and manage it, until removed', async () => {
+  const owner = await signUpUser('Chilancho Owner', 'chilancho-owner@geonova.com.np');
+  const teammate = await signUpUser('Teammate', 'teammate@geonova.com.np');
+
+  cookie = owner.cookie;
+  const made = await api('POST', '/api/properties', { title: 'Chilancho Stupa' });
+  const id = made.json.id;
+
+  assert.equal((await api('POST', `/api/properties/${id}/members`, { email: 'no-such-person@geonova.com.np' })).status, 404, 'no account with that email');
+  const shared = await api('POST', `/api/properties/${id}/members`, { email: teammate.user.email });
+  assert.equal(shared.status, 200);
+  assert.deepEqual(shared.json.members, [teammate.user.id]);
+
+  cookie = teammate.cookie;
+  assert.ok((await api('GET', '/api/properties')).json.some((p) => p.id === id), 'now in their list');
+  const detail = await api('GET', `/api/properties/${id}`);
+  assert.equal(detail.json.ownerName, 'Chilancho Owner');
+  assert.deepEqual(detail.json.memberDetails, [{ id: teammate.user.id, name: 'Teammate', email: teammate.user.email }]);
+  // a member isn't the owner, so can rename it (owner or admin, and null owners
+  // don't apply here) — actually only the owner/admin can manage it:
+  assert.equal((await api('PATCH', `/api/properties/${id}`, { title: 'X' })).status, 403, 'a member can see it but not manage it');
+
+  cookie = owner.cookie;
+  const removed = await api('DELETE', `/api/properties/${id}/members/${teammate.user.id}`);
+  assert.equal(removed.status, 200);
+  assert.deepEqual(removed.json.members, []);
+
+  cookie = teammate.cookie;
+  assert.equal((await api('GET', `/api/properties/${id}`)).status, 404, 'access revoked');
+});
+
+test('an admin promotes and demotes from the team list, but never down to zero admins', async () => {
+  const meLogin = await api('POST', '/api/auth/login', { email: 'first@geonova.com.np', password: 'plenty-long-8' });
+  cookie = meLogin.headers.get('set-cookie').split(';')[0];
+
+  const team = await api('GET', '/api/team');
+  assert.equal(team.status, 200);
+  const me = team.json.find((u) => u.email === 'first@geonova.com.np');
+  const other = team.json.find((u) => u.email === 'second@geonova.com.np');
+  assert.equal(me.role, 'admin');
+  assert.equal(other.role, 'editor');
+
+  // promoting someone else is fine, while signed in as the (still admin) me
+  assert.equal((await api('PATCH', `/api/team/${other.id}/role`, { role: 'admin' })).status, 200);
+
+  // switch to the now-admin "other" before demoting "me" — the caller's own
+  // session must stay admin-capable for the rest of this test
+  const otherLogin = await api('POST', '/api/auth/login', { email: 'second@geonova.com.np', password: 'plenty-long-8' });
+  cookie = otherLogin.headers.get('set-cookie').split(';')[0];
+  assert.equal((await api('PATCH', `/api/team/${me.id}/role`, { role: 'editor' })).status, 200);
+
+  // "other" is now the one remaining admin — refused, even demoting themself
+  assert.equal((await api('PATCH', `/api/team/${other.id}/role`, { role: 'editor' })).status, 409);
+
+  assert.equal((await api('PATCH', `/api/team/${other.id}/role`, { role: 'not-a-role' })).status, 400);
+  assert.equal((await api('PATCH', '/api/team/no-such-id/role', { role: 'admin' })).status, 404);
+
+  // "me" (now an editor) has lost admin rights at once, not after 12h
+  cookie = meLogin.headers.get('set-cookie').split(';')[0];
+  assert.equal((await api('GET', '/api/team')).status, 403);
+});
+
+/* ---------------------------------------------------------------- */
 /* Book now + publish checks                                         */
 /* ---------------------------------------------------------------- */
 
@@ -367,6 +493,39 @@ test('the scene list carries the format, and a large model gets a publish warnin
   assert.doesNotMatch((await api('GET', '/api/scenes/meshy/publish')).json.warnings.join(' '), /loads whole/);
 });
 
+
+test('a space can carry its own floor plan image: PNG, JPEG or WebP, one at a time', async () => {
+  signIn();
+  const { assetId } = await uploadModel([['plan-room.glb', glb({ meshes: [mesh(4)], nodes: [{ mesh: 0 }] })]]);
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(64, 7)]);
+  const jpg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(64, 1)]);
+  const up = (body) => api('PUT', `/api/assets/${assetId}/floorplan/upload`, new Uint8Array(body), { 'Content-Type': 'application/octet-stream' });
+
+  const r = await up(png);
+  assert.equal(r.status, 201, JSON.stringify(r.json));
+  assert.equal(r.json.path, 'floorplan/uploaded.png');
+  const served = await fetch(`${BASE}/api/assets/${assetId}/floorplan/uploaded.png`);
+  assert.equal(served.status, 200);
+  assert.equal(served.headers.get('content-type'), 'image/png');
+
+  // a new one replaces it, whatever its format
+  assert.equal((await up(jpg)).json.path, 'floorplan/uploaded.jpg');
+  assert.equal((await fetch(`${BASE}/api/assets/${assetId}/floorplan/uploaded.png`)).status, 404);
+
+  // refused: SVG (can carry script), a PDF, a renamed text file, nothing
+  assert.equal((await up(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'))).status, 415);
+  assert.equal((await up(Buffer.from('%PDF-1.7 ...'))).status, 415);
+  assert.equal((await up(Buffer.alloc(0))).status, 400);
+  assert.equal((await fetch(`${BASE}/api/assets/${assetId}/floorplan/uploaded.jpg`)).status, 200, 'a refused upload keeps the one there');
+
+  assert.equal((await api('PUT', '/api/assets/ast_nothere/floorplan/upload', new Uint8Array(png), { 'Content-Type': 'application/octet-stream' })).status, 404);
+
+  assert.equal((await api('DELETE', `/api/assets/${assetId}/floorplan/upload`)).status, 204);
+  assert.equal((await fetch(`${BASE}/api/assets/${assetId}/floorplan/uploaded.jpg`)).status, 404);
+
+  cookie = '';
+  assert.equal((await up(png)).status, 401);
+});
 
 test('an asset id can never climb out of the data folder', async () => {
   signIn();

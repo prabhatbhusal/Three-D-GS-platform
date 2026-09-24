@@ -8,6 +8,7 @@ import { embedRouter } from './routes/embed.js';
 import { leadsRouter } from './routes/leads.js';
 import { assetsRouter } from './routes/assets.js';
 import { propertiesRouter } from './routes/properties.js';
+import { teamRouter } from './routes/team.js';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -27,6 +28,7 @@ app.use('/api/embed', embedRouter);
 app.use('/api/leads', leadsRouter);
 app.use('/api/assets', assetsRouter);
 app.use('/api/properties', propertiesRouter);
+app.use('/api/team', teamRouter);
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
