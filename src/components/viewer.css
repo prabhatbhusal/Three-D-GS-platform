@@ -700,3 +700,7 @@ button.vw-book { border: 0; cursor: pointer; }
 .vw-map-label { font: 600 0.55px/1 var(--sans); fill: #fff; text-anchor: middle; pointer-events: none; }
 /* the studio preview's Exit preview sits bottom-left */
 .vw[data-tour] .vw-map { bottom: 72px; }
+
+/* ---- per-project logo (uiConfig.applyTheme) ---- */
+.vw-place-logo { display: block; max-height: 34px; max-width: 150px; object-fit: contain; margin-bottom: 4px; filter: drop-shadow(0 1px 8px rgba(0, 0, 0, 0.5)); }
+.vw-enter-logo { display: block; max-height: 64px; max-width: 220px; object-fit: contain; margin-bottom: 18px; }

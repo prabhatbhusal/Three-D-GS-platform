@@ -10,8 +10,10 @@
  * built, since there's exactly one Node process today.
  */
 import { Router } from 'express';
-import { saveLead, listLeads } from '../leadsStore.js';
-import { requireEditorSession } from '../middleware/auth.js';
+import { saveLead, listLeads, setLeadDelivery } from '../leadsStore.js';
+import { requireAdmin } from '../middleware/auth.js';
+import { getScene, getProperty } from '../store.js';
+import { sendLeadEmail } from '../mailer.js';
 
 export const leadsRouter = Router();
 
@@ -21,7 +23,7 @@ const MIN_FILL_TIME_MS = 1200; // a bot fills the form instantly; a person doesn
 
 // IP -> timestamps of recent submissions. Trimmed lazily on each hit.
 const RATE_WINDOW_MS = 10 * 60 * 1000;
-const RATE_MAX = 5;
+const RATE_MAX = Number(process.env.LEADS_RATE_MAX) || 5; // tests raise it
 const hits = new Map();
 
 function rateLimited(ip) {
@@ -62,8 +64,17 @@ leadsRouter.post('/', async (req, res, next) => {
     }
     if (!body.sceneId) return res.status(400).json({ error: 'Missing which space this enquiry is about.' });
 
+    // Which project it's for: the space's own (resolved here, never taken on
+    // trust), or, from a project's hub page, that project if it exists.
+    const sceneId = clean(body.sceneId);
+    let propertyId = null;
+    const scene = sceneId !== 'hub' ? await getScene(sceneId).catch(() => null) : null;
+    if (scene) propertyId = scene.propertyId ?? null;
+    else if (sceneId === 'hub' && typeof body.propertyId === 'string' && (await getProperty(body.propertyId))) propertyId = body.propertyId;
+
     const lead = await saveLead({
-      sceneId: clean(body.sceneId),
+      propertyId,
+      sceneId,
       sceneName: clean(body.sceneName),
       name: clean(body.name),
       phone: clean(body.phone),
@@ -75,14 +86,22 @@ leadsRouter.post('/', async (req, res, next) => {
     });
 
     res.json({ ok: true, id: lead.id });
+
+    // Email after answering the visitor: a slow mail service never makes them
+    // wait, and a failed send is recorded on the lead, not lost.
+    (async () => {
+      const p = propertyId ? await getProperty(propertyId) : null;
+      const r = await sendLeadEmail(lead, p?.leadEmails ?? [], p ? p.theme?.brand || p.title : '');
+      await setLeadDelivery(lead.id, { ...r, at: new Date().toISOString() });
+    })().catch((err) => console.warn('[leads] email:', err.message));
   } catch (err) {
     next(err);
   }
 });
 
-// Internal-only: the studio's future lead list reads from here. Session-
-// gated now so it's not sitting open before that UI exists.
-leadsRouter.get('/', requireEditorSession, async (req, res, next) => {
+// Every project's enquiries: admins only. A project's own are at
+// /api/properties/:id/leads, for anyone who can see that project.
+leadsRouter.get('/', requireAdmin, async (req, res, next) => {
   try {
     res.json(await listLeads());
   } catch (err) {

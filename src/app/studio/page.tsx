@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   createProperty, deleteProperty, getProperties, getProperty, getScenes, moveSceneToProperty, renameProperty,
-  addPropertyMember, removePropertyMember, getSession, LAST_PROJECT_KEY, type SessionUser
+  addPropertyMember, removePropertyMember, getSession, getActivity, getProjectLeads, setProjectLeadEmails, projectLeadsCsvUrl, type ProjectLeads, setProjectTheme, uploadProjectLogo, removeProjectLogo, API_BASE_URL, LAST_PROJECT_KEY, type SessionUser, type ActivityEntry
 } from '../../lib/api';
 import { useStudioSession } from '../../lib/useStudioSession';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { NewProjectDialog } from '../../components/NewProjectDialog';
 import { TeamDialog } from '../../components/TeamDialog';
 import type { ApiScene, Property } from '../../@types/scene.types';
+import type { BrandFont, ProjectTheme } from '../../@types/config.types';
 import '../../components/editor.css';
 
 /** Owner/admin can rename, delete or share it; a project without an owner
@@ -144,6 +145,9 @@ function ProjectCard({ project, current, me, onChanged }: { project: Property; c
   const [menu, setMenu] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [showLog, setShowLog] = useState(false);
+  const [branding, setBranding] = useState(false);
+  const [leads, setLeads] = useState(false);
   const [draft, setDraft] = useState(project.title);
   const [error, setError] = useState('');
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -208,19 +212,23 @@ function ProjectCard({ project, current, me, onChanged }: { project: Property; c
         {error && <span className="ed2-warn ed2-fine">{error}</span>}
       </span>
 
-      {mine && (
-        <div className="pl-menu" ref={menuRef}>
-          <button className="pl-menu-btn" aria-label={`More actions for ${project.title}`} aria-expanded={menu} onClick={() => setMenu((v) => !v)}>⋯</button>
-          {menu && (
-            <div className="pl-menu-list" role="menu">
-              <button role="menuitem" onClick={() => { setMenu(false); setError(''); setDraft(project.title); setRenaming(true); }}>Rename</button>
-              <button role="menuitem" onClick={() => { setMenu(false); setSharing(true); }}>Share…</button>
-              <button role="menuitem" className="is-danger" onClick={remove}>Delete project</button>
-            </div>
-          )}
-        </div>
-      )}
+      <div className="pl-menu" ref={menuRef}>
+        <button className="pl-menu-btn" aria-label={`More actions for ${project.title}`} aria-expanded={menu} onClick={() => setMenu((v) => !v)}>⋯</button>
+        {menu && (
+          <div className="pl-menu-list" role="menu">
+            <button role="menuitem" onClick={() => { setMenu(false); setLeads(true); }}>Enquiries…</button>
+            <button role="menuitem" onClick={() => { setMenu(false); setShowLog(true); }}>Activity</button>
+            {mine && <button role="menuitem" onClick={() => { setMenu(false); setError(''); setDraft(project.title); setRenaming(true); }}>Rename</button>}
+            {mine && <button role="menuitem" onClick={() => { setMenu(false); setSharing(true); }}>Share…</button>}
+            {mine && <button role="menuitem" onClick={() => { setMenu(false); setBranding(true); }}>Branding…</button>}
+            {mine && <button role="menuitem" className="is-danger" onClick={remove}>Delete project</button>}
+          </div>
+        )}
+      </div>
       {sharing && <ShareDialog project={project} onClose={() => setSharing(false)} />}
+      {showLog && <ActivityDialog project={project} onClose={() => setShowLog(false)} />}
+      {leads && <EnquiriesDialog project={project} canEdit={mine} onClose={() => setLeads(false)} />}
+      {branding && <BrandingDialog project={project} onClose={() => { setBranding(false); onChanged(); }} />}
     </div>
   );
 }
@@ -291,6 +299,224 @@ function ShareDialog({ project, onClose }: { project: Property; onClose: () => v
             <button className="pl-btn pl-btn-main" type="submit" disabled={busy}>{busy ? 'Adding…' : 'Add'}</button>
           </form>
           {error && <p className="ed2-warn ed2-fine">{error}</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const FONT_FACES: Record<BrandFont, [string, string]> = {
+  serif: ['Serif', "Georgia, 'Times New Roman', serif"],
+  sans: ['Modern sans', "system-ui, 'Segoe UI', Roboto, sans-serif"],
+  classic: ['Classic', "'Palatino Linotype', 'Book Antiqua', Palatino, serif"]
+};
+
+/** The project's name, colour, font and logo on its tours. Saves as you go:
+ *  published tours pick it up at once (it isn't part of a publish). */
+function BrandingDialog({ project, onClose }: { project: Property; onClose: () => void }) {
+  const [theme, setTheme] = useState<ProjectTheme>(project.theme ?? {});
+  const [brand, setBrand] = useState(project.theme?.brand ?? '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const accent = theme.accent ?? '#b08d57';
+  const font = theme.font ?? 'serif';
+  const logoUrl = theme.logo ? `${API_BASE_URL}/api/assets/${theme.logo}` : null;
+
+  const run = async (fn: () => Promise<Property | null>) => {
+    setBusy(true);
+    setError('');
+    try {
+      const p = await fn();
+      if (p) setTheme(p.theme ?? {});
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'That didn’t save. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="np-scrim" onClick={onClose}>
+      <div className="pl-dialog pl-dialog-wide" role="dialog" aria-modal="true" aria-label={`Branding for ${project.title}`} onClick={(e) => e.stopPropagation()}>
+        <header className="np-head">
+          <h2>Branding</h2>
+          <button className="np-x" onClick={onClose} aria-label="Close">✕</button>
+        </header>
+        <div className="pl-dialog-body">
+          <p className="pl-sub">How “{project.title}” looks on its tours. Changes go live on every published tour at once.</p>
+
+          <div className="pl-brand-preview" style={{ '--acc': accent, '--face': FONT_FACES[font][1] } as React.CSSProperties}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {logoUrl && <img src={logoUrl} alt="" />}
+            <span className="pl-brand-name">{brand || project.title}</span>
+            <span className="pl-brand-place">Reception</span>
+            <span className="pl-brand-pill">Start virtual tour</span>
+          </div>
+
+          <label className="pl-field">
+            <span>Name shown on the tour</span>
+            <span className="pl-share-form">
+              <input value={brand} maxLength={80} placeholder={project.title} onChange={(e) => setBrand(e.target.value)} />
+              <button className="pl-btn pl-btn-main" disabled={busy || brand === (theme.brand ?? '')} onClick={() => run(() => setProjectTheme(project.id, { brand }))}>Save</button>
+            </span>
+          </label>
+
+          <div className="pl-brand-row">
+            <label className="pl-field">
+              <span>Accent colour</span>
+              <span className="pl-share-form">
+                <input type="color" value={accent} disabled={busy} onChange={(e) => run(() => setProjectTheme(project.id, { accent: e.target.value }))} />
+                {theme.accent && <button className="pl-btn" disabled={busy} onClick={() => run(() => setProjectTheme(project.id, { accent: null }))}>Default</button>}
+              </span>
+            </label>
+            <label className="pl-field">
+              <span>Heading font</span>
+              <select className="pl-select" value={font} disabled={busy} onChange={(e) => run(() => setProjectTheme(project.id, { font: e.target.value as BrandFont }))}>
+                {(Object.keys(FONT_FACES) as BrandFont[]).map((f) => <option key={f} value={f}>{FONT_FACES[f][0]}</option>)}
+              </select>
+            </label>
+          </div>
+
+          <div className="pl-field">
+            <span>Logo</span>
+            <input ref={fileRef} type="file" hidden accept="image/png,image/jpeg,image/webp"
+              onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) run(() => uploadProjectLogo(project.id, f)); }} />
+            <span className="pl-share-form">
+              <button className="pl-btn" disabled={busy} onClick={() => fileRef.current?.click()}>{logoUrl ? 'Replace logo…' : 'Upload logo…'}</button>
+              {logoUrl && <button className="pl-btn pl-btn-danger" disabled={busy} onClick={() => run(() => removeProjectLogo(project.id))}>Remove</button>}
+            </span>
+            <span className="pl-sub">A PNG with a transparent background works best on the dark tour. 2 MB at most.</span>
+          </div>
+          {error && <p className="ed2-warn ed2-fine">{error}</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** A project's enquiries: the list, a CSV for Excel, and (owner/admin) who
+ *  new ones are emailed to (server/src/mailer.js). */
+function EnquiriesDialog({ project, canEdit, onClose }: { project: Property; canEdit: boolean; onClose: () => void }) {
+  const [data, setData] = useState<ProjectLeads | null>(null);
+  const [emails, setEmails] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState('');
+  useEffect(() => {
+    getProjectLeads(project.id)
+      .then((d) => { setData(d); setEmails(d?.emails.join(', ') ?? ''); })
+      .catch((e: Error) => setError(e.message));
+  }, [project.id]);
+  const saveEmails = async () => {
+    setBusy(true);
+    setError('');
+    setNote('');
+    try {
+      const r = await setProjectLeadEmails(project.id, emails.split(/[\s,;]+/).filter(Boolean));
+      setEmails(r?.emails.join(', ') ?? '');
+      setData((d) => (d && r ? { ...d, emails: r.emails } : d));
+      setNote('Saved.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'That didn’t save. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+
+  return (
+    <div className="np-scrim" onClick={onClose}>
+      <div className="pl-dialog pl-dialog-wide" role="dialog" aria-modal="true" aria-label={`Enquiries for ${project.title}`} onClick={(e) => e.stopPropagation()}>
+        <header className="np-head">
+          <h2>Enquiries</h2>
+          <button className="np-x" onClick={onClose} aria-label="Close">✕</button>
+        </header>
+        <div className="pl-dialog-body">
+          {error && <p className="ed2-warn ed2-fine">{error}</p>}
+          {!data && !error && <p className="pl-sub">Loading…</p>}
+          {data && (
+            <>
+              <div className="pl-leads-head">
+                <p className="pl-sub">
+                  {data.leads.length ? `${data.leads.length} from “${project.title}”, newest first.` : `No enquiries from “${project.title}” yet.`}
+                </p>
+                {!!data.leads.length && (
+                  // a plain download: the browser sends the studio's cookie with it
+                  <a className="pl-btn pl-btn-main" href={projectLeadsCsvUrl(project.id)} download>Download for Excel</a>
+                )}
+              </div>
+              {!!data.leads.length && (
+                <ol className="pl-leads">
+                  {data.leads.map((l) => (
+                    <li key={l.id}>
+                      <div className="pl-lead-top">
+                        <b>{l.name}</b>
+                        <a href={`tel:${l.phone}`}>{l.phone}</a>
+                        {l.email && <a href={`mailto:${l.email}`}>{l.email}</a>}
+                        <time className="pl-log-when" dateTime={l.createdAt}>{when(l.createdAt)}</time>
+                      </div>
+                      <div className="pl-sub">
+                        {[l.sceneName, l.requirement, l.dates, l.hotspotLabel && `was looking at ${l.hotspotLabel}`].filter(Boolean).join(' · ')}
+                      </div>
+                      {l.message && <p className="pl-lead-msg">{l.message}</p>}
+                      {l.delivery && !l.delivery.sent && <p className="ed2-warn ed2-fine">Not emailed: {l.delivery.reason}</p>}
+                    </li>
+                  ))}
+                </ol>
+              )}
+
+              <div className="pl-field">
+                <span>Email new enquiries to</span>
+                {!data.emailOn && (
+                  <span className="pl-sub">Email is off on this server: add RESEND_API_KEY to server/.env (free at resend.com). Enquiries are still saved here either way.</span>
+                )}
+                <span className="pl-share-form">
+                  <input value={emails} disabled={!canEdit || busy} placeholder="sales@hotel.com, frontdesk@hotel.com" onChange={(e) => setEmails(e.target.value)} />
+                  {canEdit && <button className="pl-btn pl-btn-main" disabled={busy || emails === data.emails.join(', ')} onClick={saveEmails}>Save</button>}
+                </span>
+                {!canEdit && <span className="pl-sub">Only the project’s owner or an admin can change this.</span>}
+                {note && <span className="pl-sub">{note}</span>}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Who did what in this project, newest first (server/src/activity.js). */
+function ActivityDialog({ project, onClose }: { project: Property; onClose: () => void }) {
+  const [log, setLog] = useState<ActivityEntry[] | null>(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    getActivity(project.id).then((l) => setLog(l ?? [])).catch((e: Error) => setError(e.message));
+  }, [project.id]);
+  const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+
+  return (
+    <div className="np-scrim" onClick={onClose}>
+      <div className="pl-dialog pl-dialog-wide" role="dialog" aria-modal="true" aria-label={`Activity in ${project.title}`} onClick={(e) => e.stopPropagation()}>
+        <header className="np-head">
+          <h2>Activity</h2>
+          <button className="np-x" onClick={onClose} aria-label="Close">✕</button>
+        </header>
+        <div className="pl-dialog-body">
+          <p className="pl-sub">Everything done in “{project.title}” since this log began, newest first.</p>
+          {error && <p className="ed2-warn ed2-fine">{error}</p>}
+          {!log && !error && <p className="pl-sub">Loading…</p>}
+          {log && !log.length && <p className="pl-sub">Nothing recorded yet. Saves, publishes, shares and floor plans show up here.</p>}
+          {!!log?.length && (
+            <ol className="pl-log">
+              {log.map((e, i) => (
+                <li key={i}>
+                  <span className="pl-log-what"><b>{e.who.name}</b> {e.action} <b>{e.target}</b>{e.detail && <span className="pl-sub"> · {e.detail}</span>}</span>
+                  <time className="pl-log-when" dateTime={e.at}>{when(e.at)}</time>
+                </li>
+              ))}
+            </ol>
+          )}
         </div>
       </div>
     </div>

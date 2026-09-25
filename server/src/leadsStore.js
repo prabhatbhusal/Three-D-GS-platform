@@ -23,6 +23,32 @@ export async function saveLead(lead) {
   return record;
 }
 
+/** Leads are never edited, but what happened to their email is recorded. */
+export async function setLeadDelivery(id, delivery) {
+  const file = path.join(LEADS_DIR, `${id}.json`);
+  const lead = JSON.parse(await fs.readFile(file, 'utf8'));
+  await fs.writeFile(file, JSON.stringify({ ...lead, delivery }, null, 2));
+}
+
+/** One CSV row, Excel-safe: quoted, and a cell a stranger started with
+ *  = + - @ (or a tab/CR) gets a leading ' so Excel shows it instead of
+ *  running it as a formula. */
+const cell = (v) => {
+  let s = String(v ?? '');
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  return `"${s.replace(/"/g, '""')}"`;
+};
+
+export function leadsCsv(leads) {
+  const head = ['Received', 'Name', 'Phone', 'Email', 'Space', 'Looking for', 'Dates', 'Message', 'Was looking at', 'Emailed'];
+  const rows = leads.map((l) => [
+    l.createdAt, l.name, l.phone, l.email, l.sceneName || l.sceneId, l.requirement, l.dates, l.message, l.hotspotLabel,
+    l.delivery ? (l.delivery.sent ? 'yes' : `no: ${l.delivery.reason}`) : ''
+  ]);
+  // BOM so Excel reads it as UTF-8 (Nepali names), CRLF as Excel expects
+  return '﻿' + [head, ...rows].map((r) => r.map(cell).join(',')).join('\r\n') + '\r\n';
+}
+
 export async function listLeads() {
   await ensureDir();
   const files = await fs.readdir(LEADS_DIR);

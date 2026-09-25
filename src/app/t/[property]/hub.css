@@ -1,0 +1,102 @@
+/* A project's own page (/t/<project>). Should feel like the hotel's site,
+ * not a 3D app: light, calm, its name large in its own face, its accent on
+ * the buttons. --gold and --serif come from the project's branding. The page
+ * is its own scroll container: globals.css locks body for the 3D app. */
+
+.hub {
+  --ink: #1d1814;
+  --dim: #6e655b;
+  --paper: #f7f4ef;
+  --card: #ffffff;
+  --line: rgba(29, 24, 20, 0.1);
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  color: var(--ink);
+  background: var(--paper);
+  font: 400 16px/1.55 system-ui, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.hub a { color: inherit; }
+
+.hub-top {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px max(20px, calc((100% - 1120px) / 2));
+  background: color-mix(in srgb, var(--paper) 92%, transparent);
+  border-bottom: 1px solid var(--line);
+}
+
+.hub-brand { display: flex; align-items: center; gap: 12px; font: 400 22px/1.1 var(--serif); }
+.hub-brand img { max-height: 38px; max-width: 150px; object-fit: contain; }
+
+.hub-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font: 600 14px system-ui, sans-serif;
+  text-decoration: none;
+  color: #14110e !important;
+  background: var(--gold);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--gold) 35%, transparent);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.hub-btn:hover { transform: translateY(-1px); box-shadow: 0 10px 26px color-mix(in srgb, var(--gold) 45%, transparent); }
+.hub-btn-big { padding: 14px 24px; font-size: 15px; margin-top: 8px; }
+
+/* hero: the first space's own picture, the name over it */
+.hub-hero {
+  position: relative;
+  min-height: min(72vh, 620px);
+  display: flex;
+  align-items: flex-end;
+  padding: 0 max(20px, calc((100% - 1120px) / 2)) 56px;
+  overflow: hidden;
+  color: #fff;
+  background: #1d1814;
+}
+.hub-hero-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.hub-hero-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, 0.1) 30%, rgba(0, 0, 0, 0.72)); }
+.hub-hero-text { position: relative; max-width: 40rem; }
+.hub-kicker { margin: 0 0 8px; font: 600 13px system-ui, sans-serif; color: rgba(255, 255, 255, 0.85); }
+.hub-hero h1 { margin: 0; font: 400 clamp(44px, 7vw, 84px)/1 var(--serif); letter-spacing: -0.01em; }
+.hub-lede { margin: 14px 0 18px; font-size: 18px; color: rgba(255, 255, 255, 0.88); }
+
+/* the spaces */
+.hub-spaces { width: min(1120px, calc(100% - 40px)); margin: 0 auto; padding: 56px 0 96px; }
+.hub-spaces h2 { margin: 0 0 22px; font: 400 36px/1.1 var(--serif); }
+.hub-spaces ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px; }
+.hub-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  text-decoration: none;
+  border-radius: 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.hub-card:hover { transform: translateY(-3px); box-shadow: 0 16px 36px rgba(29, 24, 20, 0.12); }
+.hub-card-img { aspect-ratio: 16 / 10; display: grid; place-items: center; overflow: hidden; background: #e9e3da; font: 400 48px var(--serif); color: var(--dim); }
+.hub-card-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s; }
+.hub-card:hover .hub-card-img img { transform: scale(1.04); }
+.hub-card-txt { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px 16px; }
+.hub-card-title { font: 400 22px/1.2 var(--serif); }
+.hub-card-tag { color: var(--dim); font-size: 14px; }
+.hub-card-go { margin-top: 6px; font: 600 13px system-ui, sans-serif; color: color-mix(in srgb, var(--gold) 70%, var(--ink)); }
+
+.hub-foot { padding: 22px 20px 96px; text-align: center; color: var(--dim); font-size: 13px; border-top: 1px solid var(--line); }
+
+@media (max-width: 620px) {
+  .hub-top .hub-btn { display: none; }
+  .hub-hero { min-height: 64vh; padding-bottom: 40px; }
+  .hub-lede { font-size: 16px; }
+}

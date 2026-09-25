@@ -38,11 +38,15 @@ const Chat = () => (
 interface EnquiryPanelProps {
   sceneId: string;
   sceneName?: string;
+  /** The project it's about — set by the hub page, whose enquiries aren't about one space. */
+  propertyId?: string;
+  /** The pill's words; the tour's default is about the space you're in. */
+  label?: string;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
 
-export function EnquiryPanel({ sceneId, sceneName, open: openProp, onOpenChange }: EnquiryPanelProps) {
+export function EnquiryPanel({ sceneId, sceneName, propertyId, label = 'Ask about this space', open: openProp, onOpenChange }: EnquiryPanelProps) {
   const [openSelf, setOpenSelf] = useState(false);
   const open = openProp ?? openSelf;
   const setOpen = (o: boolean) => (onOpenChange ? onOpenChange(o) : setOpenSelf(o));
@@ -64,7 +68,7 @@ export function EnquiryPanel({ sceneId, sceneName, open: openProp, onOpenChange 
     setStatus('sending');
     setError('');
     try {
-      await submitLead({ ...values, sceneId, sceneName, formRenderedAt: renderedAt });
+      await submitLead({ ...values, sceneId, sceneName, propertyId, formRenderedAt: renderedAt });
       setStatus('done');
     } catch (err) {
       setStatus('error');
@@ -76,7 +80,7 @@ export function EnquiryPanel({ sceneId, sceneName, open: openProp, onOpenChange 
     <>
       <button className={`vw-cta-btn ${open ? 'on' : ''}`} onClick={() => setOpen(!open)} aria-expanded={open}>
         <Chat />
-        <span>Ask about this space</span>
+        <span>{label}</span>
       </button>
 
       {open && (

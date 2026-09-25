@@ -32,6 +32,7 @@ server/src/data/assets/
 server/src/data/uploads-staging/
 server/src/data/leads/
 server/src/data/users/
+server/src/data/activity/
 
 # Footage masters (4K, hundreds of MB). The web cuts made from them live in
 # public/media/ and are committed; see public/media/README.md.

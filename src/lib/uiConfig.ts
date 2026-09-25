@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
-import type { UiConfig } from '../@types/config.types';
+import type { BrandFont, ProjectTheme, UiConfig } from '../@types/config.types';
+import { API_BASE_URL } from './api';
 
 /**
  * Visitor-facing presentation settings, driven by the editor's Customize tab.
@@ -33,7 +34,27 @@ export function setUiConfig(patch: Partial<UiConfig>) {
   if (typeof patch.accent === 'string') {
     document.documentElement.style.setProperty('--gold', patch.accent);
   }
+  if (patch.font) document.documentElement.style.setProperty('--serif', FONTS[patch.font]);
   listeners.forEach((fn) => fn());
+}
+
+/** Heading faces: system fonts only, so a brand never costs a download. */
+const FONTS: Record<BrandFont, string> = {
+  serif: "'Georgia', 'Times New Roman', serif",
+  sans: "system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif",
+  classic: "'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', serif"
+};
+
+/** A project's branding (its theme, else its title and the defaults) onto
+ *  the tour. Called by /tour for the project it opens, and by the studio for
+ *  the project it edits, so Preview shows what visitors will. */
+export function applyTheme(theme: ProjectTheme | undefined, fallbackBrand: string) {
+  setUiConfig({
+    brand: theme?.brand || fallbackBrand,
+    accent: theme?.accent || '#b08d57',
+    font: theme?.font || 'serif',
+    logo: theme?.logo ? `${API_BASE_URL}/api/assets/${theme.logo}` : null
+  });
 }
 
 export function useUiConfig() {

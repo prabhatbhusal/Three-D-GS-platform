@@ -1100,3 +1100,59 @@ a.ed2-switch-item:hover { background: var(--ed-raise); }
   .np-body { grid-template-columns: 1fr; }
   .np-sources { grid-template-columns: 1fr; }
 }
+
+/* ------------------------------- Activity log -------------------------------- */
+.pl-dialog-wide { width: min(620px, 100%); }
+.pl-log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.pl-log li {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 14px;
+  padding: 10px 2px; border-bottom: 1px solid var(--ed-line); font-size: 13px; line-height: 1.45;
+}
+.pl-log li:last-child { border-bottom: 0; }
+.pl-log-what b { font-weight: 650; }
+.pl-log-when {
+  flex: 0 0 auto; color: var(--ed-text-dim); white-space: nowrap;
+  font: 500 11.5px var(--mono, ui-monospace, monospace); font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------ Publish: history ------------------------------ */
+.pub-history { margin-top: 14px; border-top: 1px solid var(--ed-line); padding-top: 12px; }
+.pub-history summary { cursor: pointer; font: 600 12.5px var(--sans); color: var(--ed-text); }
+.pub-history ol { list-style: none; margin: 10px 0 0; padding: 0; max-height: 220px; overflow-y: auto; }
+.pub-history li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--ed-line); font-size: 12.5px; }
+.pub-history li:last-child { border-bottom: 0; }
+.pub-history li > span { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.pub-when { color: var(--ed-text-dim); font: 500 11.5px var(--mono, ui-monospace, monospace); font-variant-numeric: tabular-nums; }
+.pub-live-tag { padding: 1px 7px; border-radius: 999px; font: 650 10.5px var(--sans); text-transform: uppercase; color: var(--ed-signal); background: color-mix(in srgb, var(--ed-signal) 16%, transparent); }
+
+/* --------------------------- Team: actions, reset link --------------------------- */
+.pl-team-list li.pl-team-row { flex-wrap: wrap; }
+.pl-team-acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.pl-team-acts .pl-btn { padding: 7px 12px; font-size: 11.5px; }
+.pl-btn-danger { color: var(--ed-danger); }
+.pl-reset-link { flex: 1 1 100%; display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+
+/* ------------------------------- Branding dialog ------------------------------ */
+.pl-field { display: flex; flex-direction: column; gap: 6px; font: 600 12px var(--sans); }
+.pl-field > span:first-child { color: var(--ed-text-dim); }
+.pl-brand-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.pl-field input[type='color'] { width: 56px; height: 36px; padding: 2px; border-radius: 10px; border: 1px solid var(--ed-line); background: var(--ed-well); cursor: pointer; }
+/* a slice of the tour's start screen, in the project's colour and face */
+.pl-brand-preview {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 22px 22px 20px;
+  border-radius: 14px; color: #fff; background: radial-gradient(120% 90% at 80% 10%, #2a2723, #0d0b09);
+}
+.pl-brand-preview img { max-height: 40px; max-width: 160px; object-fit: contain; margin-bottom: 4px; }
+.pl-brand-name { font: 600 12px var(--sans); color: rgba(255, 255, 255, 0.8); }
+.pl-brand-place { font: 400 34px/1.05 var(--face); }
+.pl-brand-pill { margin-top: 8px; padding: 8px 14px; border-radius: 999px; font: 600 12px var(--sans); color: #14110e; background: var(--acc); }
+
+/* ------------------------------- Enquiries dialog ------------------------------ */
+.pl-leads-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pl-leads-head .pl-btn { text-decoration: none; }
+.pl-leads { list-style: none; margin: 0; padding: 0; max-height: 46vh; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+.pl-leads li { padding: 12px 14px; border-radius: 12px; background: var(--ed-well); border: 1px solid var(--ed-line); font-size: 13px; }
+.pl-lead-top { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.pl-lead-top a { color: var(--ed-text); }
+.pl-lead-top time { margin-left: auto; }
+.pl-lead-msg { margin: 6px 0 0; white-space: pre-wrap; }

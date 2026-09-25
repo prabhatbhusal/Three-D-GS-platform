@@ -4,7 +4,8 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { openCurtain } from '../../components/Curtain';
-import { getGallery } from '../../lib/api';
+import { checkEmbed, getGallery, getProjectTheme } from '../../lib/api';
+import { applyTheme } from '../../lib/uiConfig';
 import { hydrateScenes, limitTour } from '../../lib/scenes';
 import { loadSceneDoc } from '../../lib/sceneDoc';
 import type { ApiScene, SceneDoc } from '../../@types/scene.types';
@@ -18,7 +19,8 @@ type Gate =
   | { kind: 'ready' }
   | { kind: 'empty' }
   | { kind: 'unpublished'; id: string }
-  | { kind: 'offline' };
+  | { kind: 'offline' }
+  | { kind: 'blocked'; reason: string; space: string };
 
 const toApiScene = (d: SceneDoc & { tagline?: string; outdoor?: boolean }): ApiScene => ({
   id: d.id,
@@ -43,8 +45,23 @@ export default function TourPage() {
   const [gate, setGate] = useState<Gate>({ kind: 'checking' });
 
   useEffect(() => {
-    const want = new URLSearchParams(location.search).get('space');
+    const q = new URLSearchParams(location.search);
+    const want = q.get('space');
     (async () => {
+      // An embed shows only with its space's key (from the studio's snippet),
+      // and only on a website the space allows. Being inside a frame counts
+      // as an embed whatever the link says, so dropping embed=1 doesn't skip
+      // this. The page it's inside comes from the browser (ancestorOrigins,
+      // else the referrer), which the embedding page can't forge.
+      const framed = window.self !== window.top;
+      if (framed || q.get('embed') === '1') {
+        let from = location.origin;
+        if (framed) {
+          try { from = location.ancestorOrigins?.[0] ?? (document.referrer ? new URL(document.referrer).origin : ''); } catch { from = ''; }
+        }
+        const r = want ? await checkEmbed(want, q.get('key') ?? '', from) : null;
+        if (!r?.ok) return setGate({ kind: 'blocked', reason: r?.reason ?? 'key', space: want ?? '' });
+      }
       const list = await getGallery();
       if (!list?.length) return setGate({ kind: 'empty' });
       const start = want ? list.find((g) => g.id === want)?.id : list[0].id;
@@ -54,6 +71,11 @@ export default function TourPage() {
       // project as the space it opens on (§5.1). Never another hotel's rooms.
       const project = docs.find((d) => d?.id === start)?.propertyId ?? null;
       const same = docs.filter((d): d is SceneDoc => !!d && (d.propertyId ?? null) === project);
+      // the project's own name, colour, font and logo (per-project branding)
+      if (project) {
+        const t = await getProjectTheme(project).catch(() => null);
+        if (t) applyTheme(t.theme, t.title);
+      }
       hydrateScenes(same.map(toApiScene));
       limitTour(same.map((d) => d.id), start);
       setGate({ kind: 'ready' });
@@ -70,14 +92,19 @@ export default function TourPage() {
   const copy = {
     empty: ['Nothing to show yet', 'No spaces have been published. Publish one from the studio and it appears here.'],
     unpublished: ['This space isn’t published', 'It may have been taken down, or the link is wrong. Browse the published tours instead.'],
-    offline: ['The tour can’t load right now', 'The tour server isn’t answering. Try again in a moment.']
+    offline: ['The tour can’t load right now', 'The tour server isn’t answering. Try again in a moment.'],
+    blocked: gate.kind === 'blocked' && gate.reason === 'site'
+      ? ['This tour isn’t shown on this website', 'It can only be embedded on the sites its owner chose. You can still open it on RCAAS.tech.']
+      : ['This tour can’t be shown here', 'The embed code is out of date or incomplete. Ask the site’s owner to copy a fresh one from the studio.']
   }[gate.kind];
 
   return (
     <div className="tour-msg">
       <h1>{copy[0]}</h1>
       <p>{copy[1]}</p>
-      <Link href="/gallery">Browse tours</Link>
+      {gate.kind === 'blocked' && gate.space
+        ? <a href={`/tour?space=${encodeURIComponent(gate.space)}`} target="_top">Open the tour on RCAAS.tech</a>
+        : <Link href="/gallery">Browse tours</Link>}
     </div>
   );
 }

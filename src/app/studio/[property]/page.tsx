@@ -5,6 +5,7 @@ import { use, useEffect, useState } from 'react';
 import { getProperty, getScenes, LAST_PROJECT_KEY } from '../../../lib/api';
 import { hydrateScenes, scopeToProperty } from '../../../lib/scenes';
 import { useStudioSession } from '../../../lib/useStudioSession';
+import { applyTheme } from '../../../lib/uiConfig';
 import { Uploader } from '../../../components/Uploader';
 import type { Property } from '../../../@types/scene.types';
 import '../../../components/editor.css';
@@ -38,6 +39,7 @@ export default function PropertyStudioPage({ params }: { params: Promise<{ prope
       if (!p) return setGate({ kind: 'missing' });
       // So the project list can show which one you were working in.
       try { localStorage.setItem(LAST_PROJECT_KEY, p.id); } catch { /* private mode */ }
+      applyTheme(p.theme, p.title); // so Preview shows the project's own branding
       hydrateScenes(await getScenes());
       setGate(scopeToProperty(p.id) ? { kind: 'ready', property: p } : { kind: 'empty', property: p });
     })().catch((e: unknown) =>

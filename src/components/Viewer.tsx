@@ -170,11 +170,14 @@ interface EnterGateProps {
  *  time the button is live the visitor is already looking at the space. */
 function EnterGate({ brand, place, tagline, ready, progress, onEnter, entering }: EnterGateProps) {
   const pct = Math.round((progress ?? 0) * 100);
+  const { logo } = useUiConfig(); // the project's own (per-project branding)
   // arrived behind the home page's curtain: open it on this screen
   useEffect(() => { openCurtain(); }, []);
   return (
     <div className="vw-enter">
       <div className="vw-enter-in">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {logo && <img className="vw-enter-logo" src={logo} alt="" />}
         <p className="vw-enter-brand">{brand}</p>
         <h1 className="vw-enter-mark">{place ?? brand}</h1>
         {tagline && <p className="vw-enter-sub">{tagline}</p>}
@@ -236,6 +239,7 @@ function TopChrome({ state, showBrand, brand, hd, canExit, panel, setPanel, book
   panel: Panel; setPanel: (p: Panel) => void; bookOpen: boolean; onBook: () => void;
 }) {
   const [full, setFull] = useState(false);
+  const { logo } = useUiConfig();
   const sound = useSound();
   useEffect(() => {
     const on = () => setFull(!!document.fullscreenElement);
@@ -249,6 +253,8 @@ function TopChrome({ state, showBrand, brand, hd, canExit, panel, setPanel, book
   return (
     <>
       <div className="vw-place">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {showBrand && logo && <img className="vw-place-logo" src={logo} alt={brand} />}
         {showBrand && <span className="vw-place-brand">{brand}</span>}
         <span className="vw-place-name">{state.activeName}</span>
       </div>

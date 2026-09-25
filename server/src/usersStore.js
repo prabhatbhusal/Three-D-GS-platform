@@ -120,6 +120,55 @@ export async function createUser({ name, email, password }) {
   return publicUser(record);
 }
 
+/* ------------------------------------------------------------------ */
+/* Reset links and removal (2026-09-25). No email service yet, so an    */
+/* admin makes a one-time link and sends it however suits. Only its     */
+/* hash is stored; it lasts a day and works once.                       */
+/* ------------------------------------------------------------------ */
+
+const RESET_TTL = 24 * 60 * 60 * 1000;
+const sha = (s) => createHash('sha256').update(String(s)).digest('hex');
+
+/** When the password last changed: sessions issued before it are void. */
+export async function passwordChangedAt(id) {
+  const u = (await readAllUsers()).find((x) => x.id === id);
+  return u ? u.passwordChangedAt ?? null : undefined; // undefined: no such account
+}
+
+export async function createResetToken(id) {
+  const all = await readAllUsers();
+  const record = all.find((u) => u.id === id);
+  if (!record) return null;
+  const token = randomBytes(24).toString('base64url');
+  record.reset = { hash: sha(token), expires: Date.now() + RESET_TTL };
+  await fs.writeFile(fileFor(record.email), JSON.stringify(record, null, 2));
+  return { token, expires: new Date(record.reset.expires).toISOString(), user: publicUser(record) };
+}
+
+/** Sets the new password if the token is live; null otherwise. */
+export async function resetPassword(token, password) {
+  const hash = sha(token);
+  const record = (await readAllUsers()).find((u) => u.reset && u.reset.hash === hash);
+  if (!record || record.reset.expires < Date.now()) return null;
+  record.passwordHash = await hashPassword(password);
+  record.passwordChangedAt = Date.now();
+  delete record.reset;
+  await fs.writeFile(fileFor(record.email), JSON.stringify(record, null, 2));
+  return publicUser(record);
+}
+
+/** Refuses to remove the last admin. */
+export async function deleteUser(id) {
+  const all = await readAllUsers();
+  const record = all.find((u) => u.id === id);
+  if (!record) return null;
+  if (record.role === 'admin' && all.filter((u) => u.role === 'admin').length <= 1) {
+    throw Object.assign(new Error('That is the only admin — promote someone else first.'), { status: 409 });
+  }
+  await fs.rm(fileFor(record.email), { force: true });
+  return publicUser(record);
+}
+
 /** Returns the public user when the credentials are right, else null. */
 export async function verifyUser(email, password) {
   const user = await readUser(email);

@@ -31,7 +31,14 @@ export interface UiConfig {
   background: string;
   /** Visitor's HD toggle: false renders at 1× pixel ratio. Remembered per browser. */
   hd?: boolean;
+  /** The project's branding (uiConfig.ts applyTheme): logo URL and heading font. */
+  logo?: string | null;
+  font?: BrandFont;
 }
+
+export type BrandFont = 'serif' | 'sans' | 'classic';
+/** A project's branding, as stored on it (server/src/store.js setPropertyTheme). */
+export interface ProjectTheme { brand?: string; accent?: string; font?: BrandFont; logo?: string }
 
 export type VisitorMode = 'viewpoints' | 'walk' | 'orbit' | 'fly';
 

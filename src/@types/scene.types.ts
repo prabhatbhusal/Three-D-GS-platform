@@ -51,6 +51,8 @@ export interface Property {
   createdAt: string;
   ownerId: string | null;
   members: string[];
+  /** Branding on its tours; see ProjectTheme. */
+  theme?: import('./config.types').ProjectTheme;
   /** Only on GET /api/properties. */
   spaceCount?: number;
   /** Only on GET /api/properties/:id (the share panel). */

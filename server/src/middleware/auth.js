@@ -5,7 +5,7 @@
  * no account for the legacy shared-password sign-in.
  */
 import jwt from 'jsonwebtoken';
-import { getUserById } from '../usersStore.js';
+import { getUserById, passwordChangedAt } from '../usersStore.js';
 
 const SESSION_COOKIE = 'splatspace_session';
 const SESSION_TTL = '12h';
@@ -23,7 +23,8 @@ function secret() {
  *  `requireAdmin` below, so a promotion or demotion takes effect at once
  *  instead of waiting out the session's 12h. */
 export function issueSession(res, user = null) {
-  const claims = user ? { role: user.role, sub: user.id, name: user.name, email: user.email } : { role: 'admin' };
+  // iatMs: when, to the millisecond — a password reset voids sessions issued before it
+  const claims = user ? { role: user.role, sub: user.id, name: user.name, email: user.email, iatMs: Date.now() } : { role: 'admin' };
   const token = jwt.sign(claims, secret(), { expiresIn: SESSION_TTL });
   res.cookie(SESSION_COOKIE, token, {
     httpOnly: true,
@@ -47,12 +48,26 @@ export function readSession(req) {
   }
 }
 
+/** Why a signed-in session no longer counts, or null if it does: its account
+ *  was removed, or its password changed after it was issued (a reset signs
+ *  out everywhere). The legacy passwordless session has no account. */
+export async function staleReason(session) {
+  if (!session.sub) return null;
+  const changed = await passwordChangedAt(session.sub);
+  if (changed === undefined) return 'Your account was removed. Ask an admin if that’s a mistake.';
+  if (changed && changed > (session.iatMs ?? session.iat * 1000)) return 'Your password was changed. Sign in again.';
+  return null;
+}
+
 /** Blocks the request unless it carries a valid editor session cookie. */
 export function requireEditorSession(req, res, next) {
   const session = readSession(req);
   if (!session) return res.status(401).json({ error: 'Sign in to the editor first.' });
-  req.session = session;
-  next();
+  staleReason(session).then((why) => {
+    if (why) { clearSession(res); return res.status(401).json({ error: why }); }
+    req.session = session;
+    next();
+  }, next);
 }
 
 /** Blocks the request unless the session belongs to an admin, checked fresh
@@ -62,6 +77,8 @@ export function requireEditorSession(req, res, next) {
 export async function requireAdmin(req, res, next) {
   const session = readSession(req);
   if (!session) return res.status(401).json({ error: 'Sign in to the editor first.' });
+  const why = await staleReason(session);
+  if (why) { clearSession(res); return res.status(401).json({ error: why }); }
   if (session.sub) {
     const user = await getUserById(session.sub);
     if (!user) return res.status(401).json({ error: 'Your account no longer exists.' });

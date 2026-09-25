@@ -14,16 +14,16 @@ import { uploadAudio } from '../lib/upload';
 import { playClip, setMuted, stopClip, useSound } from '../lib/audio';
 import { uiConfig, setUiConfig, useUiConfig } from '../lib/uiConfig';
 import {
-  saveScene, getSession, logout, getPublishState, publishSceneNow, unpublishScene, revertScene,
-  resolveAsset, safeUrl, getProperties, assetUrl, buildFloorPlan, uploadFloorPlan, removeFloorPlan
+  saveScene, getSession, logout, getPublishState, publishSceneNow, unpublishScene, revertScene, getVersions, restoreVersion,
+  resolveAsset, safeUrl, getProperties, assetUrl, buildFloorPlan, uploadFloorPlan, removeFloorPlan, getEmbed, setEmbed
 } from '../lib/api';
-import type { SessionUser, PublishState } from '../lib/api';
+import type { SessionUser, PublishState, EmbedSettings, SceneVersion } from '../lib/api';
 import { HotspotMarkers } from './HotspotMarkers';
 import { Uploader } from './Uploader';
 import { ThemeToggle } from './ThemeToggle';
 import type { ViewerState, EditorApi } from '../@types/app.types';
 import type { Hotspot, HotspotType } from '../@types/hotspot.types';
-import type { Property, Scene } from '../@types/scene.types';
+import type { Property, Scene, SceneDoc } from '../@types/scene.types';
 import type { Viewpoint } from '../@types/viewpoint.types';
 import './editor.css';
 
@@ -291,9 +291,20 @@ function PublishPanel({ sceneId, onClose }: { sceneId: string; onClose: () => vo
   const [note, setNote] = useState('');
   const [size, setSize] = useState(0);
   const [copied, setCopied] = useState('');
+  const [embed, setEmbedState] = useState<EmbedSettings | null>(null);
+  const [sitesDraft, setSitesDraft] = useState('');
 
   const refresh = () => getPublishState(sceneId).then(setInfo).catch((e: Error) => setError(e.message));
   useEffect(() => { refresh(); }, [sceneId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    getEmbed(sceneId).then((e) => { setEmbedState(e); setSitesDraft(e?.sites.join(', ') ?? ''); }).catch(() => {});
+  }, [sceneId]);
+  const saveEmbed = (patch: { rotate?: true; sites?: string[] }, done: string) => run('embed', async () => {
+    const e = await setEmbed(sceneId, patch);
+    setEmbedState(e);
+    setSitesDraft(e?.sites.join(', ') ?? '');
+    return done;
+  });
 
   const run = async (label: string, fn: () => Promise<string | void>) => {
     setBusy(label); setError(''); setNote('');
@@ -323,23 +334,40 @@ function PublishPanel({ sceneId, onClose }: { sceneId: string; onClose: () => vo
     await unpublishScene(sceneId);
     return 'Unpublished. The link now shows a "not published" page.';
   });
+  // The studio's copy of the space follows a draft the server just replaced.
+  const adopt = async (doc: SceneDoc | null | undefined) => {
+    if (!doc) return;
+    await loadSceneDoc(sceneId, 'draft', { force: true });
+    renameScene(sceneId, doc.title);
+    const p = doc.spawn?.position;
+    if (Array.isArray(p) && p.length === 3) setSessionSpawn(sceneId, p as [number, number, number], doc.spawn.yaw ?? 0);
+  };
   const revert = () => {
     if (!confirm('Throw away every change since the last publish?')) return;
     run('revert', async () => {
-      const doc = await revertScene(sceneId);
-      if (doc) {
-        await loadSceneDoc(sceneId, 'draft', { force: true });
-        renameScene(sceneId, doc.title);
-        const p = doc.spawn?.position;
-        if (Array.isArray(p) && p.length === 3) setSessionSpawn(sceneId, p as [number, number, number], doc.spawn.yaw ?? 0);
-      }
+      await adopt(await revertScene(sceneId));
       return 'Reverted to the published version.';
+    });
+  };
+  const [versions, setVersions] = useState<SceneVersion[] | null>(null);
+  const loadVersions = () => getVersions(sceneId).then(setVersions).catch(() => setVersions([]));
+  useEffect(() => { loadVersions(); }, [sceneId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const restore = (v: number) => {
+    if (!confirm(`Put version ${v} live again? It is published as a new version; unpublished edits in the studio are replaced.`)) return;
+    run(`restore-${v}`, async () => {
+      const r = await restoreVersion(sceneId, v, true);
+      await adopt(r?.doc);
+      loadVersions();
+      if (r?.publish && !r.publish.published) throw new Error(r.publish.blockers?.join(' ') || 'It was restored as the draft, but publishing it was refused.');
+      return `Version ${v} is live again, as version ${r?.publish?.version}.`;
     });
   };
 
   const url = `${location.origin}/tour?space=${encodeURIComponent(sceneId)}`;
   const s = EMBED_SIZES[size];
-  const snippet = `<iframe src="${url}&embed=1" width="${s.w}" height="${s.h}" style="border:0" allow="fullscreen; xr-spatial-tracking" allowfullscreen loading="lazy" title="3D tour"></iframe>`;
+  // The key lets this snippet (and no hand-made one) show the tour; see embed.js.
+  const embedSrc = `${url}&embed=1&key=${encodeURIComponent(embed?.key ?? '')}`;
+  const snippet = `<iframe src="${embedSrc}" width="${s.w}" height="${s.h}" style="border:0" allow="fullscreen; xr-spatial-tracking" allowfullscreen loading="lazy" title="3D tour"></iframe>`;
   const copy = (what: string, text: string) => {
     navigator.clipboard?.writeText(text).then(() => { setCopied(what); setTimeout(() => setCopied(''), 1600); });
   };
@@ -390,6 +418,27 @@ function PublishPanel({ sceneId, onClose }: { sceneId: string; onClose: () => vo
         {note && <p className="pub-note">{note}</p>}
         {error && <p className="up-error">{error}</p>}
 
+        {!!versions?.length && (
+          <details className="pub-history">
+            <summary>History: {versions.length === 1 ? '1 published version' : `${versions.length} published versions`}</summary>
+            <ol>
+              {versions.map((v) => (
+                <li key={v.version}>
+                  <span>
+                    <b>Version {v.version}</b>{v.version === info?.publishedVersion && live && <span className="pub-live-tag">live</span>}
+                    <span className="pub-when">{v.publishedAt ? new Date(v.publishedAt).toLocaleString() : ''}</span>
+                  </span>
+                  {!(v.version === info?.publishedVersion && live) && (
+                    <button className="pub-secondary" disabled={!!busy} onClick={() => restore(v.version)}>
+                      {busy === `restore-${v.version}` ? 'Restoring…' : 'Put live again'}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </details>
+        )}
+
         {live && (
           <div className="pub-share">
             <p className="pub-label">Link</p>
@@ -406,12 +455,34 @@ function PublishPanel({ sceneId, onClose }: { sceneId: string; onClose: () => vo
               ))}
             </div>
             <div className="pub-copyrow">
-              <textarea readOnly rows={3} value={snippet} onFocus={(e) => e.target.select()} />
-              <button onClick={() => copy('embed', snippet)}>{copied === 'embed' ? 'Copied' : 'Copy'}</button>
+              <textarea readOnly rows={3} value={embed ? snippet : 'Getting this space’s embed key…'} onFocus={(e) => e.target.select()} />
+              <button onClick={() => copy('embed', snippet)} disabled={!embed}>{copied === 'embed' ? 'Copied' : 'Copy'}</button>
             </div>
             <p className="up-slot-hint">
-              Paste this into the client&apos;s page. It needs no build step. Embed tokens aren&apos;t enforced yet, so anyone with the link can view it.
+              Paste this into the client&apos;s page; it needs no build step. Only this code shows the tour in a frame:
+              a hand-made one, or one from before you retire them below, shows a &ldquo;can&apos;t be shown here&rdquo; message instead.
             </p>
+
+            <p className="pub-label">Websites allowed to embed it</p>
+            <div className="pub-copyrow">
+              <input
+                value={sitesDraft} placeholder="Any website — or e.g. baserahotel.com, basera.com.np"
+                onChange={(e) => setSitesDraft(e.target.value)}
+              />
+              <button
+                disabled={!embed || !!busy || sitesDraft === (embed?.sites.join(', ') ?? '')}
+                onClick={() => saveEmbed({ sites: sitesDraft.split(/[\s,]+/).filter(Boolean) }, 'Saved the website list.')}
+              >Save</button>
+            </div>
+            <p className="up-slot-hint">Their subdomains count too. Leave it empty to allow any website.</p>
+            <button
+              className="pub-secondary is-danger" disabled={!embed || !!busy}
+              onClick={() => {
+                if (confirm('Retire every embed code handed out for this space? Pages using an old one stop showing the tour until they paste the new code.')) {
+                  saveEmbed({ rotate: true }, 'Old embed codes retired. Copy the new code above.');
+                }
+              }}
+            >Retire old embed codes</button>
           </div>
         )}
       </div>

@@ -21,6 +21,8 @@ import yauzl from 'yauzl';
 import zlib from 'zlib';
 import { Readable } from 'stream';
 import { requireEditorSession } from '../middleware/auth.js';
+import { assetGuard } from '../access.js';
+import { recordAsset } from '../activity.js';
 import * as storage from '../storage.js';
 import { buildFloorPlan } from '../floorplan.js';
 import { DATA_DIR } from '../dataDir.js';
@@ -322,7 +324,7 @@ async function finalizeGlb(assetId, relPath, res) {
 }
 
 
-assetsRouter.post('/:assetId/finalize', requireEditorSession, async (req, res, next) => {
+assetsRouter.post('/:assetId/finalize', requireEditorSession, assetGuard, async (req, res, next) => {
   const { assetId } = req.params;
   try {
     if (req.query.kind === 'audio') return await finalizeAudio(assetId, res);
@@ -485,10 +487,11 @@ assetsRouter.get('/:assetId/*', async (req, res, next) => {
 });
 
 /** (Re)build a space's floor plan, e.g. for a scan uploaded before plans existed. */
-assetsRouter.post('/:assetId/floorplan', requireEditorSession, async (req, res, next) => {
+assetsRouter.post('/:assetId/floorplan', requireEditorSession, assetGuard, async (req, res, next) => {
   try {
     const plan = await buildFloorPlan(req.params.assetId, String(req.query.title || 'Floor plan').slice(0, 80));
     if (!plan) return res.status(422).json({ error: 'This space has no collision mesh to draw a plan from. Upload the full Lixel Studio export.' });
+    await recordAsset(req, req.params.assetId, 'redrew the floor plan', `${plan.size[0]} × ${plan.size[1]} m`);
     res.json(plan);
   } catch (err) {
     next(err);
@@ -508,12 +511,16 @@ const PLAN_KINDS = [
   ['jpg', (b) => b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff],
   ['webp', (b) => b.length > 12 && b.toString('latin1', 0, 4) === 'RIFF' && b.toString('latin1', 8, 12) === 'WEBP']
 ];
+/** 'png' | 'jpg' | 'webp' from an image's first bytes, or undefined. */
+export const imageKind = (buf) => PLAN_KINDS.find(([, is]) => is(buf))?.[0];
+
 const clearUploadedPlan = (assetId) =>
   Promise.all(PLAN_KINDS.map(([ext]) => storage.remove(assetId, `floorplan/uploaded.${ext}`)));
 
 assetsRouter.put(
   '/:assetId/floorplan/upload',
   requireEditorSession,
+  assetGuard,
   express.raw({ type: () => true, limit: PLAN_MAX }),
   async (req, res, next) => {
     try {
@@ -523,11 +530,12 @@ assetsRouter.put(
       }
       const body = req.body;
       if (!Buffer.isBuffer(body) || !body.length) return res.status(400).json({ error: 'Choose an image of the floor plan to upload.' });
-      const kind = PLAN_KINDS.find(([, is]) => is(body))?.[0];
+      const kind = imageKind(body);
       if (!kind) return res.status(415).json({ error: 'Use a PNG, JPEG or WebP image. For a PDF, export the page as a PNG first.' });
       await clearUploadedPlan(req.params.assetId);
       const rel = `floorplan/uploaded.${kind}`;
       await storage.put(req.params.assetId, rel, Readable.from([body]));
+      await recordAsset(req, req.params.assetId, 'uploaded a floor plan');
       res.status(201).json({ path: rel, bytes: body.length });
     } catch (err) {
       next(err);
@@ -540,17 +548,19 @@ assetsRouter.put(
   }
 );
 
-assetsRouter.delete('/:assetId/floorplan/upload', requireEditorSession, async (req, res, next) => {
+assetsRouter.delete('/:assetId/floorplan/upload', requireEditorSession, assetGuard, async (req, res, next) => {
   try {
     await clearUploadedPlan(req.params.assetId);
+    await recordAsset(req, req.params.assetId, 'removed the uploaded floor plan');
     res.status(204).end();
   } catch (err) {
     next(err);
   }
 });
 
-assetsRouter.delete('/:assetId', requireEditorSession, async (req, res, next) => {
+assetsRouter.delete('/:assetId', requireEditorSession, assetGuard, async (req, res, next) => {
   try {
+    await recordAsset(req, req.params.assetId, 'deleted a model', req.params.assetId);
     await storage.remove(req.params.assetId);
     res.status(204).end();
   } catch (err) {

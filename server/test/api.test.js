@@ -19,7 +19,19 @@ let server;
 let cookie = '';
 let signedIn = '';
 
+// A stand-in for the email service (mailer.js): records what it's sent.
+const mailbox = [];
+const mailServer = http.createServer((req, res) => {
+  let body = '';
+  req.on('data', (c) => { body += c; });
+  req.on('end', () => {
+    mailbox.push({ auth: req.headers.authorization, ...JSON.parse(body) });
+    res.writeHead(200, { 'Content-Type': 'application/json' }).end('{"id":"m1"}');
+  });
+});
+
 before(async () => {
+  await new Promise((r) => mailServer.listen(0, '127.0.0.1', r));
   server = spawn(process.execPath, ['src/index.js'], {
     cwd: path.resolve(import.meta.dirname, '..'),
     env: {
@@ -29,6 +41,12 @@ before(async () => {
       ASSET_DIR: path.join(DATA, 'assets'),
       SESSION_SECRET: 'test-secret',
       EDITOR_PASSWORD: 'test-pass',
+      EMBED_TOKEN_SECRET: 'test-embed-secret',
+      AUTH_RATE_MAX: '100', // the suite signs up many accounts from one IP
+      LEADS_RATE_MAX: '100',
+      RESEND_API_KEY: 'test-mail-key',
+      RESEND_API_URL: `http://127.0.0.1:${mailServer.address().port}/emails`,
+      LEADS_TO: '',
       CLIENT_ORIGIN: 'http://localhost:3000'
     },
     stdio: ['ignore', 'pipe', 'pipe']
@@ -47,6 +65,7 @@ before(async () => {
 });
 
 after(() => {
+  mailServer.close();
   server?.kill();
   rmSync(DATA, { recursive: true, force: true });
 });
@@ -246,6 +265,201 @@ test('sharing a project adds a member who can then see and manage it, until remo
   assert.equal((await api('GET', `/api/properties/${id}`)).status, 404, 'access revoked');
 });
 
+test('a project\'s spaces and their files are only for people who can see the project', async () => {
+  const owner = await signUpUser('Space Owner', 'space-owner@geonova.com.np');
+  const outsider = await signUpUser('Outsider', 'outsider@geonova.com.np');
+  const helper = await signUpUser('Helper', 'helper@geonova.com.np');
+
+  cookie = owner.cookie;
+  const pid = (await api('POST', '/api/properties', { title: 'Private Hotel' })).json.id;
+  const { assetId } = await uploadModel([['private-lobby.glb', glb({ meshes: [mesh(4)], nodes: [{ mesh: 0 }] })]]);
+  const doc = sceneDoc('private-lobby', { propertyId: pid, splat: { format: 'glb', variants: { high: { assetId, meta: 'private-lobby.glb' } } } });
+  assert.equal((await api('PUT', '/api/scenes/private-lobby', doc)).status, 200);
+  assert.ok((await api('GET', '/api/scenes')).json.some((s) => s.id === 'private-lobby'), 'the owner lists it');
+
+  cookie = outsider.cookie;
+  assert.ok(!(await api('GET', '/api/scenes')).json.some((s) => s.id === 'private-lobby'), 'not in an outsider\'s list');
+  assert.equal((await api('PUT', '/api/scenes/private-lobby', { ...doc, title: 'Mine now' })).status, 403, 'cannot save over it');
+  assert.equal((await api('POST', '/api/scenes/private-lobby/publish')).status, 403, 'cannot publish it');
+  assert.equal((await api('POST', '/api/scenes/private-lobby/unpublish')).status, 403);
+  assert.equal((await api('POST', '/api/scenes/private-lobby/property', { propertyId: null })).status, 403, 'cannot pull it out of the project');
+  assert.equal((await api('PUT', '/api/scenes/outsider-room', sceneDoc('outsider-room', { propertyId: pid }))).status, 403, 'cannot file a space into it');
+  assert.equal((await api('POST', `/api/assets/${assetId}/floorplan`)).status, 403, 'cannot redraw its plan');
+  assert.equal((await api('DELETE', `/api/assets/${assetId}/floorplan/upload`)).status, 403, 'cannot remove its plan');
+  assert.equal((await api('DELETE', `/api/assets/${assetId}`)).status, 403, 'cannot delete its model');
+  assert.equal((await fetch(`${BASE}/api/assets/${assetId}/private-lobby.glb`)).status, 200, 'the model itself still streams to visitors');
+
+  // added to the project, a teammate can work on it
+  cookie = owner.cookie;
+  await api('POST', `/api/properties/${pid}/members`, { email: helper.user.email });
+  cookie = helper.cookie;
+  assert.equal((await api('PUT', '/api/scenes/private-lobby', { ...doc, title: 'Lobby, retouched' })).status, 200);
+  assert.ok((await api('GET', '/api/scenes')).json.some((s) => s.id === 'private-lobby'));
+
+  // unfiled spaces stay open to everyone, as before
+  cookie = outsider.cookie;
+  assert.equal((await api('PUT', '/api/scenes/outsider-room', sceneDoc('outsider-room'))).status, 200);
+  // and the public list, with no session, is unchanged
+  cookie = '';
+  assert.ok((await api('GET', '/api/scenes')).json.some((s) => s.id === 'private-lobby'));
+});
+
+test('an embed needs its space\'s key, a retired key stops working, and a site list is honoured', async () => {
+  signIn();
+  assert.equal((await api('PUT', '/api/scenes/embed-room', sceneDoc('embed-room'))).status, 200);
+  const check = (key, from = '') => api('GET', `/api/embed/check?space=embed-room&key=${encodeURIComponent(key)}&from=${encodeURIComponent(from)}`);
+
+  const first = (await api('GET', '/api/embed/embed-room')).json;
+  assert.ok(first.key && first.version === 0 && first.sites.length === 0);
+  assert.deepEqual((await check(first.key, 'https://anywhere.example')).json, { ok: true }, 'no list: any site');
+  assert.equal((await check('made-up-key-000000000000')).json.reason, 'key');
+  assert.equal((await check('')).json.reason, 'key', 'no key, no embed');
+
+  // a studio save can't touch the embed settings
+  await api('PUT', '/api/scenes/embed-room', { ...sceneDoc('embed-room'), embed: { version: 99, sites: [] } });
+  assert.equal((await api('GET', '/api/embed/embed-room')).json.version, 0);
+
+  const rotated = (await api('POST', '/api/embed/embed-room', { rotate: true })).json;
+  assert.equal(rotated.version, 1);
+  assert.equal((await check(first.key)).json.reason, 'key', 'old snippets retired');
+  assert.equal((await check(rotated.key)).json.ok, true);
+
+  const listed = (await api('POST', '/api/embed/embed-room', { sites: ['https://www.Basera.com/rooms', 'basera.com', 'not a site!'] })).json;
+  assert.deepEqual(listed.sites, ['basera.com']);
+  assert.equal((await check(rotated.key, 'https://www.basera.com')).json.ok, true);
+  assert.equal((await check(rotated.key, 'https://book.basera.com')).json.ok, true, 'a subdomain');
+  assert.equal((await check(rotated.key, 'https://evil-basera.com')).json.reason, 'site');
+  assert.equal((await check(rotated.key, '')).json.reason, 'site', 'a hidden origin is refused once there is a list');
+  assert.equal((await check(rotated.key, 'http://localhost:3000')).json.ok, true, 'our own site, for previews');
+
+  // the key is studio-only, and only for people who can see the space
+  cookie = '';
+  assert.equal((await api('GET', '/api/embed/embed-room')).status, 401);
+  assert.equal((await api('POST', '/api/embed/token', { sceneId: 'embed-room' })).status, 401, 'the old open token route is gone');
+});
+
+test('a project keeps a log of who did what, readable by those who can see it', async () => {
+  const owner = await signUpUser('Log Owner', 'log-owner@geonova.com.np');
+  const other = await signUpUser('Log Outsider', 'log-outsider@geonova.com.np');
+  cookie = owner.cookie;
+  const pid = (await api('POST', '/api/properties', { title: 'Logged Hotel' })).json.id;
+  await api('PUT', '/api/scenes/logged-room', sceneDoc('logged-room', { propertyId: pid, title: 'Logged room' }));
+  await api('PUT', '/api/scenes/logged-room', sceneDoc('logged-room', { propertyId: pid, title: 'Logged room' }));
+  await api('PATCH', `/api/properties/${pid}`, { title: 'Logged Hotel & Spa' });
+
+  const log = await api('GET', `/api/properties/${pid}/activity`);
+  assert.equal(log.status, 200);
+  assert.deepEqual(log.json.map((e) => e.action), ['renamed the project', 'saved changes', 'added a space', 'created the project'], 'newest first');
+  assert.ok(log.json.every((e) => e.who.name === 'Log Owner' && e.at));
+  assert.equal(log.json[0].detail, 'was “Logged Hotel”');
+
+  cookie = other.cookie;
+  assert.equal((await api('GET', `/api/properties/${pid}/activity`)).status, 404, 'not for outsiders');
+});
+
+test('a project carries its own branding: name, accent, font and logo', async () => {
+  signIn();
+  const pid = (await api('POST', '/api/properties', { title: 'Branded Hotel' })).json.id;
+  const set = await api('PUT', `/api/properties/${pid}/theme`, { brand: '  Branded Hotel & Spa ', accent: '#1F6FEB', font: 'classic' });
+  assert.equal(set.status, 200);
+  assert.deepEqual(set.json.theme, { brand: 'Branded Hotel & Spa', accent: '#1f6feb', font: 'classic' });
+  assert.equal((await api('PUT', `/api/properties/${pid}/theme`, { accent: 'red' })).status, 400);
+  assert.equal((await api('PUT', `/api/properties/${pid}/theme`, { font: 'comic' })).status, 400);
+
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(32, 3)]);
+  const logo = await api('PUT', `/api/properties/${pid}/logo`, new Uint8Array(png), { 'Content-Type': 'application/octet-stream' });
+  assert.equal(logo.status, 200);
+  assert.match(logo.json.theme.logo, new RegExp(`^brand_${pid}/logo\\.png\\?v=\\d+$`));
+  assert.equal((await fetch(`${BASE}/api/assets/brand_${pid}/logo.png`)).headers.get('content-type'), 'image/png');
+  assert.equal((await api('PUT', `/api/properties/${pid}/logo`, new Uint8Array(Buffer.from('<svg/>')), { 'Content-Type': 'application/octet-stream' })).status, 415);
+
+  // public, for the tour: just the branding
+  cookie = '';
+  const pub = await api('GET', `/api/properties/${pid}/theme`);
+  assert.deepEqual(Object.keys(pub.json).sort(), ['theme', 'title']);
+  assert.equal(pub.json.theme.accent, '#1f6feb');
+  assert.equal((await api('PUT', `/api/properties/${pid}/theme`, { accent: '#000000' })).status, 401);
+
+  signIn();
+  assert.equal((await api('DELETE', `/api/properties/${pid}/logo`)).json.theme.logo, undefined);
+  assert.equal((await fetch(`${BASE}/api/assets/brand_${pid}/logo.png`)).status, 404);
+});
+
+test('an enquiry is filed to its project, emailed to its people, and exports to CSV', async () => {
+  const owner = await signUpUser('Enquiry Owner', 'enquiry-owner@geonova.com.np');
+  cookie = owner.cookie;
+  const pid = (await api('POST', '/api/properties', { title: 'Enquiry Hotel' })).json.id;
+  await api('PUT', '/api/scenes/enquiry-suite', sceneDoc('enquiry-suite', { propertyId: pid, title: 'Deluxe suite' }));
+  assert.equal((await api('PUT', `/api/properties/${pid}/lead-emails`, { emails: ['not an email'] })).status, 400);
+  assert.deepEqual((await api('PUT', `/api/properties/${pid}/lead-emails`, { emails: [' Sales@Hotel.com ', 'sales@hotel.com'] })).json.emails, ['sales@hotel.com']);
+
+  const send = (fields) => fetch(`${BASE}/api/leads`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'Asha', phone: '9841000000', formRenderedAt: Date.now() - 5000, ...fields })
+  });
+  mailbox.length = 0;
+  // a space's own project wins over whatever the form claims
+  assert.equal((await send({ sceneId: 'enquiry-suite', sceneName: 'Deluxe suite', propertyId: 'someone-else', message: '=HYPERLINK("http://x")', email: 'asha@mail.com' })).status, 200);
+  // from the project's page
+  assert.equal((await send({ sceneId: 'hub', sceneName: 'Enquiry Hotel (project page)', propertyId: pid })).status, 200);
+  // a made-up project from the page files nowhere
+  assert.equal((await send({ sceneId: 'hub', propertyId: 'no-such-project' })).status, 200);
+
+  // emails go out after the reply; give them a moment
+  for (let i = 0; i < 50 && mailbox.length < 2; i++) await new Promise((r) => setTimeout(r, 50));
+  assert.equal(mailbox.length, 2, 'the made-up project has no one to email');
+  const mail = mailbox.find((m) => m.subject.includes('Deluxe suite'));
+  assert.equal(mail.auth, 'Bearer test-mail-key');
+  assert.deepEqual(mail.to, ['sales@hotel.com']);
+  assert.equal(mail.reply_to, 'asha@mail.com', 'replying answers the guest');
+  assert.match(mail.text, /Phone:\s+9841000000/);
+  assert.ok(!('html' in mail), 'plain text only: the fields are a stranger\'s');
+
+  const list = await api('GET', `/api/properties/${pid}/leads`);
+  assert.equal(list.json.leads.length, 2);
+  assert.ok(list.json.leads.every((l) => l.delivery?.sent === true), 'the send is recorded');
+
+  const csv = await fetch(`${BASE}/api/properties/${pid}/leads.csv`, { headers: { cookie } });
+  assert.match(csv.headers.get('content-disposition'), /attachment; filename="enquiry-hotel-enquiries-/);
+  const bytes = Buffer.from(await csv.arrayBuffer()); // .text() would strip the BOM
+  assert.deepEqual([...bytes.subarray(0, 3)], [0xef, 0xbb, 0xbf], 'BOM, so Excel reads UTF-8');
+  const text = bytes.toString('utf8');
+  assert.match(text, /"'=HYPERLINK\(""http:\/\/x""\)"/, 'a formula a stranger typed is shown, not run');
+
+  // every project's enquiries: admins only
+  const editor = await signUpUser('Enquiry Editor', 'enquiry-editor@geonova.com.np');
+  cookie = editor.cookie;
+  assert.equal((await api('GET', '/api/leads')).status, 403);
+  assert.equal((await api('GET', `/api/properties/${pid}/leads`)).status, 404, 'not their project');
+});
+
+test('every published version is listed, and any one can be put live again', async () => {
+  signIn();
+  await api('PUT', '/api/scenes/history-room', sceneDoc('history-room', { title: 'First take' }));
+  assert.equal((await api('POST', '/api/scenes/history-room/publish')).json.version, 1);
+  await api('PUT', '/api/scenes/history-room', sceneDoc('history-room', { title: 'Second take' }));
+  assert.equal((await api('POST', '/api/scenes/history-room/publish')).json.version, 2);
+  const embedV = (await api('POST', '/api/embed/history-room', { rotate: true })).json.version;
+
+  const list = await api('GET', '/api/scenes/history-room/versions');
+  assert.deepEqual(list.json.map((v) => [v.version, v.title]), [[2, 'Second take'], [1, 'First take']]);
+
+  const r = await api('POST', '/api/scenes/history-room/restore', { version: 1, publish: true });
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  assert.equal(r.json.publish.version, 3, 'a new version, so the history keeps every step');
+  assert.equal((await api('GET', '/api/scenes/history-room/published')).json.title, 'First take');
+  assert.equal((await api('GET', '/api/embed/history-room')).json.version, embedV, 'restoring never un-retires embed codes');
+
+  // revert, too, keeps the embed key and publish state
+  await api('PUT', '/api/scenes/history-room', sceneDoc('history-room', { title: 'Scratch' }));
+  assert.equal((await api('POST', '/api/scenes/history-room/revert')).status, 200);
+  assert.equal((await api('GET', '/api/scenes/history-room')).json.title, 'First take');
+  assert.equal((await api('GET', '/api/embed/history-room')).json.version, embedV);
+  assert.equal((await api('GET', '/api/scenes/history-room/publish')).json.publishedVersion, 3);
+
+  assert.equal((await api('POST', '/api/scenes/history-room/restore', { version: 9 })).status, 404);
+});
+
 test('an admin promotes and demotes from the team list, but never down to zero admins', async () => {
   const meLogin = await api('POST', '/api/auth/login', { email: 'first@geonova.com.np', password: 'plenty-long-8' });
   cookie = meLogin.headers.get('set-cookie').split(';')[0];
@@ -275,6 +489,45 @@ test('an admin promotes and demotes from the team list, but never down to zero a
   // "me" (now an editor) has lost admin rights at once, not after 12h
   cookie = meLogin.headers.get('set-cookie').split(';')[0];
   assert.equal((await api('GET', '/api/team')).status, 403);
+});
+
+test('an admin can reset a password by link, and remove an account; both sign the person out', async () => {
+  // second@ is the only admin by now (the test above)
+  const adminLogin = await api('POST', '/api/auth/login', { email: 'second@geonova.com.np', password: 'plenty-long-8' });
+  const admin = adminLogin.headers.get('set-cookie').split(';')[0];
+  const leaver = await signUpUser('Leaver', 'leaver@geonova.com.np');
+  const forgetful = await signUpUser('Forgetful', 'forgetful@geonova.com.np');
+
+  // the leaver owns a project
+  cookie = leaver.cookie;
+  const pid = (await api('POST', '/api/properties', { title: 'Leaver Lodge' })).json.id;
+
+  // reset: a one-time link; the old session dies, the new password works, the link can't be reused
+  cookie = admin;
+  const link = await api('POST', `/api/team/${forgetful.user.id}/reset`);
+  assert.equal(link.status, 200);
+  const token = new URLSearchParams(link.json.path.split('?')[1]).get('reset');
+  assert.ok(token && token.length > 20);
+  cookie = '';
+  assert.equal((await api('POST', '/api/auth/reset', { token, password: 'short' })).status, 400);
+  const reset = await api('POST', '/api/auth/reset', { token, password: 'brand-new-pass' });
+  assert.equal(reset.status, 200);
+  assert.equal((await api('POST', '/api/auth/reset', { token, password: 'another-one-9' })).status, 400, 'once only');
+  cookie = forgetful.cookie;
+  assert.equal((await api('GET', '/api/properties')).status, 401, 'signed in before the reset: signed out');
+  assert.equal((await api('GET', '/api/auth/session')).json.authenticated, false);
+  assert.equal((await api('POST', '/api/auth/login', { email: 'forgetful@geonova.com.np', password: 'brand-new-pass' })).status, 200);
+
+  // remove: signed out at once, and the project passes to the admin
+  cookie = admin;
+  assert.equal((await api('DELETE', `/api/team/${(await api('GET', '/api/auth/session')).json.user.id}`)).status, 400, 'not yourself');
+  const removed = await api('DELETE', `/api/team/${leaver.user.id}`);
+  assert.equal(removed.status, 200);
+  assert.equal(removed.json.projectsReassigned, 1);
+  assert.equal((await api('GET', `/api/properties/${pid}`)).json.ownerName, 'Second Person');
+  cookie = leaver.cookie;
+  assert.equal((await api('GET', '/api/properties')).status, 401);
+  assert.equal((await api('POST', '/api/auth/login', { email: 'leaver@geonova.com.np', password: 'plenty-long-8' })).status, 401);
 });
 
 /* ---------------------------------------------------------------- */

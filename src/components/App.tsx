@@ -374,16 +374,12 @@ export default function App({ property }: { property?: Property } = {}) {
   // CLAUDE.md §3 constraint 5 / §8.1 rule 1: no WebGL2, no splat attempt at
   // all — checked once, synchronously, before the SDK gets anywhere near it.
   const [webgl2] = useState(() => hasWebGL2());
-  // --- MAX-GRAPHICS OVERRIDE (temporary, requested 2026-09-17) ---
-  // Native devicePixelRatio, uncapped, instead of the tier table's dpr ceiling
-  // (high tier caps at 1.5 — CLAUDE.md §8). To revert, delete this line and
-  // uncomment the one below.
-  const [nativeDpr] = useState(() => (typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1));
+  // Tier decides dpr (§8 table: 1 low, 1.25 medium, 1.5 high) — resolved
+  // once, the same cached value useSceneManager reads, so the Canvas and the
+  // loader never disagree. Never above the screen's own ratio.
+  const [tierDpr] = useState(() => Math.min(tierProfile(detectTier()).dpr, typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1));
   // The visitor's HD toggle drops to 1× for weak devices or a hot laptop.
-  const dpr = useUiConfig().hd === false ? 1 : nativeDpr;
-  // Tier decides dpr (CLAUDE.md §8 table) — resolved once, same cached value
-  // useSceneManager reads, so the Canvas and the loader never disagree.
-  // const [dpr] = useState(() => tierProfile(detectTier()).dpr);
+  const dpr = useUiConfig().hd === false ? 1 : tierDpr;
 
   useEffect(() => { touch.enabled = isTouch; }, [isTouch]);
 

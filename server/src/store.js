@@ -79,7 +79,9 @@ export async function getScene(id) {
   }
 }
 
-const PUBLISH_FIELDS = ['status', 'publishedVersion', 'publishedAt'];
+// Owned by their own routes (publish, embed), never by a studio save: a tab
+// opened earlier would otherwise write stale values back.
+const PUBLISH_FIELDS = ['status', 'publishedVersion', 'publishedAt', 'embed'];
 
 async function readRaw(file) {
   try {
@@ -192,10 +194,44 @@ export async function getPublishedScene(id) {
 
 /** Throw away draft edits: the draft becomes the published snapshot again. */
 export async function revertToPublished(id) {
-  const snap = await getPublishedScene(id);
+  const raw = await readRaw(sceneFile(id));
+  if (!raw || raw.status !== 'published' || !raw.publishedVersion) return null;
+  return restoreVersion(id, raw.publishedVersion);
+}
+
+/** Every published version of a space, newest first: { version, publishedAt, title }. */
+export async function listVersions(id) {
+  sceneFile(id); // validates the id
+  const prefix = `${id}@`;
+  const out = [];
+  for (const f of await sceneFiles()) {
+    if (!f.startsWith(prefix) || !f.endsWith('.json')) continue;
+    const n = Number(f.slice(prefix.length, -5));
+    if (!Number.isInteger(n)) continue;
+    const snap = await readRaw(sceneFile(id, n));
+    if (snap) out.push({ version: n, publishedAt: snap.publishedAt ?? null, title: snap.title ?? id });
+  }
+  return out.sort((a, b) => b.version - a.version);
+}
+
+/**
+ * Put published version `n` back as the draft. What the routes own stays as
+ * it is now — publish state, and the embed key (an old snapshot's would
+ * un-retire snippets retired since) — and so does the project the space is
+ * in. Everything else is that version's.
+ */
+export async function restoreVersion(id, n) {
+  const draft = await readRaw(sceneFile(id));
+  if (!draft || !Number.isInteger(n)) return null;
+  const snap = await readRaw(sceneFile(id, n));
   if (!snap) return null;
-  await fs.writeFile(sceneFile(id), JSON.stringify(snap, null, 2));
-  return snap;
+  const next = migrateScene(snap);
+  for (const k of [...PUBLISH_FIELDS, 'propertyId']) {
+    if (k in draft) next[k] = draft[k];
+    else delete next[k];
+  }
+  await fs.writeFile(sceneFile(id), JSON.stringify(next, null, 2));
+  return next;
 }
 
 /**
@@ -210,6 +246,22 @@ export async function setSceneProperty(id, propertyId) {
   const next = { ...raw, propertyId };
   await fs.writeFile(sceneFile(id), JSON.stringify(next, null, 2));
   return { id, propertyId };
+}
+
+/** A space's embed settings (routes/embed.js): `version` is bumped to retire
+ *  every snippet handed out before; `sites` limits which websites may frame
+ *  it (empty: any). Patched on the draft directly, like the project. */
+export async function getEmbed(id) {
+  const raw = await readRaw(sceneFile(id));
+  return raw ? { version: 0, sites: [], ...(raw.embed ?? {}) } : null;
+}
+
+export async function setEmbed(id, patch) {
+  const raw = await readRaw(sceneFile(id));
+  if (!raw) return null;
+  const embed = { version: 0, sites: [], ...(raw.embed ?? {}), ...patch };
+  await fs.writeFile(sceneFile(id), JSON.stringify({ ...raw, embed }, null, 2));
+  return embed;
 }
 
 /* ------------------------------------------------------------------ */
@@ -340,6 +392,65 @@ export async function addPropertyMember(id, userId) {
   return next;
 }
 
+/** A project's branding on its tours (2026-09-25): the name shown over the
+ *  place, one accent colour, a heading font, and a logo (an asset path, see
+ *  routes/properties.js). Live, not per publish: a new logo shows on every
+ *  published tour of the project at once. */
+export const BRAND_FONTS = ['serif', 'sans', 'classic'];
+
+export async function setPropertyTheme(id, patch) {
+  const p = await getProperty(id);
+  if (!p) return null;
+  const theme = { ...(p.theme ?? {}) };
+  if ('brand' in patch) {
+    const b = typeof patch.brand === 'string' ? patch.brand.trim().slice(0, 80) : '';
+    if (b) theme.brand = b; else delete theme.brand;
+  }
+  if ('accent' in patch) {
+    if (patch.accent === null) delete theme.accent;
+    else if (typeof patch.accent === 'string' && /^#[0-9a-f]{6}$/i.test(patch.accent)) theme.accent = patch.accent.toLowerCase();
+    else throw badRequest('The accent must be a colour like #b08d57.');
+  }
+  if ('font' in patch) {
+    if (!BRAND_FONTS.includes(patch.font)) throw badRequest(`The font must be one of: ${BRAND_FONTS.join(', ')}.`);
+    theme.font = patch.font;
+  }
+  if ('logo' in patch) {
+    if (patch.logo) theme.logo = patch.logo; else delete theme.logo;
+  }
+  const next = { ...p, theme };
+  await fs.writeFile(propertyFile(id), JSON.stringify(next, null, 2));
+  return next;
+}
+
+/** Who a project's enquiries are emailed to (routes/leads.js). Up to 10. */
+export async function setLeadEmails(id, emails) {
+  const p = await getProperty(id);
+  if (!p) return null;
+  const clean = [...new Set((Array.isArray(emails) ? emails : []).map((e) => String(e).trim().toLowerCase()).filter(Boolean))];
+  const bad = clean.find((e) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) || e.length > 200);
+  if (bad) throw badRequest(`“${bad}” isn’t an email address.`);
+  if (clean.length > 10) throw badRequest('Ten addresses at most.');
+  const next = { ...p, leadEmails: clean };
+  await fs.writeFile(propertyFile(id), JSON.stringify(next, null, 2));
+  return next;
+}
+
+/** A removed account: the projects it owned pass to `toId` (the admin who
+ *  removed it; null for the legacy session: open to all), and it leaves every
+ *  member list. Returns how many projects changed owner. */
+export async function reassignProjects(userId, toId) {
+  let moved = 0;
+  for (const p of await listProperties()) {
+    const owned = p.ownerId === userId;
+    if (!owned && !p.members.includes(userId)) continue;
+    if (owned) moved += 1;
+    const next = { ...p, ownerId: owned ? toId : p.ownerId, members: p.members.filter((m) => m !== userId && m !== (owned ? toId : null)) };
+    await fs.writeFile(propertyFile(p.id), JSON.stringify(next, null, 2));
+  }
+  return moved;
+}
+
 export async function removePropertyMember(id, userId) {
   const p = await getProperty(id);
   if (!p) return null;
@@ -363,7 +474,8 @@ export async function listPublished() {
       publishedAt: snap.publishedAt,
       version: snap.publishedVersion,
       trackCount: snap.tracks?.length ?? 0,
-      thumb: snap.tracks?.find((t) => t.thumb)?.thumb ?? null
+      thumb: snap.tracks?.find((t) => t.thumb)?.thumb ?? null,
+      propertyId: snap.propertyId ?? null
     });
   }
   return out.sort((a, b) => (a.publishedAt < b.publishedAt ? 1 : -1));

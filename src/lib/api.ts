@@ -7,6 +7,7 @@
  */
 import type { ApiScene, Property, SceneDoc } from '../@types/scene.types';
 import type { AudioUploadResult, UploadResult } from '../@types/upload.types';
+import type { BrandFont, ProjectTheme } from '../@types/config.types';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000').replace(/\/$/, '');
 
@@ -72,8 +73,47 @@ export const addPropertyMember = (id: string, email: string) =>
 export const removePropertyMember = (id: string, userId: string) =>
   request<Property>(`/api/properties/${encodeURIComponent(id)}/members/${encodeURIComponent(userId)}`, { method: 'DELETE' });
 
+/** A project's branding. Public: the tour reads it. */
+export const getProjectTheme = (id: string) =>
+  request<{ title: string; theme: ProjectTheme }>(`/api/properties/${encodeURIComponent(id)}/theme`);
+/** Owner or admin. `accent: null` goes back to the default. */
+export const setProjectTheme = (id: string, patch: { brand?: string; accent?: string | null; font?: BrandFont }) =>
+  request<Property>(`/api/properties/${encodeURIComponent(id)}/theme`, { method: 'PUT', body: JSON.stringify(patch) });
+export const uploadProjectLogo = (id: string, file: File) =>
+  request<Property>(`/api/properties/${encodeURIComponent(id)}/logo`, {
+    method: 'PUT', body: file, headers: { 'Content-Type': 'application/octet-stream' }
+  });
+export const removeProjectLogo = (id: string) =>
+  request<Property>(`/api/properties/${encodeURIComponent(id)}/logo`, { method: 'DELETE' });
+
+/** A project's enquiries (server/src/routes/properties.js), for anyone who can see it. */
+export interface Lead {
+  id: string; createdAt: string; name: string; phone: string; email?: string; requirement?: string; dates?: string;
+  message?: string; sceneId: string; sceneName?: string; hotspotLabel?: string;
+  delivery?: { sent: boolean; reason?: string; at: string };
+}
+export interface ProjectLeads { leads: Lead[]; emails: string[]; emailOn: boolean }
+export const getProjectLeads = (id: string) => request<ProjectLeads>(`/api/properties/${encodeURIComponent(id)}/leads`);
+/** A plain link: the browser sends the studio's cookie with a top-level download. */
+export const projectLeadsCsvUrl = (id: string) => `${API_BASE}/api/properties/${encodeURIComponent(id)}/leads.csv`;
+export const setProjectLeadEmails = (id: string, emails: string[]) =>
+  request<{ emails: string[] }>(`/api/properties/${encodeURIComponent(id)}/lead-emails`, { method: 'PUT', body: JSON.stringify({ emails }) });
+
+/** Who did what in a project, newest first (server/src/activity.js). */
+export interface ActivityEntry { at: string; who: { id: string | null; name: string }; action: string; target: string; detail?: string }
+export const getActivity = (propertyId: string) =>
+  request<ActivityEntry[]>(`/api/properties/${encodeURIComponent(propertyId)}/activity`);
+
 /** The team list and role changes. Admin-only — the server refuses anyone else. */
 export const getTeam = () => request<SessionUser[]>('/api/team');
+/** A one-time, 24-hour password reset link for a teammate; the admin sends it. */
+export const makeResetLink = (id: string) =>
+  request<{ path: string; expires: string }>(`/api/team/${encodeURIComponent(id)}/reset`, { method: 'POST' });
+export const removeTeammate = (id: string) =>
+  request<{ projectsReassigned: number }>(`/api/team/${encodeURIComponent(id)}`, { method: 'DELETE' });
+/** Set a new password from a reset link, and sign in with it. */
+export const resetPasswordWith = (token: string, password: string) =>
+  request<SessionReply>('/api/auth/reset', { method: 'POST', body: JSON.stringify({ token, password }) });
 export const setTeamRole = (id: string, role: 'admin' | 'editor') =>
   request<SessionUser>(`/api/team/${encodeURIComponent(id)}/role`, { method: 'PATCH', body: JSON.stringify({ role }) });
 
@@ -115,6 +155,8 @@ export interface GalleryItem {
   version: number;
   trackCount: number;
   thumb: string | null;
+  /** The project it's in (the hub page lists one project's). */
+  propertyId?: string | null;
 }
 
 export const getPublishState = (id: string) => request<PublishState>(`/api/scenes/${id}/publish`);
@@ -128,6 +170,12 @@ export async function publishSceneNow(id: string): Promise<PublishResult> {
 }
 export const unpublishScene = (id: string) => request(`/api/scenes/${id}/unpublish`, { method: 'POST' });
 export const revertScene = (id: string) => request<SceneDoc>(`/api/scenes/${id}/revert`, { method: 'POST' });
+/** Every published version of a space, newest first. */
+export interface SceneVersion { version: number; publishedAt: string | null; title: string }
+export const getVersions = (id: string) => request<SceneVersion[]>(`/api/scenes/${id}/versions`);
+/** Put published version `version` back — as the draft, or live at once with `publish`. */
+export const restoreVersion = (id: string, version: number, publish = true) =>
+  request<{ doc: SceneDoc; publish?: PublishResult }>(`/api/scenes/${id}/restore`, { method: 'POST', body: JSON.stringify({ version, publish }) });
 export const getGallery = () => request<GalleryItem[]>('/api/gallery');
 /** Draw (or redraw) a space's floor plan from its scan; stored with the asset. */
 export const buildFloorPlan = (assetId: string, title: string) =>
@@ -163,11 +211,19 @@ export const logout = () => request('/api/auth/logout', { method: 'POST' });
 
 export const getSession = () => request<SessionReply>('/api/auth/session');
 
-/** A short-lived token an embedding client's own server can hand to the
- *  viewer (CLAUDE.md: "signed short-lived tokens for embeds"). Not yet
- *  required by the viewer itself — see server/src/routes/embed.js. */
-export const requestEmbedToken = (sceneId: string) =>
-  request('/api/embed/token', { method: 'POST', body: JSON.stringify({ sceneId }) });
+/** A space's embed key and the websites allowed to frame it (server/src/
+ *  routes/embed.js). Studio-only. `rotate` retires every snippet handed out
+ *  before; `sites` replaces the list (empty: any website). */
+export interface EmbedSettings { key: string; version: number; sites: string[] }
+export const getEmbed = (sceneId: string) => request<EmbedSettings>(`/api/embed/${encodeURIComponent(sceneId)}`);
+export const setEmbed = (sceneId: string, patch: { rotate?: true; sites?: string[] }) =>
+  request<EmbedSettings>(`/api/embed/${encodeURIComponent(sceneId)}`, { method: 'POST', body: JSON.stringify(patch) });
+
+/** Public: may this page show this space in a frame? `from` is the origin of
+ *  the page it's inside. `reason`: 'key' (wrong or retired), 'site', 'unknown'. */
+export const checkEmbed = (space: string, key: string, from: string) =>
+  request<{ ok: boolean; reason?: string }>(
+    `/api/embed/check?space=${encodeURIComponent(space)}&key=${encodeURIComponent(key)}&from=${encodeURIComponent(from)}`);
 
 /** Public — no session needed. `payload` must include `sceneId` and
  *  `formRenderedAt` (Date.now() when the form first appeared — the backend's

@@ -168,11 +168,6 @@ export function useSceneManager({ dev = false, appKey = null }: { dev?: boolean;
         // measured-downgrade monitor (sampled in the useFrame below) unless
         // this load IS the downgrade (nothing lower than 'low' to fall to).
         logTierLine({ tier, guessed: resolved.guessed, downgraded: downgradedRef.current, variant: tier });
-        // --- MAX-GRAPHICS OVERRIDE (temporary, requested 2026-09-17) ---
-        // Runtime measured-FPS downgrade disabled so a session never drops
-        // out of "high" once it's forced there (deviceTier.ts). To revert,
-        // uncomment this block (and revert deviceTier.ts's resolveInitialTier).
-        /*
         fpsMonitor.current = createFpsMonitor({
           tier,
           onDowngrade: (nextTier: typeof tier, medianFps: number) => {
@@ -183,7 +178,6 @@ export function useSceneManager({ dev = false, appKey = null }: { dev?: boolean;
             load(sceneId); // once — createFpsMonitor won't fire a second time
           }
         });
-        */
 
         if (dev) {
           window.__LCC = LCCRender;
