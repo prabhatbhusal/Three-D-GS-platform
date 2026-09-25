@@ -309,9 +309,23 @@
   "audio": null,
   "cta": null,
   "theme": null,
-  "booking": null,
+  "booking": {
+    "enabled": true,
+    "label": "Book now",
+    "url": "https://hello.com",
+    "title": "Deluxe Suite",
+    "price": "120",
+    "priceUnit": "/ night",
+    "priceNote": "Inclusive of tax",
+    "subtitle": "Traditional charm",
+    "askDates": true
+  },
   "neighbours": [],
   "status": "published",
   "publishedVersion": 9,
-  "publishedAt": "2026-09-23T10:27:12.078Z"
+  "publishedAt": "2026-09-23T10:27:12.078Z",
+  "embed": {
+    "version": 1,
+    "sites": []
+  }
 }
