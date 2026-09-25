@@ -9,6 +9,7 @@ import { bookingFor, sceneHasAudio, subscribeDoc } from '../lib/sceneDoc';
 import { safeUrl } from '../lib/api';
 import { setMuted, unlockAudio, useSound } from '../lib/audio';
 import { closeCurtain, openCurtain } from './Curtain';
+import { FloorMap } from './FloorMap';
 import { TouchControls } from './TouchControls';
 import { HotspotMarkers, HotspotPanel } from './HotspotMarkers';
 import { EnquiryPanel } from './EnquiryPanel';
@@ -75,7 +76,7 @@ export function Viewer({ state, isTouch, autoStart = false, tour = false }: View
   };
 
   return (
-    <div className="vw" data-touch={isTouch ? '' : undefined}>
+    <div className="vw" data-touch={isTouch ? '' : undefined} data-tour={tour ? '' : undefined}>
       {state?.loading && entered && <LoadingGate progress={state.progress} />}
 
       {!entered && (
@@ -110,6 +111,7 @@ export function Viewer({ state, isTouch, autoStart = false, tour = false }: View
           )}
           {ready && <ModeSlider mode={visitorMode(nav)} />}
           <LayersRail state={state} />
+          {ready && <FloorMap assetId={SCENE_BY_ID[state.activeId]?.assetId} startOpen={!isTouch} />}
           {ready && <BottomChrome state={state} showLabels={ui.showLabels} mode={visitorMode(nav)}
             trayOpen={panel === 'views' && !(isTouch && walking)}
             onToggleTray={() => setPanel(panel === 'views' ? null : 'views')} />}

@@ -678,3 +678,25 @@ button.vw-book { border: 0; cursor: pointer; }
    * the enquiry card; on phones the bottom sheet must cover the bar instead */
   .vw-cta-btn { bottom: 16px; z-index: 14; }
 }
+
+/* ---- floor map (FloorMap.tsx): bottom left, above the joystick's corner -- */
+.vw-map {
+  position: fixed; left: 16px; bottom: 16px; z-index: 11;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+}
+.vw-map svg {
+  width: min(240px, 40vw); max-height: 34vh; padding: 8px;
+  border-radius: 16px; background: rgba(13, 10, 8, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.vw-map-toggle {
+  order: 2; appearance: none; cursor: pointer; padding: 7px 14px; border-radius: 999px;
+  font: 600 12px/1 var(--sans); color: var(--paper, #f6f1e7);
+  background: rgba(13, 10, 8, 0.7); border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.vw-map-room { cursor: pointer; opacity: 0.8; transition: opacity 0.2s; }
+.vw-map-room:hover { opacity: 1; }
+.vw-map-room.is-here { opacity: 1; fill: #4A67D6; }
+.vw-map-label { font: 600 0.55px/1 var(--sans); fill: #fff; text-anchor: middle; pointer-events: none; }
+/* the studio preview's Exit preview sits bottom-left */
+.vw[data-tour] .vw-map { bottom: 72px; }

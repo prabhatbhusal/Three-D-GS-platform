@@ -84,3 +84,31 @@ test('no geometry, no plan; titles are escaped', () => {
   assert.match(planSvg(p, 'Lab'), />4 m</, 'overall width dimension');
   assert.match(plan3dSvg(p, 'Lab'), /^<svg/);
 });
+
+// rooms are an indoor thing: these have a ceiling (no ceiling reads as outdoors)
+const roof = slab(0, 0, 4, 3, 2.6);
+const line = (x0, y0, x1, y1, n = 40) => Array.from({ length: n }, (_, i) => [x0 + ((x1 - x0) * i) / (n - 1), y0 + ((y1 - y0) * i) / (n - 1), 1]);
+
+test('a room is found, with its size and area; outdoors there are none', () => {
+  assert.equal(planFrom(room, line(1, 1.5, 3, 1.5)).rooms.length, 0, 'no ceiling: outdoors');
+  const p = planFrom([...room, ...roof], line(1, 1.5, 3, 1.5));
+  assert.equal(p.rooms.length, 1);
+  assert.ok(Math.abs(p.rooms[0].area - 12) <= 1.5, `area ${p.rooms[0].area}`);
+});
+
+test('a partition with a doorway the scanner walked through: two rooms and a door', () => {
+  const p = planFrom([...room, ...roof, ...wall(2, 0, 2, 1.1), ...wall(2, 1.9, 2, 3)], line(0.6, 1.5, 3.4, 1.5));
+  assert.equal(p.rooms.length, 2);
+  assert.equal(p.doors.length, 1);
+  assert.ok(Math.abs(p.doors[0].a1 - p.doors[0].a0 - 0.8) < 0.15, JSON.stringify(p.doors[0]));
+  assert.match(planSvg(p, 'Two rooms'), /Room 2/);
+});
+
+test('a gap nobody walked through, with wall under it at sill height, is a window', () => {
+  const sill = quad([4, 1, 0], [4, 2, 0], [4, 2, 0.9], [4, 1, 0.9]);
+  const east = [...wall(4, 0, 4, 1), ...wall(4, 2, 4, 3), ...sill];
+  const box3 = [...slab(0, 0, 4, 3, 0), ...wall(0, 0, 4, 0), ...east, ...wall(4, 3, 0, 3), ...wall(0, 3, 0, 0), ...roof];
+  const p = planFrom(box3, line(1, 1.5, 3, 1.5));
+  assert.equal(p.windows.length, 1);
+  assert.equal(p.rooms.length, 1, 'the window keeps the room shut');
+});

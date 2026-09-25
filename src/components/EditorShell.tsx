@@ -1080,9 +1080,10 @@ function FloorPlanSection({ sceneId }: { sceneId: string }) {
     <Section title="Floor plan">
       {(drawn || mine) && (
         <div className="ed2-row">
-          {drawn && <button className="ed2-export" aria-pressed={view === '3d'} onClick={() => setView('3d')}>3D</button>}
-          {drawn && <button className="ed2-export" aria-pressed={view === 'plan'} onClick={() => setView('plan')}>2D plan</button>}
-          {mine && <button className="ed2-export" aria-pressed={view === 'mine'} onClick={() => setView('mine')}>Yours</button>}
+          {([...(drawn ? ['3d', 'plan'] : []), ...(mine ? ['mine'] : [])] as ('3d' | 'plan' | 'mine')[]).map((v) => (
+            <button key={v} className="ed2-export" style={{ flex: 1, marginTop: 0, fontWeight: view === v ? 700 : 400 }}
+              aria-pressed={view === v} onClick={() => setView(v)}>{v === '3d' ? '3D' : v === 'plan' ? '2D plan' : 'Yours'}</button>
+          ))}
         </div>
       )}
       {showing && (

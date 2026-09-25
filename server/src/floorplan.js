@@ -33,6 +33,12 @@ const GAP = 0.25; // m: ... and join across gaps this narrow (a doorway is wider
 const SMALL = 0.8; // m: a curvy blob smaller than this is furniture or a plant
 const SHORT = 0.25; // m: a straight piece shorter than this is clutter
 const WALL_H = 2.4; // m, how high the 3D plan raises walls
+const TEETH = 0.4; // m: what sticks out of a wall less than this at 1.5 m (flush cabinets, radiators) is against it, not part of it
+const MIN_RUN = 0.4; // m: a straight stretch shorter than this isn't fitted as a wall
+const SILL_CUT = 0.6; // m: the low cut, under window sills (windows)
+const RCELL = 0.1; // m: the room grid
+const SEAL = 0.3; // m: walls grow by this to seal scan gaps up to 0.6 m when finding rooms
+const REACH = 3; // m: how far from the walked path an open-sided area still counts as room
 
 function readPly(buf) {
   const end = buf.indexOf('end_header\n') + 'end_header\n'.length;
@@ -93,19 +99,25 @@ export function planFrom(tris, walk = []) {
 
   // 2. the cut. Each edge is cut with its two ends in a fixed order, so the
   //    two triangles sharing it get bit-identical points and chain up exactly.
-  const segs = [];
-  const hitOn = (a, b, out) => {
-    if (tris[a] > tris[b] || (tris[a] === tris[b] && tris[a + 1] > tris[b + 1])) [a, b] = [b, a];
-    const za = tris[a + 2] - cutZ, zb = tris[b + 2] - cutZ;
-    if (za * zb >= 0) return;
-    const s = za / (za - zb);
-    out.push(tris[a] + (tris[b] - tris[a]) * s, tris[a + 1] + (tris[b + 1] - tris[a + 1]) * s);
+  //    A second, low cut under the window sills finds windows later (glass
+  //    is invisible to LiDAR: a window is a gap at 1.5 m, wall at 0.6 m).
+  const cutAt = (z) => {
+    const out = [];
+    const hitOn = (a, b, hit) => {
+      if (tris[a] > tris[b] || (tris[a] === tris[b] && tris[a + 1] > tris[b + 1])) [a, b] = [b, a];
+      const za = tris[a + 2] - z, zb = tris[b + 2] - z;
+      if (za * zb >= 0) return;
+      const s = za / (za - zb);
+      hit.push(tris[a] + (tris[b] - tris[a]) * s, tris[a + 1] + (tris[b + 1] - tris[a + 1]) * s);
+    };
+    for (let t = 0; t < nT; t++) {
+      const hit = [];
+      for (let e = 0; e < 3; e++) hitOn(t * 9 + e * 3, t * 9 + ((e + 1) % 3) * 3, hit);
+      if (hit.length === 4) out.push(hit);
+    }
+    return out;
   };
-  for (let t = 0; t < nT; t++) {
-    const hit = [];
-    for (let e = 0; e < 3; e++) hitOn(t * 9 + e * 3, t * 9 + ((e + 1) % 3) * 3, hit);
-    if (hit.length === 4) segs.push(hit);
-  }
+  const segs = cutAt(cutZ);
 
   // 3. only walls near where the scanner walked — or, for an export without
   //    its path, near the floor it scanned
@@ -153,23 +165,41 @@ export function planFrom(tris, walk = []) {
       if (kind === 'O' && len > 0.05) square = false;
       if (kind !== 'O') axisLen += len;
       allLen += len;
-      pieces.push([kind, x0, y0, x1, y1, len]);
+      pieces.push([kind, x0, y0, x1, y1, len, i]);
     }
     if (diag < SMALL && !square) continue;
+    // a stretch of the line that stays inside a thin band along one axis is
+    // one straight wall, teeth and all (curtain folds, radiators, shelving
+    // against it at 1.5 m): fitted at its length-weighted median offset
+    const fitted = new Uint8Array(c.length);
+    for (const [i0, i1, kind] of straightRuns(c)) {
+      const ax = kind === 'H' ? 0 : 1;
+      const run = c.slice(i0, i1 + 1);
+      const lo = Math.min(...run.map((q) => q[ax])), hi = Math.max(...run.map((q) => q[ax]));
+      if (hi - lo < MIN_RUN) continue;
+      const offs = [];
+      for (let i = i0 + 1; i <= i1; i++) offs.push([(c[i - 1][1 - ax] + c[i][1 - ax]) / 2, Math.hypot(c[i][0] - c[i - 1][0], c[i][1] - c[i - 1][1])]);
+      offs.sort((m, n) => m[0] - n[0]);
+      let half = offs.reduce((t, o) => t + o[1], 0) / 2, at = offs[0][0];
+      for (const [o, l] of offs) { at = o; if ((half -= l) <= 0) break; }
+      (kind === 'H' ? H : V).push({ at, a: lo, b: hi });
+      for (let i = i0 + 1; i <= i1; i++) fitted[i] = 1;
+    }
     // a mostly square wall's short slanted bits are what's against it at
     // 1.5 m (curtain folds, frames, a lamp), not the wall: the zig-zag teeth
     const squareWall = axisLen >= allLen * 0.6;
-    for (const [kind, x0, y0, x1, y1, len] of pieces) {
+    for (const [kind, x0, y0, x1, y1, len, i] of pieces) {
+      if (fitted[i]) continue;
       if (kind === 'H') H.push({ at: (y0 + y1) / 2, a: Math.min(x0, x1), b: Math.max(x0, x1) });
       else if (kind === 'V') V.push({ at: (x0 + x1) / 2, a: Math.min(y0, y1), b: Math.max(y0, y1) });
       else if (!(squareWall && len < 0.3)) other.push([x0, y0, x1, y1]);
     }
   }
-  const walls = dropStrays([
-    ...mergeRuns(H).map((r) => [r.a, r.at, r.b, r.at]),
-    ...mergeRuns(V).map((r) => [r.at, r.a, r.at, r.b]),
+  const walls = dropStrays(clearTeeth([
+    ...joinSteps(mergeRuns(H)).map((r) => [r.a, r.at, r.b, r.at]),
+    ...joinSteps(mergeRuns(V)).map((r) => [r.at, r.a, r.at, r.b]),
     ...other
-  ]);
+  ]));
   if (!walls.length) return null;
 
   // bounds: 0.2 % trimmed, so a last stray fragment can't stretch the drawing
@@ -181,6 +211,33 @@ export function planFrom(tris, walk = []) {
 
   const r2 = (n) => Math.round(n * 100) / 100;
   const rWalk = walk.map((t) => rot([t[0], t[1]]));
+
+  // 7. rooms, doors and windows (indoors only)
+  const lowCut = near === NEAR_OUT ? [] : cutAt(floorZ + SILL_CUT)
+    .filter((s) => isNear((s[0] + s[2]) / 2, (s[1] + s[3]) / 2))
+    .map((s) => [...rot([s[0], s[1]]), ...rot([s[2], s[3]])]);
+  const inside = walls.filter((w) => inBox(w[0], w[1]) && inBox(w[2], w[3]));
+  const { rooms, doors, windows } = near === NEAR_OUT || !rWalk.length
+    ? { rooms: [], doors: [], windows: [] }
+    : roomsFrom(inside, rWalk, lowCut, rLines, box);
+  // a thick wall seen from both sides: two parallel faces 6–40 cm apart,
+  // mostly overlapping → drawn solid between them
+  const solids = [];
+  for (const o of ['h', 'v']) {
+    const f = inside
+      .filter((w) => (o === 'h' ? Math.abs(w[1] - w[3]) < 0.02 : Math.abs(w[0] - w[2]) < 0.02))
+      .map((w) => (o === 'h' ? [w[1], Math.min(w[0], w[2]), Math.max(w[0], w[2])] : [w[0], Math.min(w[1], w[3]), Math.max(w[1], w[3])]))
+      .sort((m, n) => m[0] - n[0]);
+    for (let i = 0; i < f.length; i++) {
+      for (let j = i + 1; j < f.length && f[j][0] - f[i][0] <= 0.4; j++) {
+        if (f[j][0] - f[i][0] < 0.06) continue;
+        const a = Math.max(f[i][1], f[j][1]), b = Math.min(f[i][2], f[j][2]);
+        if (b - a < 0.6 * Math.min(f[i][2] - f[i][1], f[j][2] - f[j][1])) continue;
+        solids.push(o === 'h' ? [a, f[i][0], b, f[j][0]] : [f[i][0], a, f[j][0], b]);
+      }
+    }
+  }
+
   return {
     version: 2,
     floorZ: r2(floorZ),
@@ -188,6 +245,10 @@ export function planFrom(tris, walk = []) {
     /** degrees the scan was turned to square it up (scan frame -> plan frame) */
     rotation: r2((theta * 180) / Math.PI),
     outdoor: near === NEAR_OUT,
+    rooms,
+    doors,
+    windows,
+    solids: solids.map((b) => b.map(r2)),
     size: [r2(box[2] - box[0]), r2(box[3] - box[1])],
     floorArea: Math.round(area),
     box: box.map(r2),
@@ -349,6 +410,75 @@ function dominantAngle(lines) {
   return Math.atan2(cy, cx) / 4;
 }
 
+/** One wall scanned as pieces that carry on end to end but step a few cm
+ *  in or out (the scan drifts along a long wall): pieces within 15 cm of
+ *  each other's line that meet end to end (overlapping 10 cm at most) become
+ *  one wall on their length-weighted line. Parallel faces side by side (a
+ *  thick wall's two sides) overlap more, and stay two. */
+function joinSteps(runs) {
+  const out = runs.map((r) => ({ ...r }));
+  for (let again = true; again;) {
+    again = false;
+    out.sort((p, q) => p.a - q.a);
+    for (let i = 0; i < out.length && !again; i++) {
+      for (let j = 0; j < out.length; j++) {
+        const p = out[i], q = out[j];
+        if (i === j || Math.abs(p.at - q.at) > 0.15 || q.a < p.b - 0.1 || q.a - p.b > GAP) continue;
+        const lp = p.b - p.a, lq = q.b - q.a;
+        p.at = (p.at * lp + q.at * lq) / (lp + lq);
+        p.b = Math.max(p.b, q.b);
+        out.splice(j, 1);
+        again = true;
+        break;
+      }
+    }
+  }
+  return out;
+}
+
+/** What stands against a wall at 1.5 m (cabinets, shelving, frames) is cut
+ *  as scraps just in front of it: slanted bits within 35 cm of a long
+ *  straight wall, and short straight bits parallel to one, in front of it
+ *  and within its length. They go; the wall stays. */
+function clearTeeth(walls) {
+  const NEAR = 0.35;
+  const axis = (w) => (Math.abs(w[1] - w[3]) < 0.02 ? 'h' : Math.abs(w[0] - w[2]) < 0.02 ? 'v' : null);
+  const len = (w) => Math.hypot(w[2] - w[0], w[3] - w[1]);
+  const long = walls.filter((w) => axis(w) && len(w) >= 1);
+  const toWall = (x, y, w) => (axis(w) === 'h'
+    ? (x >= Math.min(w[0], w[2]) - 0.1 && x <= Math.max(w[0], w[2]) + 0.1 ? Math.abs(y - w[1]) : Infinity)
+    : (y >= Math.min(w[1], w[3]) - 0.1 && y <= Math.max(w[1], w[3]) + 0.1 ? Math.abs(x - w[0]) : Infinity));
+  return walls.filter((w) => {
+    const o = axis(w);
+    if (!o) return !long.some((l) => toWall(w[0], w[1], l) < NEAR && toWall(w[2], w[3], l) < NEAR);
+    if (len(w) >= 1) return true;
+    return !long.some((l) => l !== w && axis(l) === o && toWall(w[0], w[1], l) < NEAR && toWall(w[2], w[3], l) < NEAR
+      && toWall(w[0], w[1], l) > 0.03);
+  });
+}
+
+/** A line (plan frame) cut into stretches that each stay inside a band
+ *  TEETH wide along one axis: [first point, last point, 'H' | 'V']. Stretches
+ *  that are neither (a real slanted wall) aren't returned. */
+function straightRuns(c) {
+  const out = [];
+  if (c.length < 2) return out;
+  let s = 0, x0 = c[0][0], x1 = x0, y0 = c[0][1], y1 = y0;
+  const kind = (a, b, e, f) => (b - a >= f - e ? (f - e <= TEETH ? 'H' : null) : (b - a <= TEETH ? 'V' : null));
+  for (let i = 1; i < c.length; i++) {
+    const [x, y] = c[i];
+    const nx0 = Math.min(x0, x), nx1 = Math.max(x1, x), ny0 = Math.min(y0, y), ny1 = Math.max(y1, y);
+    if (kind(nx0, nx1, ny0, ny1)) { x0 = nx0; x1 = nx1; y0 = ny0; y1 = ny1; continue; }
+    const k = kind(x0, x1, y0, y1);
+    if (i - 1 > s && k) out.push([s, i - 1, k]);
+    s = i - 1;
+    x0 = Math.min(c[s][0], x); x1 = Math.max(c[s][0], x); y0 = Math.min(c[s][1], y); y1 = Math.max(c[s][1], y);
+  }
+  const k = kind(x0, x1, y0, y1);
+  if (c.length - 1 > s && k) out.push([s, c.length - 1, k]);
+  return out;
+}
+
 /** Walls grouped by touching (ends within 0.6 m of another wall). The
  *  biggest group is the building; another group stays if it's substantial
  *  on its own (10 % of the building's length: a second block, outdoors), or
@@ -424,7 +554,186 @@ function mergeRuns(pieces) {
     .map((r) => ({ a: r.a, b: r.b, at: r.w ? r.s / r.w : 0 }));
 }
 
+/** Rooms, doors and windows, from the squared-up walls (plan frame, metres).
+ *  A 0.3–4 m gap between two pieces of one straight wall line parts rooms:
+ *  walked through (path seen on both sides) and 0.6–1.8 m wide, it's a door;
+ *  nobody walked through and there's wall under it at sill height, a window.
+ *  Rooms flood-fill from the walked path over indoor cells (walls in at least
+ *  three of four directions: open ground outside has two open sides), with
+ *  walls grown to seal scan gaps, then grow back out to the wall faces.
+ *  Wider openings don't part rooms: that's an open-plan hall. */
+function roomsFrom(walls, path, low, cut, box) {
+  const r2 = (n) => Math.round(n * 100) / 100;
+  const ou = box[0] - 1, ov = box[1] - 1;
+  const RW = Math.ceil((box[2] - box[0] + 2) / RCELL), RH = Math.ceil((box[3] - box[1] + 2) / RCELL), N = RW * RH;
+  const cellOf = (u, v) => {
+    const x = Math.floor((u - ou) / RCELL), y = Math.floor((v - ov) / RCELL);
+    return x >= 0 && y >= 0 && x < RW && y < RH ? y * RW + x : -1;
+  };
+  const draw = (m, x0, y0, x1, y1, pad = 0) => { // a line into a grid, thickened by pad
+    const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / (RCELL / 2)) + 1, r = Math.ceil(pad / RCELL);
+    for (let i = 0; i <= n; i++) {
+      const k = cellOf(x0 + ((x1 - x0) * i) / n, y0 + ((y1 - y0) * i) / n);
+      if (k < 0) continue;
+      const cx = k % RW, cy = (k / RW) | 0;
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const x = cx + dx, y = cy + dy;
+          if (x >= 0 && y >= 0 && x < RW && y < RH) m[y * RW + x] = 1;
+        }
+      }
+    }
+  };
+  const lowAt = new Uint8Array(N), cutAtCell = new Uint8Array(N);
+  for (const s of low) draw(lowAt, ...s);
+  for (const c of cut) for (let i = 1; i < c.length; i++) draw(cutAtCell, c[i - 1][0], c[i - 1][1], c[i][0], c[i][1]);
+
+  // openings: gaps between two pieces of one straight wall line
+  const doors = [], windows = [], gaps = [];
+  for (const o of ['h', 'v']) {
+    const line = walls
+      .filter((w) => (o === 'h' ? Math.abs(w[1] - w[3]) < 0.02 : Math.abs(w[0] - w[2]) < 0.02))
+      .map((w) => (o === 'h'
+        ? { c: w[1], a: Math.min(w[0], w[2]), b: Math.max(w[0], w[2]) }
+        : { c: w[0], a: Math.min(w[1], w[3]), b: Math.max(w[1], w[3]) }));
+    for (const w of line) {
+      const next = line.filter((x) => x !== w && Math.abs(x.c - w.c) < 0.15 && x.a >= w.b).sort((p, q) => p.a - q.a)[0];
+      if (!next || next.a - w.b < 0.3 || next.a - w.b > 4) continue;
+      const g = { o, a0: w.b, a1: next.a, c: (w.c + next.c) / 2 };
+      gaps.push(g);
+      const sides = new Set();
+      for (const [pu, pv] of path) {
+        const along = o === 'h' ? pu : pv, across = (o === 'h' ? pv : pu) - g.c;
+        if (along > g.a0 && along < g.a1 && Math.abs(across) > 0.2 && Math.abs(across) < 1) sides.add(Math.sign(across));
+      }
+      if (sides.size === 2) {
+        if (g.a1 - g.a0 >= 0.6 && g.a1 - g.a0 <= 1.8) doors.push(g);
+        continue;
+      }
+      let under = 0, n = 0;
+      for (let a = g.a0 + RCELL / 2; a < g.a1; a += RCELL, n++) {
+        for (const d of [-0.1, 0, 0.1]) {
+          const k = o === 'h' ? cellOf(a, g.c + d) : cellOf(g.c + d, a);
+          if (k >= 0 && lowAt[k]) { under++; break; }
+        }
+      }
+      if (n && under / n >= 0.6) windows.push(g);
+    }
+  }
+
+  const wallAt = new Uint8Array(N), shut = new Uint8Array(N);
+  for (const w of walls) { draw(wallAt, ...w); draw(shut, ...w, SEAL); }
+  for (const g of gaps) {
+    const seg = g.o === 'h' ? [g.a0, g.c, g.a1, g.c] : [g.c, g.a0, g.c, g.a1];
+    draw(wallAt, ...seg); draw(shut, ...seg, RCELL);
+  }
+  // indoors: a wall somewhere in at least three of the four directions
+  const hits = new Uint8Array(N);
+  for (let y = 0; y < RH; y++) {
+    for (let x = 0, seen = 0; x < RW; x++) { const k = y * RW + x; if (wallAt[k]) seen = 1; else hits[k] += seen; }
+    for (let x = RW - 1, seen = 0; x >= 0; x--) { const k = y * RW + x; if (wallAt[k]) seen = 1; else hits[k] += seen; }
+  }
+  for (let x = 0; x < RW; x++) {
+    for (let y = 0, seen = 0; y < RH; y++) { const k = y * RW + x; if (wallAt[k]) seen = 1; else hits[k] += seen; }
+    for (let y = RH - 1, seen = 0; y >= 0; y--) { const k = y * RW + x; if (wallAt[k]) seen = 1; else hits[k] += seen; }
+  }
+  const nearPath = new Uint8Array(N); // within REACH of the path, for open-sided areas
+  const R = Math.ceil(REACH / RCELL);
+  let last = null;
+  for (const p of path) {
+    if (last && Math.hypot(p[0] - last[0], p[1] - last[1]) < 0.5) continue;
+    last = p;
+    const k = cellOf(p[0], p[1]);
+    if (k < 0) continue;
+    const px = k % RW, py = (k / RW) | 0;
+    for (let y = Math.max(0, py - R); y <= Math.min(RH - 1, py + R); y++) {
+      for (let x = Math.max(0, px - R); x <= Math.min(RW - 1, px + R); x++) if ((x - px) ** 2 + (y - py) ** 2 <= R * R) nearPath[y * RW + x] = 1;
+    }
+  }
+  const nbrs = (q) => { const x = q % RW; return [x > 0 ? q - 1 : -1, x < RW - 1 ? q + 1 : -1, q - RW, q + RW]; };
+  const label = new Int32Array(N).fill(-1);
+  const found = [];
+  for (const p of path) {
+    const k = cellOf(p[0], p[1]);
+    if (k < 0 || shut[k] || hits[k] < 3 || label[k] >= 0) continue;
+    const id = found.length, cells = [k], stack = [k];
+    let open = false;
+    label[k] = id;
+    while (stack.length) {
+      const q = stack.pop(), x = q % RW, y = (q / RW) | 0;
+      if (x === 0 || y === 0 || x === RW - 1 || y === RH - 1) open = true;
+      for (const n of nbrs(q)) if (n >= 0 && n < N && !shut[n] && hits[n] >= 3 && label[n] < 0) { label[n] = id; cells.push(n); stack.push(n); }
+    }
+    found.push({ cells, open });
+  }
+  for (const r of found) {
+    if (r.open) r.cells = r.cells.filter((k) => { if (nearPath[k]) return true; label[k] = -1; return false; });
+  }
+  let front = found.flatMap((r) => r.cells); // grow back out to the wall faces
+  for (let step = 0; step <= Math.ceil(SEAL / RCELL) + 3 && front.length; step++) {
+    const next = [];
+    for (const q of front) {
+      for (const n of nbrs(q)) {
+        if (n >= 0 && n < N && label[n] < 0 && !wallAt[n] && hits[n] >= 2 && (nearPath[n] || !found[label[q]].open)) {
+          label[n] = label[q]; found[label[q]].cells.push(n); next.push(n);
+        }
+      }
+    }
+    front = next;
+  }
+
+  const rooms = found.filter((r) => r.cells.length * RCELL * RCELL >= 2).sort((a, b) => b.cells.length - a.cells.length).map((r, i) => {
+    const set = new Set(r.cells);
+    let x0 = RW, y0 = RH, x1 = 0, y1 = 0, sx = 0, sy = 0;
+    for (const k of r.cells) {
+      const x = k % RW, y = (k / RW) | 0;
+      x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); sx += x; sy += y;
+    }
+    const boxes = [], growing = new Map(); // row runs, stacked while identical
+    for (let y = y0; y <= y1; y++) {
+      const seen = new Set();
+      for (let x = x0; x <= x1;) {
+        if (!set.has(y * RW + x)) { x++; continue; }
+        const s0 = x;
+        while (x <= x1 && set.has(y * RW + x)) x++;
+        const key = `${s0},${x}`, b = growing.get(key);
+        seen.add(key);
+        if (b && b[3] === y) b[3] = y + 1;
+        else { const nb = [s0, y, x, y + 1]; boxes.push(nb); growing.set(key, nb); }
+      }
+      for (const key of [...growing.keys()]) if (!seen.has(key)) growing.delete(key);
+    }
+    // its label goes where the room is roomiest: furthest from its edges and
+    // from anything cut inside it (ties: nearest the middle)
+    const depth = new Map();
+    let ring = r.cells.filter((k) => cutAtCell[k] || nbrs(k).some((n) => n < 0 || n >= N || !set.has(n)));
+    for (const k of ring) depth.set(k, 0);
+    for (let d = 1; ring.length; d++) {
+      const next = [];
+      for (const k of ring) for (const n of nbrs(k)) if (n >= 0 && n < N && set.has(n) && !depth.has(n)) { depth.set(n, d); next.push(n); }
+      ring = next;
+    }
+    const mx = sx / r.cells.length, my = sy / r.cells.length;
+    let at = r.cells[0], best = -Infinity;
+    for (const [k, d] of depth) {
+      const score = d - Math.hypot((k % RW) - mx, ((k / RW) | 0) - my) * 0.05;
+      if (score > best) { best = score; at = k; }
+    }
+    return {
+      id: `r${i + 1}`,
+      name: `Room ${i + 1}`,
+      area: Math.round(r.cells.length * RCELL * RCELL),
+      size: [r2((x1 - x0 + 1) * RCELL), r2((y1 - y0 + 1) * RCELL)],
+      at: [r2(ou + ((at % RW) + 0.5) * RCELL), r2(ov + (((at / RW) | 0) + 0.5) * RCELL)],
+      rects: boxes.map((b) => [r2(ou + b[0] * RCELL), r2(ov + b[1] * RCELL), r2(ou + b[2] * RCELL), r2(ov + b[3] * RCELL)])
+    };
+  });
+  const out = (g) => ({ o: g.o, a0: r2(g.a0), a1: r2(g.a1), c: r2(g.c) });
+  return { rooms, doors: doors.map(out), windows: windows.map(out) };
+}
+
 const INK = { bg: '#131419', floor: '#1E1F26', wall: '#F6F7FA', path: '#3364FF', text: '#B9BCCC' };
+const TINTS = ['#1E2233', '#1F2A2E', '#2A2233', '#22262E', '#1D2A36', '#2B2A22'];
 
 /** 2D plan: walls, floor, walked path, 5 m scale bar, a caption. */
 export function planSvg(p, title) {
@@ -439,12 +748,31 @@ export function planSvg(p, title) {
   // overall dimensions, architect-style: a line with end ticks, the length on it
   const L = (p.box[0] - x0) * S, R = (p.box[2] - x0) * S, T = (y1 - p.box[3]) * S, B = (y1 - p.box[1]) * S;
   const d = -pad * 0.45, t = 6 * k;
-  const bar = Math.max(1, Math.round(Math.max(p.size[0], p.size[1]) / 5 / 5) * 5); // a round 5, 10, 20… m
+  const bar = [100, 50, 20, 10, 5, 2, 1].find((m) => m <= Math.max(p.size[0], p.size[1]) / 4) ?? 1; // a round length, about a quarter of the plan
+  const rooms = p.rooms ?? [];
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-pad} ${-pad} ${W + pad * 2} ${H + pad * 2 + fs * 3}" font-family="Inter,Segoe UI,sans-serif">
 <rect x="${-pad}" y="${-pad}" width="${W + pad * 2}" height="${H + pad * 2 + fs * 3}" fill="${INK.bg}"/>
 <g fill="${INK.floor}">${p.floor.map((f) => `<path d="M${X(f[0])} ${Y(f[1])}L${X(f[2])} ${Y(f[3])}L${X(f[4])} ${Y(f[5])}Z"/>`).join('')}</g>
-<polyline fill="none" stroke="${INK.path}" stroke-width="${(sw * 0.6).toFixed(1)}" stroke-dasharray="${4 * k} ${5 * k}" opacity="0.7" points="${p.walk.map((q) => `${X(q[0])},${Y(q[1])}`).join(' ')}"/>
+${rooms.length ? '' : `<polyline fill="none" stroke="${INK.path}" stroke-width="${(sw * 0.6).toFixed(1)}" stroke-dasharray="${4 * k} ${5 * k}" opacity="0.7" points="${p.walk.map((q) => `${X(q[0])},${Y(q[1])}`).join(' ')}"/>`}
+${rooms.map((r, i) => `<path d="${r.rects.map((b) => `M${X(b[0])} ${Y(b[3])}H${X(b[2])}V${Y(b[1])}H${X(b[0])}Z`).join('')}" fill="${TINTS[i % TINTS.length]}" opacity="0.85" shape-rendering="crispEdges"/>`).join('')}
+<g fill="${INK.wall}" opacity="0.55">${(p.solids ?? []).map((b) => `<path d="M${X(b[0])} ${Y(b[3])}H${X(b[2])}V${Y(b[1])}H${X(b[0])}Z"/>`).join('')}</g>
 <g stroke="${INK.wall}" stroke-width="${sw}" stroke-linecap="square">${p.walls.map((w) => `<line x1="${X(w[0])}" y1="${Y(w[1])}" x2="${X(w[2])}" y2="${Y(w[3])}"/>`).join('')}</g>
+<g stroke="${INK.wall}" stroke-width="${(k * 1.2).toFixed(1)}" fill="none">${(p.windows ?? []).map((g) => {
+    const o = 4 * k; // a window: two thin lines along the opening
+    return g.o === 'h'
+      ? `<path d="M${X(g.a0)} ${(+Y(g.c) - o).toFixed(1)}H${X(g.a1)}M${X(g.a0)} ${(+Y(g.c) + o).toFixed(1)}H${X(g.a1)}"/>`
+      : `<path d="M${(+X(g.c) - o).toFixed(1)} ${Y(g.a0)}V${Y(g.a1)}M${(+X(g.c) + o).toFixed(1)} ${Y(g.a0)}V${Y(g.a1)}"/>`;
+  }).join('')}</g>
+<g stroke="#7C9CFF" stroke-width="${(k * 1.5).toFixed(1)}" fill="none">${(p.doors ?? []).map((g) => {
+    const w = (g.a1 - g.a0) * S; // a door: its leaf, open, and its swing
+    return g.o === 'h'
+      ? `<path d="M${X(g.a0)} ${Y(g.c)}V${(+Y(g.c) - w).toFixed(1)}A${w.toFixed(1)} ${w.toFixed(1)} 0 0 1 ${X(g.a1)} ${Y(g.c)}"/>`
+      : `<path d="M${X(g.c)} ${Y(g.a0)}H${(+X(g.c) + w).toFixed(1)}A${w.toFixed(1)} ${w.toFixed(1)} 0 0 0 ${X(g.c)} ${Y(g.a1)}"/>`;
+  }).join('')}</g>
+<g text-anchor="middle" fill="${INK.wall}" font-size="${fs}">${rooms.filter((r) => r.area >= 4).map((r) => {
+    const x = X(r.at[0]), y = Y(r.at[1]), name = rooms.length === 1 ? title : r.name;
+    return `<text x="${x}" y="${y}" font-weight="700">${esc(name)}<tspan x="${x}" dy="${(fs * 1.2).toFixed(0)}" font-weight="400" fill="${INK.text}" font-size="${Math.round(fs * 0.85)}">${r.size[0].toFixed(1)} × ${r.size[1].toFixed(1)} m, ${r.area} m²</tspan></text>`;
+  }).join('')}</g>
 <g stroke="${INK.text}" stroke-width="${(k * 1.2).toFixed(1)}" fill="${INK.text}" font-size="${fs}">
 <path d="M${L} ${d}H${R}M${L} ${d - t}V${d + t}M${R} ${d - t}V${d + t}" fill="none"/><text stroke="none" x="${(L + R) / 2}" y="${d - fs * 0.5}" text-anchor="middle">${p.size[0]} m</text>
 <path d="M${d} ${T}V${B}M${d - t} ${T}H${d + t}M${d - t} ${B}H${d + t}" fill="none"/><text stroke="none" transform="translate(${d - fs * 0.5} ${(T + B) / 2}) rotate(-90)" text-anchor="middle">${p.size[1]} m</text>
@@ -476,8 +804,9 @@ export function plan3dSvg(p, title) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${bx0.toFixed(0)} ${by0.toFixed(0)} ${(bx1 - bx0).toFixed(0)} ${(by1 - by0).toFixed(0)}" font-family="Inter,Segoe UI,sans-serif">
 <rect x="${bx0}" y="${by0}" width="${bx1 - bx0}" height="${by1 - by0}" fill="${INK.bg}"/>
 <g fill="#262833">${floors.map((t) => `<path d="M${P(t[0])}L${P(t[1])}L${P(t[2])}Z"/>`).join('')}</g>
-<polyline fill="none" stroke="${INK.path}" stroke-width="2" stroke-dasharray="4 5" points="${p.walk.map((t) => P(proj(t[0], t[1], 0.02)).replace(' ', ',')).join(' ')}"/>
+${(p.rooms ?? []).length ? '' : `<polyline fill="none" stroke="${INK.path}" stroke-width="2" stroke-dasharray="4 5" points="${p.walk.map((t) => P(proj(t[0], t[1], 0.02)).replace(' ', ',')).join(' ')}"/>`}
 ${quads.map((q) => `<path d="M${q.pts.map(P).join('L')}Z" fill="rgb(${q.tone},${q.tone + 4},${q.tone + 18})" fill-opacity="0.92" stroke="${INK.bg}" stroke-width="0.4"/>`).join('')}
+<g text-anchor="middle" fill="#F6F7FA" font-size="16" font-weight="700">${(p.rooms ?? []).length > 1 ? p.rooms.filter((r) => r.area >= 4).map((r) => { const q = proj(r.at[0], r.at[1], 0.05); return `<text x="${q[0].toFixed(1)}" y="${q[1].toFixed(1)}">${esc(r.name)}</text>`; }).join('') : ''}</g>
 <text x="${bx0 + 30}" y="${by1 - 24}" fill="${INK.text}" font-size="18">${esc(title)}: ${p.size[0]} × ${p.size[1]} m</text></svg>`;
 }
 
@@ -511,5 +840,5 @@ export async function buildFloorPlan(assetId, title = 'Floor plan') {
   await put('plan.json', JSON.stringify(plan));
   await put('plan.svg', planSvg(plan, title));
   await put('3d.svg', plan3dSvg(plan, title));
-  return { size: plan.size, floorArea: plan.floorArea, walls: plan.walls.length };
+  return { size: plan.size, floorArea: plan.floorArea, walls: plan.walls.length, rooms: plan.rooms.length, doors: plan.doors.length, windows: plan.windows.length };
 }

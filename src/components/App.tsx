@@ -33,6 +33,7 @@ import { editorActive } from '../lib/editorActive';
 import { useUiConfig } from '../lib/uiConfig';
 import { getScenes } from '../lib/api';
 import { unlockAudio } from '../lib/audio';
+import { mapPose, setMapGoto } from '../lib/floorMap';
 import type { EditorApi, ViewerState } from '../@types/app.types';
 import type { Viewpoint } from '../@types/viewpoint.types';
 import type { ProjectedHotspot } from '../@types/hotspot.types';
@@ -71,6 +72,28 @@ function Stage({ onState, viewerMode }: StageProps) {
     alwaysControl: !viewerMode
   });
   walkerRef.current = walker;
+
+  // The floor map (FloorMap.tsx): where the camera is in the scan's own
+  // coordinates, every frame, and how to jump to a point on the plan.
+  const mapP = useRef(new THREE.Vector3()).current, mapF = useRef(new THREE.Vector3()).current;
+  useFrame(() => {
+    const root: THREE.Object3D | undefined = mgr.renderer?.root;
+    if (!root || !mgr.ready) { mapPose.ok = false; return; }
+    root.worldToLocal(mapP.copy(camera.position));
+    root.worldToLocal(mapF.set(0, 0, -1).applyQuaternion(camera.quaternion).add(camera.position));
+    const fx = mapF.x - mapP.x, fy = mapF.y - mapP.y, l = Math.hypot(fx, fy) || 1;
+    mapPose.x = mapP.x; mapPose.y = mapP.y; mapPose.fx = fx / l; mapPose.fy = fy / l; mapPose.ok = true;
+  });
+  useEffect(() => {
+    setMapGoto((x, y, z) => {
+      const root: THREE.Object3D | undefined = mgr.renderer?.root;
+      const w = walkerRef.current;
+      if (!root || !w) return;
+      const p = root.localToWorld(new THREE.Vector3(x, y, z));
+      w.reset([p.x, p.y, p.z], w.yaw());
+    });
+    return () => setMapGoto(null);
+  }, [mgr.renderer]);
 
   useEffect(() => subscribeViewpoints(bumpVp), []);
 
