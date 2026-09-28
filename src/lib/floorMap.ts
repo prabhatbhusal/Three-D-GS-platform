@@ -13,7 +13,7 @@ export interface FloorPlan {
   box: [number, number, number, number];
   walls: [number, number, number, number][]; // lines x0 y0 x1 y1
   doors: { o: 'h' | 'v'; a0: number; a1: number; c: number }[];
-  rooms: { id: string; name: string; area: number; size: [number, number]; at: [number, number]; rects: [number, number, number, number][] }[];
+  rooms: { id: string; name: string; named?: boolean; area: number; size: [number, number]; at: [number, number]; rects: [number, number, number, number][] }[];
 }
 
 /** Camera in scan coordinates (Z-up metres): position and a unit forward. */
@@ -50,3 +50,6 @@ export function loadPlan(assetId: string | undefined): Promise<FloorPlan | null>
   }
   return cache.get(assetId)!;
 }
+
+/** After a redraw or a rename in the studio: the next loadPlan fetches again. */
+export const forgetPlan = (assetId: string) => { cache.delete(assetId); };

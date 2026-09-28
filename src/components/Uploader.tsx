@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { filesFromDataTransfer, filesFromFileList, uploadVariant } from '../lib/upload';
+import { filesFromDataTransfer, filesFromFileList, isVideo360File, uploadVariant, uploadVideo360 } from '../lib/upload';
 import { saveScene, getScenes, getSession, login } from '../lib/api';
 import { blankSceneDoc } from '../lib/sceneDoc';
 import { hydrateScenes, SCENE_BY_ID } from '../lib/scenes';
@@ -24,7 +24,7 @@ const IDLE: SlotState = { status: 'idle' };
 
 /** Files a picker offers: an LCC export's index and zip, a 3D model and the
  *  .mtl, .bin and textures it names. */
-export const PICK_ACCEPT = '.zip,application/zip,.lcc2,.fbx,.obj,.mtl,.ply,.glb,.gltf,.bin,.jpg,.jpeg,.png,.webp,.tga,.dds';
+export const PICK_ACCEPT = '.zip,application/zip,.lcc2,.fbx,.obj,.mtl,.ply,.glb,.gltf,.bin,.jpg,.jpeg,.png,.webp,.tga,.dds,.mp4,.mov,.m4v,.webm';
 
 /** Which way is up in a 3D model. Auto fits scans; set it for anything else. */
 export function UpAxisSelect({ value, onChange }: { value: UpChoice; onChange: (v: UpChoice) => void }) {
@@ -126,7 +126,15 @@ export function Uploader({ propertyId = null, onClose, onCreated }: UploaderProp
     if (!files.length) return;
     const bytesTotal = files.reduce((sum, f) => sum + f.file.size, 0);
     setSlot(tier, { status: 'uploading', fileCount: files.length, progress: { bytesSent: 0, bytesTotal }, error: undefined, result: undefined });
-    uploadVariant(files, (p) => setSlot(tier, { progress: p }), { up, onStage: (stage) => setSlot(tier, { stage }) })
+    // one 360 camera video is a space of its own (panoModel.ts); only as the main file
+    const video = files.length === 1 && isVideo360File(files[0].relPath);
+    if (video && tier !== 'high') {
+      setSlot(tier, { status: 'error', error: 'A 360 video goes in the High slot: it has no lighter versions.' });
+      return;
+    }
+    (video
+      ? uploadVideo360(files[0].file, (p) => setSlot(tier, { progress: p }))
+      : uploadVariant(files, (p) => setSlot(tier, { progress: p }), { up, onStage: (stage) => setSlot(tier, { stage }) }))
       .then((result) => setSlot(tier, { status: 'done', result, stage: '' }))
       .catch((err: unknown) => setSlot(tier, { status: 'error', stage: '', error: err instanceof Error ? err.message : 'Upload failed.' }));
   }, [setSlot, up]);

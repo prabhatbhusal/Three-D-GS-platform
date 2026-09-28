@@ -68,8 +68,12 @@ export default function PlanSheetPage({ params }: { params: Promise<{ property: 
           </div>
         </header>
 
+        {/* The drawn plans have a print copy in ink on white (plan-print.svg,
+         *  3d-print.svg); a plan drawn before those existed falls back to the
+         *  screen copy. */}
         {/* eslint-disable-next-line @next/next/no-img-element -- the plan file itself, SVG or the studio's upload */}
-        <img className="rp-plan" src={assetUrl(sheet.assetId, img)} alt={`Floor plan of ${sheet.title}`} />
+        <img className="rp-plan" src={assetUrl(sheet.assetId, drawn ? img.replace(/\.svg$/, '-print.svg') : img)} alt={`Floor plan of ${sheet.title}`}
+          onError={(e) => { const el = e.currentTarget; if (el.src.includes('-print.svg')) el.src = assetUrl(sheet.assetId, img); }} />
 
         {rooms.length > 0 && (
           <section>

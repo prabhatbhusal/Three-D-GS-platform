@@ -360,6 +360,11 @@ export const uploadFloorPlan = (assetId: string, file: File) =>
 
 export const removeFloorPlan = (assetId: string) =>
   request(`/api/assets/${assetId}/floorplan/upload`, { method: 'DELETE' });
+/** Name the rooms of a plan drawn from the scan: { r1: 'Lobby' }; '' puts a
+ *  room back to its number. The server redraws every copy of the plan. */
+export const renameFloorPlanRooms = (assetId: string, names: Record<string, string>) =>
+  request<{ rooms: { id: string; name: string; area: number }[] }>(
+    `/api/assets/${assetId}/floorplan/rooms`, { method: 'PATCH', body: JSON.stringify({ names }) });
 /** For server components, which have no browser cookies or CORS to worry about. */
 export const API_BASE_URL = API_BASE;
 
@@ -438,6 +443,9 @@ export const finalizeAsset = (assetId: string) =>
 /** One .m4a, at most 2 MB — the server checks it really is one (§6.3). */
 export const finalizeAudio = (assetId: string) =>
   request<AudioUploadResult>(`/api/assets/${assetId}/finalize?kind=audio`, { method: 'POST' });
+/** A 360 camera video (MP4/MOV/WebM, equirectangular) as a space of its own. */
+export const finalizeVideo360 = (assetId: string) =>
+  request<UploadResult>(`/api/assets/${assetId}/finalize?kind=video360`, { method: 'POST' });
 
 export const deleteAsset = (assetId: string) => request(`/api/assets/${assetId}`, { method: 'DELETE' });
 

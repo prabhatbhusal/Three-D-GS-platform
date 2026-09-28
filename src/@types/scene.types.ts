@@ -125,8 +125,10 @@ export interface Track {
 
 /** How a space's model is stored (§5.2 splat.format). lcc2 streams through
  *  the XGRIDS SDK; glb is a 3D model (FBX/OBJ/PLY/glTF converted in the
- *  studio, src/lib/modelConvert.ts) loaded whole by src/lib/meshModel.ts. */
-export type ModelFormat = 'lcc2' | 'glb';
+ *  studio, src/lib/modelConvert.ts) loaded whole by src/lib/meshModel.ts;
+ *  video360 is an equirectangular 360 camera video, streamed and shown
+ *  around the viewer by src/lib/panoModel.ts. */
+export type ModelFormat = 'lcc2' | 'glb' | 'video360';
 
 export interface SplatVariant {
   assetId: string;

@@ -61,7 +61,9 @@ export const LCC_MODEL_MATRIX = new THREE.Matrix4(
  *  (modelConvert.ts), so it gets no base correction. */
 export const MESH_MODEL_MATRIX = new THREE.Matrix4();
 
-const isMeshFormat = (f: string | undefined) => f === 'glb';
+/** Spaces loaded by our own code, not the XGRIDS SDK: a 3D model
+ *  (meshModel.ts) or a 360 camera video (panoModel.ts). */
+const isMeshFormat = (f: string | undefined) => f === 'glb' || f === 'video360';
 
 /**
  * Loads exactly ONE hotel scene at a time.
@@ -154,6 +156,9 @@ export function useSceneManager({ dev = false, appKey = null }: { dev?: boolean;
           ? conf.unitScale
           : measured;
         scaleWalkerCfg(u);
+        // A 360 video is one point of view: look round, don't walk (the next
+        // space's scaleWalkerCfg puts the speed back).
+        if (conf.format === 'video360') walkerCfg.speed = 0;
         const b = entry.renderer?.getBounds?.();
         if (b) {
           const diag = Math.hypot(b.max.x - b.min.x, b.max.y - b.min.y, b.max.z - b.min.z);
@@ -213,9 +218,11 @@ export function useSceneManager({ dev = false, appKey = null }: { dev?: boolean;
 
       if (kind === 'mesh') {
         // A 3D model (.glb): three's GLTFLoader, a handle with the SDK renderer's methods
-        // (meshModel.ts). Imported on demand so LCC spaces never load it.
-        import('./meshModel')
-          .then(({ loadMeshModel }) => loadMeshModel(metaPath(sceneId), onProgress))
+        // (meshModel.ts); a 360 video, the same handle (panoModel.ts). Imported
+        // on demand so LCC spaces never load either.
+        (conf.format === 'video360'
+          ? import('./panoModel').then(({ loadPanoVideo }) => loadPanoVideo(metaPath(sceneId), onProgress))
+          : import('./meshModel').then(({ loadMeshModel }) => loadMeshModel(metaPath(sceneId), onProgress)))
           .then((model) => {
             if (current.current !== entry) { model.dispose(); return; } // superseded mid-load
             scene.add(model.root);

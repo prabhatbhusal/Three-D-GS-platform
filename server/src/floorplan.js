@@ -730,11 +730,21 @@ function roomsFrom(walls, path, low, cut, box) {
   return { rooms, doors: doors.map(out), windows: windows.map(out) };
 }
 
-const INK = { bg: '#131419', floor: '#1E1F26', wall: '#F6F7FA', path: '#3364FF', text: '#B9BCCC' };
-const TINTS = ['#1E2233', '#1F2A2E', '#2A2233', '#22262E', '#1D2A36', '#2B2A22'];
+/** Screen colours (the studio, the tour, a dark site) and print colours
+ *  (the plan sheet: white paper, dark ink, pale room tints). */
+export const DARK = {
+  bg: '#131419', floor: '#1E1F26', wall: '#F6F7FA', path: '#3364FF', text: '#B9BCCC', door: '#7C9CFF',
+  floor3d: '#262833', tone: 150, edge: '#131419', label: '#F6F7FA',
+  tints: ['#1E2233', '#1F2A2E', '#2A2233', '#22262E', '#1D2A36', '#2B2A22']
+};
+export const LIGHT = {
+  bg: '#FFFFFF', floor: '#F3F4F7', wall: '#1D1D1F', path: '#3364FF', text: '#555A6B', door: '#2450E6',
+  floor3d: '#E9EBF0', tone: 178, edge: '#3A3C44', label: '#1D1D1F',
+  tints: ['#E8EDFB', '#E2F1EC', '#F1E7F5', '#ECEEF2', '#E1EEF8', '#F5EFDF']
+};
 
 /** 2D plan: walls, floor, walked path, 5 m scale bar, a caption. */
-export function planSvg(p, title) {
+export function planSvg(p, title, ink = DARK) {
   const S = 40;
   const [x0, y0, x1, y1] = [p.box[0] - 0.5, p.box[1] - 0.5, p.box[2] + 0.5, p.box[3] + 0.5];
   const W = (x1 - x0) * S, H = (y1 - y0) * S;
@@ -749,29 +759,29 @@ export function planSvg(p, title) {
   const bar = [100, 50, 20, 10, 5, 2, 1].find((m) => m <= Math.max(p.size[0], p.size[1]) / 4) ?? 1; // a round length, about a quarter of the plan
   const rooms = p.rooms ?? [];
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-pad} ${-pad} ${W + pad * 2} ${H + pad * 2 + fs * 3}" font-family="Inter,Segoe UI,sans-serif">
-<rect x="${-pad}" y="${-pad}" width="${W + pad * 2}" height="${H + pad * 2 + fs * 3}" fill="${INK.bg}"/>
-<g fill="${INK.floor}">${p.floor.map((f) => `<path d="M${X(f[0])} ${Y(f[1])}L${X(f[2])} ${Y(f[3])}L${X(f[4])} ${Y(f[5])}Z"/>`).join('')}</g>
-${rooms.length ? '' : `<polyline fill="none" stroke="${INK.path}" stroke-width="${(sw * 0.6).toFixed(1)}" stroke-dasharray="${4 * k} ${5 * k}" opacity="0.7" points="${p.walk.map((q) => `${X(q[0])},${Y(q[1])}`).join(' ')}"/>`}
-${rooms.map((r, i) => `<path d="${r.rects.map((b) => `M${X(b[0])} ${Y(b[3])}H${X(b[2])}V${Y(b[1])}H${X(b[0])}Z`).join('')}" fill="${TINTS[i % TINTS.length]}" opacity="0.85" shape-rendering="crispEdges"/>`).join('')}
-<g fill="${INK.wall}" opacity="0.55">${(p.solids ?? []).map((b) => `<path d="M${X(b[0])} ${Y(b[3])}H${X(b[2])}V${Y(b[1])}H${X(b[0])}Z"/>`).join('')}</g>
-<g stroke="${INK.wall}" stroke-width="${sw}" stroke-linecap="square">${p.walls.map((w) => `<line x1="${X(w[0])}" y1="${Y(w[1])}" x2="${X(w[2])}" y2="${Y(w[3])}"/>`).join('')}</g>
-<g stroke="${INK.wall}" stroke-width="${(k * 1.2).toFixed(1)}" fill="none">${(p.windows ?? []).map((g) => {
+<rect x="${-pad}" y="${-pad}" width="${W + pad * 2}" height="${H + pad * 2 + fs * 3}" fill="${ink.bg}"/>
+<g fill="${ink.floor}">${p.floor.map((f) => `<path d="M${X(f[0])} ${Y(f[1])}L${X(f[2])} ${Y(f[3])}L${X(f[4])} ${Y(f[5])}Z"/>`).join('')}</g>
+${rooms.length ? '' : `<polyline fill="none" stroke="${ink.path}" stroke-width="${(sw * 0.6).toFixed(1)}" stroke-dasharray="${4 * k} ${5 * k}" opacity="0.7" points="${p.walk.map((q) => `${X(q[0])},${Y(q[1])}`).join(' ')}"/>`}
+${rooms.map((r, i) => `<path d="${r.rects.map((b) => `M${X(b[0])} ${Y(b[3])}H${X(b[2])}V${Y(b[1])}H${X(b[0])}Z`).join('')}" fill="${ink.tints[i % ink.tints.length]}" opacity="0.85" shape-rendering="crispEdges"/>`).join('')}
+<g fill="${ink.wall}" opacity="0.55">${(p.solids ?? []).map((b) => `<path d="M${X(b[0])} ${Y(b[3])}H${X(b[2])}V${Y(b[1])}H${X(b[0])}Z"/>`).join('')}</g>
+<g stroke="${ink.wall}" stroke-width="${sw}" stroke-linecap="square">${p.walls.map((w) => `<line x1="${X(w[0])}" y1="${Y(w[1])}" x2="${X(w[2])}" y2="${Y(w[3])}"/>`).join('')}</g>
+<g stroke="${ink.wall}" stroke-width="${(k * 1.2).toFixed(1)}" fill="none">${(p.windows ?? []).map((g) => {
     const o = 4 * k; // a window: two thin lines along the opening
     return g.o === 'h'
       ? `<path d="M${X(g.a0)} ${(+Y(g.c) - o).toFixed(1)}H${X(g.a1)}M${X(g.a0)} ${(+Y(g.c) + o).toFixed(1)}H${X(g.a1)}"/>`
       : `<path d="M${(+X(g.c) - o).toFixed(1)} ${Y(g.a0)}V${Y(g.a1)}M${(+X(g.c) + o).toFixed(1)} ${Y(g.a0)}V${Y(g.a1)}"/>`;
   }).join('')}</g>
-<g stroke="#7C9CFF" stroke-width="${(k * 1.5).toFixed(1)}" fill="none">${(p.doors ?? []).map((g) => {
+<g stroke="${ink.door}" stroke-width="${(k * 1.5).toFixed(1)}" fill="none">${(p.doors ?? []).map((g) => {
     const w = (g.a1 - g.a0) * S; // a door: its leaf, open, and its swing
     return g.o === 'h'
       ? `<path d="M${X(g.a0)} ${Y(g.c)}V${(+Y(g.c) - w).toFixed(1)}A${w.toFixed(1)} ${w.toFixed(1)} 0 0 1 ${X(g.a1)} ${Y(g.c)}"/>`
       : `<path d="M${X(g.c)} ${Y(g.a0)}H${(+X(g.c) + w).toFixed(1)}A${w.toFixed(1)} ${w.toFixed(1)} 0 0 0 ${X(g.c)} ${Y(g.a1)}"/>`;
   }).join('')}</g>
-<g text-anchor="middle" fill="${INK.wall}" font-size="${fs}">${rooms.filter((r) => r.area >= 4).map((r) => {
-    const x = X(r.at[0]), y = Y(r.at[1]), name = rooms.length === 1 ? title : r.name;
-    return `<text x="${x}" y="${y}" font-weight="700">${esc(name)}<tspan x="${x}" dy="${(fs * 1.2).toFixed(0)}" font-weight="400" fill="${INK.text}" font-size="${Math.round(fs * 0.85)}">${r.size[0].toFixed(1)} × ${r.size[1].toFixed(1)} m, ${r.area} m²</tspan></text>`;
+<g text-anchor="middle" fill="${ink.wall}" font-size="${fs}">${rooms.filter((r) => r.area >= 4).map((r) => {
+    const x = X(r.at[0]), y = Y(r.at[1]), name = rooms.length === 1 && !r.named ? title : r.name;
+    return `<text x="${x}" y="${y}" font-weight="700">${esc(name)}<tspan x="${x}" dy="${(fs * 1.2).toFixed(0)}" font-weight="400" fill="${ink.text}" font-size="${Math.round(fs * 0.85)}">${r.size[0].toFixed(1)} × ${r.size[1].toFixed(1)} m, ${r.area} m²</tspan></text>`;
   }).join('')}</g>
-<g stroke="${INK.text}" stroke-width="${(k * 1.2).toFixed(1)}" fill="${INK.text}" font-size="${fs}">
+<g stroke="${ink.text}" stroke-width="${(k * 1.2).toFixed(1)}" fill="${ink.text}" font-size="${fs}">
 <path d="M${L} ${d}H${R}M${L} ${d - t}V${d + t}M${R} ${d - t}V${d + t}" fill="none"/><text stroke="none" x="${(L + R) / 2}" y="${d - fs * 0.5}" text-anchor="middle">${p.size[0]} m</text>
 <path d="M${d} ${T}V${B}M${d - t} ${T}H${d + t}M${d - t} ${B}H${d + t}" fill="none"/><text stroke="none" transform="translate(${d - fs * 0.5} ${(T + B) / 2}) rotate(-90)" text-anchor="middle">${p.size[1]} m</text>
 <path d="M${W - bar * S} ${H + fs * 1.4}H${W}" stroke-width="${sw}"/><text stroke="none" x="${W - bar * S}" y="${H + fs * 0.9}">${bar} m</text>
@@ -779,7 +789,7 @@ ${rooms.map((r, i) => `<path d="${r.rects.map((b) => `M${X(b[0])} ${Y(b[3])}H${X
 }
 
 /** 3D plan: walls raised from the cut, floor and path, from above-left. */
-export function plan3dSvg(p, title) {
+export function plan3dSvg(p, title, ink = DARK) {
   const cx = (p.box[0] + p.box[2]) / 2, cy = (p.box[1] + p.box[3]) / 2;
   const dist = Math.max(p.size[0], p.size[1]) * 1.6 + 4, f = 900, yaw = -0.6, pitch = 0.95;
   const proj = (x, y, z) => {
@@ -791,7 +801,7 @@ export function plan3dSvg(p, title) {
   };
   const quads = p.walls.map((w) => {
     const pts = [proj(w[0], w[1], 0), proj(w[2], w[3], 0), proj(w[2], w[3], WALL_H), proj(w[0], w[1], WALL_H)];
-    const tone = Math.round(150 + (Math.abs(Math.atan2(w[3] - w[1], w[2] - w[0]) % Math.PI) / Math.PI) * 70);
+    const tone = Math.round(ink.tone + (Math.abs(Math.atan2(w[3] - w[1], w[2] - w[0]) % Math.PI) / Math.PI) * 70);
     return { d: pts.reduce((m, q) => m + q[2], 0) / 4, pts, tone };
   }).sort((a, b) => b.d - a.d);
   const floors = p.floor.map((t) => [proj(t[0], t[1], 0), proj(t[2], t[3], 0), proj(t[4], t[5], 0)]);
@@ -800,12 +810,12 @@ export function plan3dSvg(p, title) {
   const by0 = Math.min(...all.map((q) => q[1])) - 40, by1 = Math.max(...all.map((q) => q[1])) + 70;
   const P = (q) => `${q[0].toFixed(1)} ${q[1].toFixed(1)}`;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${bx0.toFixed(0)} ${by0.toFixed(0)} ${(bx1 - bx0).toFixed(0)} ${(by1 - by0).toFixed(0)}" font-family="Inter,Segoe UI,sans-serif">
-<rect x="${bx0}" y="${by0}" width="${bx1 - bx0}" height="${by1 - by0}" fill="${INK.bg}"/>
-<g fill="#262833">${floors.map((t) => `<path d="M${P(t[0])}L${P(t[1])}L${P(t[2])}Z"/>`).join('')}</g>
-${(p.rooms ?? []).length ? '' : `<polyline fill="none" stroke="${INK.path}" stroke-width="2" stroke-dasharray="4 5" points="${p.walk.map((t) => P(proj(t[0], t[1], 0.02)).replace(' ', ',')).join(' ')}"/>`}
-${quads.map((q) => `<path d="M${q.pts.map(P).join('L')}Z" fill="rgb(${q.tone},${q.tone + 4},${q.tone + 18})" fill-opacity="0.92" stroke="${INK.bg}" stroke-width="0.4"/>`).join('')}
-<g text-anchor="middle" fill="#F6F7FA" font-size="16" font-weight="700">${(p.rooms ?? []).length > 1 ? p.rooms.filter((r) => r.area >= 4).map((r) => { const q = proj(r.at[0], r.at[1], 0.05); return `<text x="${q[0].toFixed(1)}" y="${q[1].toFixed(1)}">${esc(r.name)}</text>`; }).join('') : ''}</g>
-<text x="${bx0 + 30}" y="${by1 - 24}" fill="${INK.text}" font-size="18">${esc(title)}: ${p.size[0]} × ${p.size[1]} m</text></svg>`;
+<rect x="${bx0}" y="${by0}" width="${bx1 - bx0}" height="${by1 - by0}" fill="${ink.bg}"/>
+<g fill="${ink.floor3d}">${floors.map((t) => `<path d="M${P(t[0])}L${P(t[1])}L${P(t[2])}Z"/>`).join('')}</g>
+${(p.rooms ?? []).length ? '' : `<polyline fill="none" stroke="${ink.path}" stroke-width="2" stroke-dasharray="4 5" points="${p.walk.map((t) => P(proj(t[0], t[1], 0.02)).replace(' ', ',')).join(' ')}"/>`}
+${quads.map((q) => `<path d="M${q.pts.map(P).join('L')}Z" fill="rgb(${q.tone},${Math.min(255, q.tone + 4)},${Math.min(255, q.tone + 18)})" fill-opacity="0.92" stroke="${ink.edge}" stroke-width="0.5"/>`).join('')}
+<g text-anchor="middle" fill="${ink.label}" font-size="16" font-weight="700">${(p.rooms ?? []).length > 1 ? p.rooms.filter((r) => r.area >= 4).map((r) => { const q = proj(r.at[0], r.at[1], 0.05); return `<text x="${q[0].toFixed(1)}" y="${q[1].toFixed(1)}">${esc(r.name)}</text>`; }).join('') : ''}</g>
+<text x="${bx0 + 30}" y="${by1 - 24}" fill="${ink.text}" font-size="18">${esc(title)}: ${p.size[0]} × ${p.size[1]} m</text></svg>`;
 }
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -827,9 +837,49 @@ export async function buildFloorPlan(assetId, title = 'Floor plan') {
 
   const plan = planFrom(tris, path3);
   if (!plan) return null;
+  plan.title = title;
+  await keepRoomNames(assetId, plan);
+  await savePlan(assetId, plan);
+  return { size: plan.size, floorArea: plan.floorArea, walls: plan.walls.length, rooms: plan.rooms.length, doors: plan.doors.length, windows: plan.windows.length };
+}
+
+/** Write the plan and every drawing of it: for screen (dark) and for print (light). */
+export async function savePlan(assetId, plan) {
   const put = (rel, text) => storage.put(assetId, `floorplan/${rel}`, Readable.from([text]));
+  const title = plan.title || 'Floor plan';
   await put('plan.json', JSON.stringify(plan));
   await put('plan.svg', planSvg(plan, title));
   await put('3d.svg', plan3dSvg(plan, title));
-  return { size: plan.size, floorArea: plan.floorArea, walls: plan.walls.length, rooms: plan.rooms.length, doors: plan.doors.length, windows: plan.windows.length };
+  await put('plan-print.svg', planSvg(plan, title, LIGHT));
+  await put('3d-print.svg', plan3dSvg(plan, title, LIGHT));
+}
+
+async function readPlan(assetId) {
+  try { return JSON.parse((await storage.readAll(assetId, 'floorplan/plan.json')).toString('utf8')); } catch { return null; }
+}
+
+/** A redraw keeps the names people gave rooms: each new room takes the name
+ *  of an old named room whose label point falls inside it. */
+async function keepRoomNames(assetId, plan) {
+  const old = await readPlan(assetId);
+  if (!old?.rooms?.length || !plan.rooms?.length) return;
+  for (const r of plan.rooms) {
+    const was = old.rooms.find((o) => o.named && r.rects.some((b) => o.at[0] >= b[0] && o.at[0] <= b[2] && o.at[1] >= b[1] && o.at[1] <= b[3]));
+    if (was) { r.name = was.name; r.named = true; }
+  }
+}
+
+/** Name rooms, e.g. { r1: 'Lobby', r2: 'Bar' }; an empty name puts a room
+ *  back to its number. Redraws every drawing. Null when there's no plan. */
+export async function renameRooms(assetId, names) {
+  const plan = await readPlan(assetId);
+  if (!plan?.rooms) return null;
+  plan.rooms.forEach((r, i) => {
+    if (!Object.hasOwn(names, r.id)) return;
+    const name = String(names[r.id] ?? '').replace(/\s+/g, ' ').trim().slice(0, 40);
+    r.name = name || `Room ${i + 1}`;
+    r.named = !!name;
+  });
+  await savePlan(assetId, plan);
+  return plan.rooms.map(({ id, name, area }) => ({ id, name, area }));
 }

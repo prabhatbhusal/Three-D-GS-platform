@@ -137,8 +137,9 @@ export function publishChecks(doc) {
     warnings.push('The start view is still the default. Visitors may open facing a wall; set one in the Scene panel.');
   }
   const v = doc.splat?.variants ?? {};
-  const streams = (doc.splat?.format ?? 'lcc2') === 'lcc2';
-  if (streams && high?.assetId && (!v.medium || !v.low)) {
+  const format = doc.splat?.format ?? 'lcc2';
+  const streams = format === 'lcc2' || format === 'video360'; // a video streams by byte range too
+  if (format === 'lcc2' && high?.assetId && (!v.medium || !v.low)) {
     warnings.push('No medium or low variant, so phones load the full model. It still works, just slower to first frame.');
   }
   // An OBJ/PLY doesn't stream: the whole file is the bytes to first frame,

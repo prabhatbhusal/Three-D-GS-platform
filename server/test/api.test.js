@@ -446,8 +446,14 @@ test('a project\'s spaces and their files are only for people who can see the pr
   assert.equal((await api('PUT', '/api/scenes/outsider-room', sceneDoc('outsider-room', { propertyId: pid }))).status, 403, 'cannot file a space into it');
   assert.equal((await api('POST', `/api/assets/${assetId}/floorplan`)).status, 403, 'cannot redraw its plan');
   assert.equal((await api('DELETE', `/api/assets/${assetId}/floorplan/upload`)).status, 403, 'cannot remove its plan');
+  assert.equal((await api('PATCH', `/api/assets/${assetId}/floorplan/rooms`, { names: { r1: 'Mine' } })).status, 403, 'cannot rename its rooms');
   assert.equal((await api('DELETE', `/api/assets/${assetId}`)).status, 403, 'cannot delete its model');
   assert.equal((await fetch(`${BASE}/api/assets/${assetId}/private-lobby.glb`)).status, 200, 'the model itself still streams to visitors');
+
+  cookie = owner.cookie; // naming rooms: a checked body, and only once there's a plan drawn from a scan
+  assert.equal((await api('PATCH', `/api/assets/${assetId}/floorplan/rooms`, { names: ['Lobby'] })).status, 400);
+  assert.equal((await api('PATCH', `/api/assets/${assetId}/floorplan/rooms`, { names: { lobby: 'Lobby' } })).status, 400, 'room ids only');
+  assert.equal((await api('PATCH', `/api/assets/${assetId}/floorplan/rooms`, { names: { r1: 'Lobby' } })).status, 404, 'a 3D model has no drawn plan');
 
   // added to the project, a teammate can work on it
   cookie = owner.cookie;
@@ -1513,4 +1519,34 @@ test('with the cloud driver, uploads really live in the bucket, not on this PC',
   assert.ok(keys.length > 10, `the bucket holds the suite's uploads (${keys.length} files)`);
   assert.ok(keys.every((k) => k.startsWith('assets/')), 'all under the assets/ prefix');
   assert.ok(!existsSync(path.join(DATA, 'assets')), 'nothing written to the local asset folder');
+});
+
+test('a 360 camera video is a space: an MP4 in, streamed by byte range; raw INSV and fakes refused', async () => {
+  signIn();
+  const send = async (name, bytes) => {
+    const { json: { assetId } } = await api('POST', '/api/assets');
+    const r = await api('PUT', `/api/assets/${assetId}/files/chunk?relPath=${encodeURIComponent(name)}&offset=0`, bytes, { 'Content-Type': 'application/octet-stream' });
+    assert.equal(r.status, 200, JSON.stringify(r.json));
+    return { assetId, fin: await api('POST', `/api/assets/${assetId}/finalize?kind=video360`) };
+  };
+  const mp4 = Buffer.concat([Buffer.from([0, 0, 0, 24]), Buffer.from('ftypisom', 'latin1'), Buffer.alloc(4000, 7)]);
+
+  const ok = await send('lobby-360.mp4', mp4);
+  assert.equal(ok.fin.status, 200, JSON.stringify(ok.fin.json));
+  assert.deepEqual([ok.fin.json.format, ok.fin.json.meta, ok.fin.json.bytes], ['video360', 'lobby-360.mp4', mp4.length]);
+  const part = await fetch(`${BASE}/api/assets/${ok.assetId}/lobby-360.mp4`, { headers: { Range: 'bytes=0-99' } });
+  assert.equal(part.status, 206, 'streams by byte range, like the scans');
+  assert.equal((await part.arrayBuffer()).byteLength, 100);
+
+  const insv = await send('VID_2026.insv', mp4);
+  assert.equal(insv.fin.status, 400);
+  assert.match(insv.fin.json.error, /Insta360 Studio/, 'says how to get a 360 MP4');
+  const fake = await send('not-a-video.mp4', Buffer.from('hello, this is text and not a video file at all'));
+  assert.equal(fake.fin.status, 400);
+
+  // a space made from it publishes without the "loads whole" warning a big 3D model gets
+  const doc = sceneDoc('lobby-360', { splat: { format: 'video360', variants: { high: { assetId: ok.assetId, meta: 'lobby-360.mp4', bytes: 900e6 } } } });
+  assert.equal((await api('PUT', '/api/scenes/lobby-360', doc)).status, 200);
+  const pub = await api('GET', '/api/scenes/lobby-360/publish');
+  assert.ok(!JSON.stringify(pub.json).includes('loads whole'), JSON.stringify(pub.json));
 });

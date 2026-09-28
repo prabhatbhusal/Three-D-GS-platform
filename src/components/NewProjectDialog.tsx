@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { filesFromDataTransfer, filesFromFileList, uploadVariant } from '../lib/upload';
+import { filesFromDataTransfer, filesFromFileList, isVideo360File, uploadVariant, uploadVideo360 } from '../lib/upload';
 import { createProperty, getScenes, saveScene, saveSiteDraft, setProjectInfo, setProjectTheme, uploadProjectLogo } from '../lib/api';
 import { TEMPLATES, templateFor, type PlaceKind } from '../lib/siteTemplates';
 import { BrandInfoFields, infoProblem } from './BrandInfoFields';
@@ -32,7 +32,7 @@ function nameFromUpload(files: StagedFile[]): string {
   return raw.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-const isVideo = (f: StagedFile) => /\.(insv|mp4|mov|mkv)$/i.test(f.relPath);
+const isVideo = (f: StagedFile) => isVideo360File(f.relPath);
 
 /**
  * New project, in one step: name the client, drop their Lixel Studio export,
@@ -41,8 +41,8 @@ const isVideo = (f: StagedFile) => /\.(insv|mp4|mov|mkv)$/i.test(f.relPath);
  * (chunked, resumable, validated server-side, §7.1) as the space's high
  * variant; medium/low can be added inside the project later.
  *
- * 360 camera video is shown as a source but isn't built: nothing here turns
- * video into a splat. It says so rather than accepting a file it can't use.
+ * A 360 camera video (equirectangular MP4/MOV/WebM) is a space too: visitors
+ * look round it (panoModel.ts). Raw INSV is refused with what to do instead.
  */
 export function NewProjectDialog({ onClose }: { onClose: () => void }) {
   const [title, setTitle] = useState('');
@@ -90,6 +90,7 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
   const chooseColour = (c: string) => { setAccent(c); setAccentSet(true); setByHand(true); setLogoNote(''); };
   const folderRef = useRef<HTMLInputElement>(null);
   const zipRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLInputElement>(null);
   const uploading = status === 'uploading';
 
   const close = () => {
@@ -104,12 +105,25 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
 
   const take = (files: StagedFile[]) => {
     if (!files.length || uploading) return;
-    if (files.some(isVideo) && !files.some((f) => /\.(lcc2|zip|fbx|glb|gltf|obj|ply)$/i.test(f.relPath))) {
-      setStatus('error');
-      setUploadError('Turning 360 video into a space isn’t available yet. Process the capture in Lixel Studio and drop its export folder (or a .zip of it) here.');
+    const guess = nameFromUpload(files);
+    if (source === 'video360' || (files.some(isVideo) && !files.some((f) => /\.(lcc2|zip|fbx|glb|gltf|obj|ply)$/i.test(f.relPath)))) {
+      const videos = files.filter(isVideo);
+      if (videos.length !== 1 || files.length !== 1) {
+        setStatus('error');
+        setUploadError('Drop one 360 video: an equirectangular MP4, MOV or WebM.');
+        return;
+      }
+      setSource('video360');
+      if (guess && !spaceName.trim()) setSpaceName(guess);
+      setStatus('uploading');
+      setUploadError('');
+      setResult(null);
+      setProgress({ bytesSent: 0, bytesTotal: videos[0].file.size });
+      uploadVideo360(videos[0].file, setProgress)
+        .then((r) => { setResult(r); setStatus('done'); })
+        .catch((e: unknown) => { setStatus('error'); setUploadError(e instanceof Error ? e.message : 'The upload failed. Try again.'); });
       return;
     }
-    const guess = nameFromUpload(files);
     if (guess && !spaceName.trim()) setSpaceName(guess);
     setStatus('uploading');
     setUploadError('');
@@ -215,21 +229,13 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
                   <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18" /></svg>
                 </span>
                 <span className="np-source-txt">
-                  <b>360 camera video <em className="np-soon">Coming soon</em></b>
-                  <span>INSV · MP4 · MOV</span>
+                  <b>360 camera video</b>
+                  <span>MP4 · MOV · WebM, 360°</span>
                 </span>
               </button>
             </div>
 
-            {source === 'video360' ? (
-              <div className="np-drop np-drop-off">
-                <p className="np-drop-title">360 video isn&apos;t supported yet</p>
-                <p className="np-drop-sub">
-                  Nothing in the studio turns 360 footage into a space today. Process the capture in Lixel Studio,
-                  then use <button className="np-link" onClick={() => setSource('lcc2')}>Lixel Studio export</button>.
-                </p>
-              </div>
-            ) : (
+            {(
               <div
                 className={`np-drop ${dragOver ? 'is-over' : ''} ${status === 'done' ? 'is-done' : ''}`}
                 onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -241,7 +247,17 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
                     <span className="np-drop-ic" aria-hidden>
                       <svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5" /><path d="M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" /></svg>
                     </span>
-                    {source === 'model' ? (
+                    {source === 'video360' ? (
+                      <>
+                        <p className="np-drop-title">
+                          Drop the 360 video here or <button className="np-link" onClick={() => videoRef.current?.click()}>pick it</button>
+                        </p>
+                        <p className="np-drop-sub">
+                          One equirectangular video (twice as wide as it is tall), as your camera&apos;s app exports it.
+                          Visitors look round it from where it was filmed. From an Insta360, export a 360 MP4 first: raw INSV isn&apos;t one picture yet.
+                        </p>
+                      </>
+                    ) : source === 'model' ? (
                       <>
                         <p className="np-drop-title">
                           Drop the model here or <button className="np-link" onClick={() => zipRef.current?.click()}>pick files</button>
@@ -276,11 +292,11 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
                 {status === 'done' && result && (
                   <>
                     <span className="np-drop-ic is-ok" aria-hidden>✓</span>
-                    <p className="np-drop-title">{result.format && result.format !== 'lcc2' ? 'Model uploaded' : 'Export uploaded'}</p>
+                    <p className="np-drop-title">{result.format === 'video360' ? '360 video uploaded' : result.format && result.format !== 'lcc2' ? 'Model uploaded' : 'Export uploaded'}</p>
                     <p className="np-drop-sub">
                       {result.splatCount !== null && <>{(result.splatCount / 1e6).toFixed(1)}M splats · </>}
-                      {result.converted ? <><ModelNote result={result} />{' '}</> : <>{formatBytes(result.bytes)} · {result.fileCount} files ·{' '}</>}
-                      <button className="np-link" onClick={() => folderRef.current?.click()}>Replace</button>
+                      {result.converted ? <><ModelNote result={result} />{' '}</> : <>{formatBytes(result.bytes)} · {result.fileCount} {result.fileCount === 1 ? 'file' : 'files'} ·{' '}</>}
+                      <button className="np-link" onClick={() => (source === 'video360' ? videoRef : folderRef).current?.click()}>Replace</button>
                     </p>
                   </>
                 )}
@@ -289,8 +305,12 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
                     <p className="np-drop-title">That didn&apos;t upload</p>
                     <p className="np-err">{uploadError}</p>
                     <p className="np-drop-sub">
-                      <button className="np-link" onClick={() => folderRef.current?.click()}>Pick the folder again</button>
-                      {' or '}<button className="np-link" onClick={() => zipRef.current?.click()}>a .zip</button>
+                      {source === 'video360'
+                        ? <button className="np-link" onClick={() => videoRef.current?.click()}>Pick another video</button>
+                        : <>
+                          <button className="np-link" onClick={() => folderRef.current?.click()}>Pick the folder again</button>
+                          {' or '}<button className="np-link" onClick={() => zipRef.current?.click()}>a .zip</button>
+                        </>}
                     </p>
                   </>
                 )}
@@ -301,7 +321,8 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
 
             <div className="np-chips" aria-hidden>
               {['LCC2', 'ZIP', 'FBX', 'OBJ', 'PLY', 'GLB'].map((c) => <span key={c} className="np-chip">{c}</span>)}
-              {['INSV', 'MP4', 'MOV'].map((c) => <span key={c} className="np-chip is-off">{c}</span>)}
+              {['MP4', 'MOV', 'WEBM'].map((c) => <span key={c} className="np-chip">{c}</span>)}
+              <span className="np-chip is-off" title="Export raw INSV from Insta360 Studio as a 360 MP4 first">INSV</span>
             </div>
 
             <input
@@ -310,6 +331,7 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
               webkitdirectory=""
             />
             <input ref={zipRef} type="file" accept={PICK_ACCEPT} multiple hidden onChange={pick} />
+            <input ref={videoRef} type="file" accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.m4v,.webm,.insv" hidden onChange={pick} />
           </section>
 
           {/* ---------------- settings ---------------- */}

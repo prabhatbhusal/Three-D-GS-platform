@@ -24,7 +24,7 @@ import { requireEditorSession } from '../middleware/auth.js';
 import { assetGuard, refuseStaff } from '../access.js';
 import { recordAsset } from '../activity.js';
 import * as storage from '../storage.js';
-import { buildFloorPlan } from '../floorplan.js';
+import { buildFloorPlan, renameRooms } from '../floorplan.js';
 import { DATA_DIR } from '../dataDir.js';
 
 export const assetsRouter = Router();
@@ -237,6 +237,37 @@ async function looksLikeMp4(file) {
   }
 }
 
+/** A 360 camera video, equirectangular (2:1), as a space of its own: one
+ *  MP4/MOV (checked by its `ftyp` box) or WebM (its EBML header). Stored as
+ *  is; visitors stream it by byte range like any asset. Raw INSV isn't one:
+ *  it's two fisheye views that Insta360's own software stitches first. */
+async function finalizeVideo360(assetId, res) {
+  const relPaths = await listStagedFiles(assetId);
+  const reject = async (msg) => {
+    await fs.rm(path.join(STAGING_DIR, assetId), { recursive: true, force: true });
+    return res.status(400).json({ error: msg });
+  };
+  if (relPaths.length !== 1) return reject('Upload one 360 video at a time.');
+  const [relPath] = relPaths;
+  const ext = relPath.toLowerCase().split('.').pop();
+  if (ext === 'insv') {
+    return reject('That’s a raw Insta360 file (INSV): two fisheye views, not yet one picture. Export it from Insta360 Studio as a 360 MP4 (equirectangular), then upload that.');
+  }
+  if (!['mp4', 'mov', 'm4v', 'webm'].includes(ext)) return reject('A 360 video must be an MP4, MOV or WebM file.');
+  const full = stagingFile(assetId, relPath);
+  const { size } = await fs.stat(full);
+  if (!size) return reject(`${relPath} uploaded empty. Upload it again.`);
+  const fh = await fs.open(full, 'r');
+  const head = Buffer.alloc(12);
+  try { await fh.read(head, 0, 12, 0); } finally { await fh.close(); }
+  const ok = ext === 'webm' ? head.readUInt32BE(0) === 0x1a45dfa3 : head.toString('latin1', 4, 8) === 'ftyp';
+  if (!ok) return reject(`${relPath} isn’t really a video file of that kind. Export it again.`);
+
+  await storage.put(assetId, relPath, createReadStream(full));
+  await fs.rm(path.join(STAGING_DIR, assetId), { recursive: true, force: true });
+  return res.json({ assetId, bytes: size, fileCount: 1, meta: relPath, format: 'video360', splatCount: null, bbox: null });
+}
+
 async function finalizeAudio(assetId, res) {
   const relPaths = await listStagedFiles(assetId);
   const reject = async (msg) => {
@@ -329,6 +360,7 @@ assetsRouter.post('/:assetId/finalize', requireEditorSession, assetGuard, async 
   const { assetId } = req.params;
   try {
     if (req.query.kind === 'audio') return await finalizeAudio(assetId, res);
+    if (req.query.kind === 'video360') return await finalizeVideo360(assetId, res);
     let relPaths = await listStagedFiles(assetId);
     if (!relPaths.length) {
       return res.status(400).json({ error: 'No files were uploaded for this asset.' });
@@ -500,6 +532,24 @@ assetsRouter.post('/:assetId/floorplan', requireEditorSession, assetGuard, async
     if (!plan) return res.status(422).json({ error: 'This space has no collision mesh to draw a plan from. Upload the full Lixel Studio export.' });
     await recordAsset(req, req.params.assetId, 'redrew the floor plan', `${plan.size[0]} × ${plan.size[1]} m`);
     res.json(plan);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** Name the rooms of a drawn plan: { names: { r1: 'Lobby', r2: '' } }. An
+ *  empty name puts a room back to its number. Names survive a redraw. */
+assetsRouter.patch('/:assetId/floorplan/rooms', requireEditorSession, assetGuard, async (req, res, next) => {
+  try {
+    const names = req.body?.names;
+    if (!names || typeof names !== 'object' || Array.isArray(names)
+      || !Object.entries(names).every(([id, n]) => /^r\d{1,3}$/.test(id) && typeof n === 'string' && n.length <= 200)) {
+      return res.status(400).json({ error: 'Send { names: { r1: "Lobby" } }: room ids and names.' });
+    }
+    const rooms = await renameRooms(req.params.assetId, names);
+    if (!rooms) return res.status(404).json({ error: 'This space has no plan drawn from its scan yet.' });
+    await recordAsset(req, req.params.assetId, 'named the rooms on the floor plan', rooms.map((r) => r.name).join(', ').slice(0, 120));
+    res.json({ rooms });
   } catch (err) {
     next(err);
   }

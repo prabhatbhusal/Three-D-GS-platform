@@ -11,7 +11,7 @@
  * uploaded as one file and extracted server-side on finalize
  * (server/src/routes/assets.js), so the client never needs to look inside it.
  */
-import { createAsset, initAssetFile, uploadAssetChunk, finalizeAsset, finalizeAudio } from './api';
+import { createAsset, initAssetFile, uploadAssetChunk, finalizeAsset, finalizeAudio, finalizeVideo360 } from './api';
 import type { StagedFile, UploadProgress, UploadResult } from '../@types/upload.types';
 import type { UpChoice } from './modelConvert';
 
@@ -230,4 +230,52 @@ export async function uploadAudio(file: File, onProgress: (p: UploadProgress) =>
   const result = await finalizeAudio(created.assetId);
   if (!result) throw new Error('Upload finished but the server did not confirm it. Try again.');
   return `asset://${result.assetId}/${result.file}`;
+}
+
+/* ------------------------------------------------------------------ */
+/* 360 camera video — one equirectangular MP4/MOV/WebM as a space        */
+/* ------------------------------------------------------------------ */
+
+export const isVideo360File = (name: string) => /\.(mp4|mov|m4v|webm|insv)$/i.test(name);
+
+/** Why this file can't be a 360 space, or null. Reads only the video's
+ *  header in the browser: a 360 picture is twice as wide as it is tall. */
+export async function checkVideo360(file: File): Promise<string | null> {
+  if (/\.insv$/i.test(file.name)) {
+    return 'That’s a raw Insta360 file (INSV): two fisheye views, not yet one picture. Export it from Insta360 Studio as a 360 MP4 (equirectangular), then drop that here.';
+  }
+  if (!/\.(mp4|mov|m4v|webm)$/i.test(file.name)) return 'A 360 video must be an MP4, MOV or WebM file.';
+  const url = URL.createObjectURL(file);
+  try {
+    const shape = await new Promise<{ w: number; h: number } | null>((done) => {
+      const v = document.createElement('video');
+      v.preload = 'metadata';
+      v.muted = true;
+      v.onloadedmetadata = () => done({ w: v.videoWidth, h: v.videoHeight });
+      v.onerror = () => done(null);
+      v.src = url;
+    });
+    // Not every browser decodes every codec (HEVC in Firefox); let the server check the file then.
+    if (!shape || !shape.w || !shape.h) return null;
+    const r = shape.w / shape.h;
+    if (r < 1.9 || r > 2.1) {
+      return `This video is ${shape.w} × ${shape.h}, not a 360 picture (twice as wide as it is tall). Export it from the camera's app as equirectangular 360.`;
+    }
+    return null;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/** Upload one 360 video, 8 MB at a time (resumes like any upload), as a space's model. */
+export async function uploadVideo360(file: File, onProgress: (p: UploadProgress) => void): Promise<UploadResult> {
+  const invalid = await checkVideo360(file);
+  if (invalid) throw new Error(invalid);
+  const created = await createAsset();
+  if (!created?.assetId) throw new Error('Could not start the upload: the server is unreachable.');
+  const relPath = file.name.replace(/[^A-Za-z0-9._-]+/g, '-');
+  await uploadOneFile(created.assetId, { relPath, file }, (bytesSent) => onProgress({ bytesSent, bytesTotal: file.size }));
+  const result = await finalizeVideo360(created.assetId);
+  if (!result) throw new Error('Upload finished but the server did not confirm it. Try again.');
+  return result;
 }

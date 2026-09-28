@@ -17,8 +17,9 @@ import { uiConfig, setUiConfig, useUiConfig } from '../lib/uiConfig';
 import {
   saveScene, getSession, logout, getPublishState, publishSceneNow, unpublishScene, revertScene, getVersions, restoreVersion,
   resolveAsset, safeUrl, getProperties, assetUrl, buildFloorPlan, uploadFloorPlan, removeFloorPlan, getEmbed, setEmbed,
-  getSiteDraft, type SiteTable
+  getSiteDraft, renameFloorPlanRooms, type SiteTable
 } from '../lib/api';
+import { forgetPlan } from '../lib/floorMap';
 import type { SessionUser, PublishState, EmbedSettings, SceneVersion } from '../lib/api';
 import { HotspotMarkers } from './HotspotMarkers';
 import { Uploader } from './Uploader';
@@ -1252,6 +1253,7 @@ function FloorPlanSection({ sceneId }: { sceneId: string }) {
     setError('');
     try {
       await buildFloorPlan(assetId, SCENE_BY_ID[sceneId]?.name || 'Floor plan');
+      forgetPlan(assetId);
       setBust(Date.now());
       setStatus('loading');
       setView('3d');
@@ -1304,6 +1306,9 @@ function FloorPlanSection({ sceneId }: { sceneId: string }) {
             onError={() => { if (view !== 'mine') setStatus('none'); }} />
         </a>
       )}
+      {status === 'ready' && view !== 'mine' && (
+        <RoomNames assetId={assetId} bust={bust} onSaved={() => { forgetPlan(assetId); setBust(Date.now()); }} />
+      )}
       {showing && (view === 'mine' || status === 'ready') && (
         // the client deliverable: a title sheet around the plan shown above, saved from the print dialog
         <button className="ed2-export" onClick={() => window.open(
@@ -1330,6 +1335,57 @@ function FloorPlanSection({ sceneId }: { sceneId: string }) {
         {(status === 'ready' || mine) && ' Click a plan to open it full size, to save or print.'}
       </p>
     </Section>
+  );
+}
+
+/** The rooms found on a plan drawn from the scan, each named here ("Lobby",
+ *  "Banquet hall") instead of "Room 1". Names go on every copy of the plan,
+ *  the print sheet and the tour's map, and survive a redraw. */
+function RoomNames({ assetId, bust, onSaved }: { assetId: string; bust: number; onSaved: () => void }) {
+  const [rooms, setRooms] = useState<{ id: string; name: string; named?: boolean; area: number }[]>([]);
+  const [names, setNames] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [note, setNote] = useState('');
+  useEffect(() => {
+    let off = false;
+    fetch(`${assetUrl(assetId, 'floorplan/plan.json')}?v=${bust}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((p) => {
+        if (off || !Array.isArray(p?.rooms)) return;
+        setRooms(p.rooms);
+        setNames(Object.fromEntries(p.rooms.map((r: { id: string; name: string; named?: boolean }) => [r.id, r.named ? r.name : ''])));
+      })
+      .catch(() => {});
+    return () => { off = true; };
+  }, [assetId, bust]);
+  if (!rooms.length) return null;
+  const dirty = rooms.some((r) => (names[r.id] ?? '') !== (r.named ? r.name : ''));
+  const save = async () => {
+    setSaving(true);
+    setNote('');
+    try {
+      await renameFloorPlanRooms(assetId, names);
+      onSaved();
+      setNote('Saved. The plan, the print sheet and the tour map use these names.');
+    } catch (e) {
+      setNote((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div className="ed2-lbl">Rooms</div>
+      {rooms.map((r, i) => (
+        <div key={r.id} className="ed2-row" style={{ flexWrap: 'nowrap', marginTop: 6 }}>
+          <input className="ed2-name" style={{ flex: 1, minWidth: 0 }} aria-label={`Name of room ${i + 1}`} maxLength={40}
+            placeholder={`Room ${i + 1}`} value={names[r.id] ?? ''} onChange={(e) => setNames({ ...names, [r.id]: e.target.value })} />
+          <span className="ed2-muted ed2-fine" style={{ whiteSpace: 'nowrap' }}>{r.area} m²</span>
+        </div>
+      ))}
+      <button className="ed2-export" onClick={save} disabled={saving || !dirty}>{saving ? 'Saving…' : 'Save room names'}</button>
+      {note && <p className="ed2-muted ed2-fine" role="status">{note}</p>}
+    </div>
   );
 }
 

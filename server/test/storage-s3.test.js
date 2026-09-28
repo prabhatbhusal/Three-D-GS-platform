@@ -98,7 +98,7 @@ test('a floor plan is drawn from a scan that lives only in the bucket', async ()
   assert.deepEqual(plan.size, [4, 3]);
   assert.equal(plan.walls, 4);
   const stored = await storage.list('ast_scan', 'floorplan/');
-  assert.deepEqual(stored.sort(), ['floorplan/3d.svg', 'floorplan/plan.json', 'floorplan/plan.svg']);
+  assert.deepEqual(stored.sort(), ['floorplan/3d-print.svg', 'floorplan/3d.svg', 'floorplan/plan-print.svg', 'floorplan/plan.json', 'floorplan/plan.svg']);
   assert.match((await storage.readAll('ast_scan', 'floorplan/plan.svg')).toString(), /Bucket room/);
   assert.equal(await buildFloorPlan('ast_two'), null, 'no mesh, no plan');
   assert.equal(s3.stats.badSignatures, 0);
