@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { connection } from 'next/server';
 import { SitePage } from '../../../components/SitePage';
-import { API_BASE_URL, type GalleryItem } from '../../../lib/api';
+import { API_BASE_URL, withoutNightVersions, type GalleryItem } from '../../../lib/api';
 
 export const metadata: Metadata = {
   title: 'Gallery',
@@ -21,7 +21,7 @@ const isStaticExport = !!process.env.NEXT_OUTPUT_EXPORT;
 async function published(): Promise<GalleryItem[] | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/gallery`, { cache: isStaticExport ? 'force-cache' : 'no-store' });
-    return res.ok ? await res.json() : null;
+    return res.ok ? withoutNightVersions(await res.json()) : null;
   } catch {
     return null;
   }

@@ -39,6 +39,11 @@ export interface UiConfig {
 export type BrandFont = 'serif' | 'sans' | 'classic';
 /** A project's branding, as stored on it (server/src/store.js setPropertyTheme). */
 export interface ProjectTheme { brand?: string; accent?: string; font?: BrandFont; logo?: string }
+/** What a project says about its brand (server/src/store.js setPropertyInfo); its website shows it. */
+export interface ProjectInfo {
+  tagline?: string; about?: string; phone?: string; email?: string; address?: string;
+  website?: string; facebook?: string; instagram?: string;
+}
 
 export type VisitorMode = 'viewpoints' | 'walk' | 'orbit' | 'fly';
 

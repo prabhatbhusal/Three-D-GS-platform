@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
-import { API_BASE_URL, type GalleryItem } from '../../../lib/api';
+import { API_BASE_URL, withoutNightVersions, type GalleryItem } from '../../../lib/api';
 import { EnquiryPanel } from '../../../components/EnquiryPanel';
 import type { BrandFont, ProjectTheme } from '../../../@types/config.types';
 import '../../../components/viewer.css';
@@ -34,7 +34,7 @@ async function load(id: string): Promise<Hub | null> {
     if (!t.ok) return null;
     const { title, theme } = await t.json();
     const g = await fetch(`${API_BASE_URL}/api/gallery?property=${encodeURIComponent(id)}`, opts);
-    return { title, theme: theme ?? {}, spaces: g.ok ? await g.json() : [] };
+    return { title, theme: theme ?? {}, spaces: g.ok ? withoutNightVersions(await g.json()) : [] };
   } catch {
     return null;
   }

@@ -47,6 +47,7 @@ const blankPayload = (type: HotspotType): HotspotPayload =>
       : type === 'link' ? { url: '', text: 'Open' }
         : type === 'portal' ? { sceneId: '' }
           : type === 'audio' ? { transcript: '' }
+            : type === 'table' ? { tableId: '', text: '' }
             : { text: '' };
 
 /** Drop a hotspot ~2 units in front of the camera. */
@@ -224,7 +225,8 @@ export function sceneDocFor(sceneId: string): SceneDoc {
     },
     hotspots: hotspotsFor(sceneId),
     tracks,
-    booking: bookingFor(sceneId)
+    booking: bookingFor(sceneId),
+    night: conf?.night ?? null
   };
 }
 

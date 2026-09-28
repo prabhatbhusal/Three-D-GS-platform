@@ -7,6 +7,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { goToPlan, loadPlan, mapPose, toPlan, type FloorPlan } from '../lib/floorMap';
+import { useT } from '../lib/i18n';
 
 const TINTS = ['#2A3350', '#24403F', '#3F2E4E', '#343A48', '#23405A', '#46402C'];
 
@@ -15,6 +16,7 @@ export function FloorMap({ assetId, startOpen }: { assetId: string | undefined; 
   const [open, setOpen] = useState(startOpen);
   const [here, setHere] = useState<string | null>(null);
   const dot = useRef<SVGGElement | null>(null);
+  const t = useT();
 
   useEffect(() => {
     let live = true;
@@ -51,14 +53,14 @@ export function FloorMap({ assetId, startOpen }: { assetId: string | undefined; 
   return (
     <div className={`vw-map${open ? ' is-open' : ''}`}>
       <button type="button" className="vw-map-toggle" onClick={() => setOpen(!open)} aria-expanded={open}>
-        {open ? 'Hide map' : 'Map'}
+        {open ? t('Hide map') : t('Map')}
       </button>
       {open && (
-        <svg viewBox={view} role="img" aria-label="Floor map. Tap a room to go there.">
+        <svg viewBox={view} role="img" aria-label={t('Floor map. Tap a room to go there.')}>
           {plan.rooms.map((r, i) => (
             <path key={r.id} d={r.rects.map(rect).join('')} fill={TINTS[i % TINTS.length]}
               className={`vw-map-room${here === r.id ? ' is-here' : ''}`} onClick={() => goToPlan(plan, r.at[0], r.at[1])}>
-              <title>{`${r.name}, ${r.area} m². Go there`}</title>
+              <title>{t('{name}, {area} m². Go there', { name: r.name, area: r.area })}</title>
             </path>
           ))}
           <path d={plan.walls.map((w) => `M${w[0]} ${-w[1]}L${w[2]} ${-w[3]}`).join('')} stroke="#F6F1E7" strokeWidth={0.14} strokeLinecap="square" pointerEvents="none" />

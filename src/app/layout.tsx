@@ -32,7 +32,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem("threedview-theme");document.documentElement.dataset.theme=t||(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark")}catch(e){}})()`
+            // "gs": GSAP will animate the marketing pages in (landing.css keeps them hidden until it does)
+            __html: `(function(){document.documentElement.classList.add("gs");try{var t=localStorage.getItem("threedview-theme");document.documentElement.dataset.theme=t||(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark")}catch(e){}})()`
           }}
         />
       </head>

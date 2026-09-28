@@ -11,6 +11,7 @@ import { mkdtempSync, rmSync, readdirSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
+import { siteAllowed, siteOf } from '../src/routes/embed.js';
 
 const PORT = 4900 + Math.floor(Math.random() * 90);
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -44,6 +45,8 @@ before(async () => {
       EMBED_TOKEN_SECRET: 'test-embed-secret',
       AUTH_RATE_MAX: '100', // the suite signs up many accounts from one IP
       LEADS_RATE_MAX: '100',
+      STATS_RATE_MAX: '1000',
+      RESERVE_RATE_MAX: '100',
       RESEND_API_KEY: 'test-mail-key',
       RESEND_API_URL: `http://127.0.0.1:${mailServer.address().port}/emails`,
       LEADS_TO: '',
@@ -96,6 +99,15 @@ const sceneDoc = (id, extra = {}) => ({
 /* ---------------------------------------------------------------- */
 /* Properties                                                        */
 /* ---------------------------------------------------------------- */
+
+test('embed sites reject dangerous protocol strings and spoofed hostnames', () => {
+  assert.equal(siteOf('javascript:alert(1)'), '');
+  assert.equal(siteOf('data:text/html;base64,abc'), '');
+  assert.equal(siteOf('https://sub.example.com'), 'sub.example.com');
+  assert.equal(siteAllowed('javascript:alert(1)', ['example.com']), false);
+  assert.equal(siteAllowed('https://sub.example.com', ['example.com']), true);
+  assert.equal(siteAllowed('https://example.com.evil.test', ['example.com']), false);
+});
 
 test('properties need a session', async () => {
   assert.equal((await api('GET', '/api/properties')).status, 401);
@@ -226,12 +238,38 @@ test('a project belongs to whoever created it; only the owner, an admin, or a sh
   signIn();
   assert.equal((await api('PATCH', `/api/properties/${id}`, { title: 'Gwarko Overpass, Lalitpur' })).status, 200);
 
-  // an admin sees and manages everything without being added
+  // being an admin doesn't show you other people's work (2026-09-27)
   const admin = 'first@geonova.com.np'; // created in the previous test, still the only admin
   const adminLogin = await api('POST', '/api/auth/login', { email: admin, password: 'plenty-long-8' });
   cookie = adminLogin.headers.get('set-cookie').split(';')[0];
-  assert.ok((await api('GET', '/api/properties')).json.some((p) => p.id === id));
+  assert.ok(!(await api('GET', '/api/properties')).json.some((p) => p.id === id), 'not in the admin’s list');
+  assert.equal((await api('GET', `/api/properties/${id}`)).status, 404, 'nor by id');
+});
+
+test('a project from before accounts shows only as a name to claim; the claimer then has it alone', async () => {
+  signIn(); // the shared team password makes projects with no owner, like the old ones
+  const id = (await api('POST', '/api/properties', { title: 'Old Unowned Hotel' })).json.id;
+  await api('PUT', '/api/scenes/unowned-lobby', sceneDoc('unowned-lobby', { propertyId: id, title: 'Lobby' }));
+  await api('PUT', `/api/properties/${id}/theme`, { brand: 'Private brand' });
+
+  const me = await signUpUser('Claimer', 'claimer@geonova.com.np');
+  const friend = await signUpUser('Friend', 'friend@geonova.com.np');
+  cookie = me.cookie;
+  const listed = (await api('GET', '/api/properties')).json.find((p) => p.id === id);
+  assert.deepEqual([listed.claimable, listed.title, listed.theme], [true, 'Old Unowned Hotel', undefined], 'a name, nothing more');
+  assert.equal((await api('GET', `/api/properties/${id}`)).status, 404, 'unclaimed: not openable');
+  assert.equal((await api('GET', '/api/scenes/unowned-lobby')).status, 403, 'nor its spaces');
+
+  const claimed = await api('POST', `/api/properties/${id}/claim`);
+  assert.equal(claimed.status, 200);
+  assert.equal(claimed.json.ownerId, me.user.id);
   assert.equal((await api('GET', `/api/properties/${id}`)).status, 200);
+  assert.equal((await api('GET', '/api/scenes/unowned-lobby')).status, 200, 'its spaces come with it');
+
+  cookie = friend.cookie;
+  assert.ok(!(await api('GET', '/api/properties')).json.some((p) => p.id === id), 'gone from the friend’s list');
+  assert.equal((await api('POST', `/api/properties/${id}/claim`)).status, 409, 'and not claimable twice');
+  assert.equal((await api('GET', '/api/scenes/unowned-lobby')).status, 403);
 });
 
 test('sharing a project adds a member who can then see and manage it, until removed', async () => {
@@ -296,12 +334,31 @@ test('a project\'s spaces and their files are only for people who can see the pr
   assert.equal((await api('PUT', '/api/scenes/private-lobby', { ...doc, title: 'Lobby, retouched' })).status, 200);
   assert.ok((await api('GET', '/api/scenes')).json.some((s) => s.id === 'private-lobby'));
 
-  // unfiled spaces stay open to everyone, as before
+  // a space in no project is its creator's alone (2026-09-27)
   cookie = outsider.cookie;
   assert.equal((await api('PUT', '/api/scenes/outsider-room', sceneDoc('outsider-room'))).status, 200);
-  // and the public list, with no session, is unchanged
+  assert.equal((await api('GET', '/api/scenes/outsider-room')).status, 200, 'its creator opens it');
+  cookie = helper.cookie;
+  assert.equal((await api('GET', '/api/scenes/outsider-room')).status, 403, 'nobody else does');
+  assert.ok(!(await api('GET', '/api/scenes')).json.some((s) => s.id === 'outsider-room'), 'or lists it');
+  assert.equal((await api('PUT', '/api/scenes/outsider-room', { ...sceneDoc('outsider-room'), ownerId: helper.user.id })).status, 403, 'or takes it over');
+  // and drafts aren't public: no session, no list and no draft (visitors read /published)
   cookie = '';
-  assert.ok((await api('GET', '/api/scenes')).json.some((s) => s.id === 'private-lobby'));
+  assert.equal((await api('GET', '/api/scenes')).status, 401);
+  assert.equal((await api('GET', '/api/scenes/private-lobby')).status, 401);
+});
+
+test('deleting a project keeps its spaces, private to the one who deleted it', async () => {
+  const owner = await signUpUser('Deleter', 'deleter@geonova.com.np');
+  const other = await signUpUser('Bystander', 'bystander@geonova.com.np');
+  cookie = owner.cookie;
+  const pid = (await api('POST', '/api/properties', { title: 'Closing Hotel' })).json.id;
+  await api('PUT', '/api/scenes/closing-hall', sceneDoc('closing-hall', { propertyId: pid }));
+  assert.equal((await api('DELETE', `/api/properties/${pid}`)).status, 200);
+  const kept = (await api('GET', '/api/scenes')).json.find((s) => s.id === 'closing-hall');
+  assert.deepEqual([kept?.propertyId, kept?.ownerId], [null, owner.user.id]);
+  cookie = other.cookie;
+  assert.ok(!(await api('GET', '/api/scenes')).json.some((s) => s.id === 'closing-hall'));
 });
 
 test('an embed needs its space\'s key, a retired key stops working, and a site list is honoured', async () => {
@@ -399,7 +456,10 @@ test('an enquiry is filed to its project, emailed to its people, and exports to 
   });
   mailbox.length = 0;
   // a space's own project wins over whatever the form claims
-  assert.equal((await send({ sceneId: 'enquiry-suite', sceneName: 'Deluxe suite', propertyId: 'someone-else', message: '=HYPERLINK("http://x")', email: 'asha@mail.com' })).status, 200);
+  assert.equal((await send({
+    sceneId: 'enquiry-suite', sceneName: 'Deluxe suite', propertyId: 'someone-else', message: '=HYPERLINK("http://x")', email: 'asha@mail.com',
+    requirement: 'This space: Deluxe suite', hotspotId: 'hs-balcony', hotspotLabel: 'Balcony <view>'
+  })).status, 200);
   // from the project's page
   assert.equal((await send({ sceneId: 'hub', sceneName: 'Enquiry Hotel (project page)', propertyId: pid })).status, 200);
   // a made-up project from the page files nowhere
@@ -413,6 +473,8 @@ test('an enquiry is filed to its project, emailed to its people, and exports to 
   assert.deepEqual(mail.to, ['sales@hotel.com']);
   assert.equal(mail.reply_to, 'asha@mail.com', 'replying answers the guest');
   assert.match(mail.text, /Phone:\s+9841000000/);
+  assert.match(mail.text, /Was looking at: Balcony view/, 'the hotspot, with no HTML');
+  assert.match(mail.text, /Looking for:\s+This space: Deluxe suite/);
   assert.ok(!('html' in mail), 'plain text only: the fields are a stranger\'s');
 
   const list = await api('GET', `/api/properties/${pid}/leads`);
@@ -431,6 +493,41 @@ test('an enquiry is filed to its project, emailed to its people, and exports to 
   cookie = editor.cookie;
   assert.equal((await api('GET', '/api/leads')).status, 403);
   assert.equal((await api('GET', `/api/properties/${pid}/leads`)).status, 404, 'not their project');
+});
+
+test('tour visits and time are counted per space, and the monthly report adds enquiries', async () => {
+  signIn();
+  const pid = (await api('POST', '/api/properties', { title: 'Report Hotel' })).json.id;
+  await api('PUT', '/api/scenes/report-lobby', sceneDoc('report-lobby', { propertyId: pid, title: 'Lobby' }));
+  await api('PUT', '/api/scenes/report-draft', sceneDoc('report-draft', { propertyId: pid, title: 'Not published' }));
+  assert.equal((await api('POST', '/api/scenes/report-lobby/publish')).status, 200);
+
+  const beacon = (body) => fetch(`${BASE}/api/stats`, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(body) });
+  const all = await Promise.all([
+    beacon({ space: 'report-lobby', visit: true }),
+    beacon({ space: 'report-lobby', visit: true }),
+    beacon({ space: 'report-lobby', seconds: 95 }),
+    beacon({ space: 'report-lobby', seconds: 99999 }), // capped at 30 min
+    beacon({ space: 'report-draft', visit: true }), // not published: not counted
+    beacon({ space: '../etc', visit: true })
+  ]);
+  assert.ok(all.every((r) => r.status === 204));
+  await fetch(`${BASE}/api/leads`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'Ravi', phone: '9800000000', sceneId: 'report-lobby', formRenderedAt: Date.now() - 5000 })
+  });
+  await new Promise((r) => setTimeout(r, 150)); // beacons are counted after the reply
+
+  const r = (await api('GET', `/api/properties/${pid}/report`)).json;
+  assert.equal(r.visits, 2, 'two visits, even sent at the same moment');
+  assert.equal(r.seconds, 95 + 1800);
+  const lobby = r.spaces.find((s) => s.id === 'report-lobby');
+  assert.deepEqual([lobby.title, lobby.visits, lobby.enquiries], ['Lobby', 2, 1]);
+  assert.equal(r.spaces.find((s) => s.id === 'report-draft').visits, 0);
+  assert.equal(Object.values(r.days).reduce((a, b) => a + b, 0), 2);
+  assert.equal((await api('GET', `/api/properties/${pid}/report?month=2026-13`)).status, 400);
+  cookie = '';
+  assert.equal((await api('GET', `/api/properties/${pid}/report`)).status, 401);
 });
 
 test('every published version is listed, and any one can be put live again', async () => {
@@ -797,4 +894,192 @@ test('an asset id can never climb out of the data folder', async () => {
   });
   assert.equal(status, 400);
   assert.ok(readdirSync(path.join(DATA, 'scenes')).length > 0, 'data folder untouched');
+});
+
+test('a space keeps its night version through save and publish, and the lists report it', async () => {
+  signIn();
+  await api('PUT', '/api/scenes/dn-lobby', sceneDoc('dn-lobby', { title: 'Lobby', night: 'dn-lobby-night' }));
+  await api('PUT', '/api/scenes/dn-lobby-night', sceneDoc('dn-lobby-night', { title: 'Lobby at night' }));
+  assert.equal((await api('POST', '/api/scenes/dn-lobby/publish')).status, 200);
+  const listed = (await api('GET', '/api/scenes')).json.find((s) => s.id === 'dn-lobby');
+  assert.equal(listed.night, 'dn-lobby-night');
+  const gallery = (await api('GET', '/api/gallery')).json.find((g) => g.id === 'dn-lobby');
+  assert.equal(gallery.night, 'dn-lobby-night');
+});
+
+test('a project website: draft, photos, publish, and a public page that only shows its own spaces', async () => {
+  signIn();
+  const pid = (await api('POST', '/api/properties', { title: 'Site Hotel' })).json.id;
+  const other = (await api('POST', '/api/properties', { title: 'Someone Else' })).json.id;
+  await api('PUT', '/api/scenes/site-lobby', sceneDoc('site-lobby', { propertyId: pid, title: 'Lobby', tracks: [{ id: 'vp-door', label: 'The door', keyframes: [] }] }));
+  await api('PUT', '/api/scenes/site-theirs', sceneDoc('site-theirs', { propertyId: other, title: 'Not yours' }));
+  for (const s of ['site-lobby', 'site-theirs']) assert.equal((await api('POST', `/api/scenes/${s}/publish`)).status, 200);
+
+  assert.equal((await api('GET', `/api/sites/${pid}`)).status, 404, 'nothing public before the first publish');
+  const draft = (await api('GET', `/api/sites/${pid}/draft`)).json;
+  assert.deepEqual(draft.spaces.map((s) => [s.id, s.views.map((v) => v.id)]), [['site-lobby', ['vp-door']]]);
+
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(32, 3)]);
+  const photo = (await api('POST', `/api/sites/${pid}/images`, new Uint8Array(png), { 'Content-Type': 'application/octet-stream' })).json.path;
+  assert.ok(photo.startsWith(`site_${pid}/img-`) && /^img-\d+\.png$/.test(photo.split('/')[1]), photo);
+  assert.equal((await api('POST', `/api/sites/${pid}/images`, new Uint8Array([1, 2, 3]), { 'Content-Type': 'application/octet-stream' })).status, 415);
+
+  const saved = await api('PUT', `/api/sites/${pid}/draft`, {
+    hero: { title: '  Site Hotel  ', space: 'site-lobby', junk: 'dropped' },
+    rooms: [
+      { title: 'Lobby', image: photo, space: 'site-lobby', view: 'vp-door' },
+      { title: 'Borrowed', space: 'site-theirs', view: 'x' },
+      { title: 'Bad photo', image: '../../etc/passwd' }
+    ],
+    menu: { items: [{ name: 'Momo', price: 'Rs 350' }, { price: 'no name' }] },
+    gallery: [photo, 'brand_x/logo.png']
+  });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.json.draft.hero.title, 'Site Hotel');
+  assert.equal(saved.json.draft.hero.junk, undefined);
+  assert.equal(saved.json.draft.rooms[2].image, '', 'only this site’s own photos');
+  assert.deepEqual(saved.json.draft.gallery, [photo]);
+  assert.equal(saved.json.draft.menu.items.length, 1);
+
+  assert.equal((await api('POST', `/api/sites/${pid}/publish`)).status, 200);
+  cookie = '';
+  const pub = (await api('GET', `/api/sites/${pid}`)).json;
+  assert.equal(pub.site.hero.title, 'Site Hotel');
+  assert.equal(pub.tour.space, 'site-lobby');
+  assert.match(pub.tour.key, /^[\w-]{24}$/);
+  assert.deepEqual(pub.site.rooms.map((r) => [r.title, r.space, r.view]),
+    [['Lobby', 'site-lobby', 'vp-door'], ['Borrowed', '', ''], ['Bad photo', '', '']], 'another project’s space is dropped');
+  assert.equal((await api('PUT', `/api/sites/${pid}/draft`, {})).status, 401);
+});
+
+test('table booking: availability, one table per time, any table, the studio confirms or declines', async () => {
+  signIn();
+  const pid = (await api('POST', '/api/properties', { title: 'Table Hotel' })).json.id;
+  await api('PUT', `/api/properties/${pid}/lead-emails`, { emails: ['host@tablehotel.test'] });
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(32, 3)]);
+  const plan = (await api('POST', `/api/sites/${pid}/images`, new Uint8Array(png), { 'Content-Type': 'application/octet-stream' })).json.path;
+  const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const [tomorrow, closedDay] = [day(1), day(2)];
+  const booking = {
+    on: true, plan, timezone: 'UTC', first: '18:00', last: '20:00', slot: 30, stay: 90, days: 14, maxParty: 8,
+    closed: [new Date(`${closedDay}T12:00:00Z`).getUTCDay()],
+    tables: [
+      { id: 't2', label: 'Window 2', seats: 2, x: 0.2, y: 0.3, shape: 'round' },
+      { id: 't4', label: 'Table 4', seats: 4, x: 0.6, y: 0.5, shape: 'square' },
+      { id: 't6', label: 'Long table', seats: 6, x: 0.8, y: 0.8, shape: 'long' },
+      { id: 'bad id!', label: 'dropped' }
+    ]
+  };
+  const saved = await api('PUT', `/api/sites/${pid}/draft`, { booking });
+  assert.deepEqual(saved.json.draft.booking.tables.map((t) => t.id), ['t2', 't4', 't6']);
+  assert.equal((await api('GET', `/api/sites/${pid}/availability`)).status, 404, 'nothing until published');
+  await api('POST', `/api/sites/${pid}/publish`);
+
+  cookie = ''; // everything a guest does is public
+  const avail = (date) => api('GET', `/api/sites/${pid}/availability?date=${date}`).then((r) => r.json);
+  const a = await avail(tomorrow);
+  assert.deepEqual(a.slots.map((s) => s.time), ['18:00', '18:30', '19:00', '19:30', '20:00']);
+  assert.deepEqual(a.slots[0].free, ['t2', 't4', 't6']);
+  assert.equal(a.dates.find((d) => d.date === closedDay).closed, true);
+  assert.deepEqual((await avail(closedDay)).slots, []);
+
+  const guest = { name: 'Sita', phone: '9800000001', email: 'sita@guest.test', formRenderedAt: Date.now() - 5000 };
+  const book = (b) => api('POST', `/api/sites/${pid}/reservations`, { ...guest, date: tomorrow, ...b });
+  const first = await book({ table: 't4', time: '19:00', party: 3, notes: 'Anniversary' });
+  assert.equal(first.status, 201);
+  assert.equal(first.json.tableLabel, 'Table 4');
+  // held 90 minutes: every start from 18:00 to 20:00 is within 90 minutes of 19:00
+  const after = await avail(tomorrow);
+  assert.deepEqual(after.slots.map((s) => s.free.includes('t4')), [false, false, false, false, false]);
+  assert.ok(after.slots.every((s) => s.free.includes('t2')), 'other tables stay free');
+  assert.equal((await book({ table: 't4', time: '19:30', party: 2 })).status, 409, 'the same table, overlapping');
+  assert.equal((await book({ table: 't2', time: '19:00', party: 3 })).status, 400, 'three at a table for two');
+  assert.equal((await book({ table: 't4', time: '19:15', party: 2 })).status, 400, 'not a start time');
+  assert.equal((await book({ table: 't4', time: '19:00', party: 2, date: closedDay })).status, 400, 'closed that day');
+  assert.equal((await book({ table: 't4', time: '19:00', party: 9 })).status, 400, 'over the largest party');
+  const any = await book({ table: 'any', time: '19:00', party: 4 });
+  assert.equal(any.status, 201);
+  assert.equal(any.json.table, 't6', 'the smallest free table that seats four');
+  assert.equal((await book({ table: 'any', time: '19:00', party: 3 })).status, 409, 'nothing left for three at 19:00');
+  const trap = await book({ table: 't2', time: '18:00', party: 2, website: 'http://spam' });
+  assert.equal(trap.json.id, undefined, 'the honeypot answers like it worked, stores nothing');
+  assert.equal((await api('GET', `/api/sites/${pid}/reservations`)).status, 401);
+
+  await new Promise((r) => setTimeout(r, 200)); // the restaurant's email goes after the reply
+  const toHost = mailbox.filter((m) => m.to.includes('host@tablehotel.test') && /Table request/.test(m.subject));
+  assert.equal(toHost.length, 2);
+  assert.match(toHost[0].text, /Anniversary/);
+  assert.equal(toHost[0].reply_to, 'sita@guest.test');
+
+  signIn();
+  const inbox = (await api('GET', `/api/sites/${pid}/reservations`)).json;
+  assert.equal(inbox.reservations.length, 2);
+  assert.equal(inbox.reservations[0].ip, undefined, 'no IPs in the studio');
+  const id = inbox.reservations.find((r) => r.table === 't4').id;
+  assert.equal((await api('PATCH', `/api/sites/${pid}/reservations/${id}`, { status: 'confirmed' })).json.status, 'confirmed');
+  await new Promise((r) => setTimeout(r, 200));
+  assert.ok(mailbox.some((m) => m.to.includes('sita@guest.test') && /confirmed/.test(m.subject)), 'the guest hears it is confirmed');
+
+  // Declined frees the table; taking it back is refused once someone else has it.
+  await api('PATCH', `/api/sites/${pid}/reservations/${id}`, { status: 'declined' });
+  cookie = '';
+  assert.equal((await book({ table: 't4', time: '19:30', party: 2 })).status, 201);
+  signIn();
+  assert.equal((await api('PATCH', `/api/sites/${pid}/reservations/${id}`, { status: 'confirmed' })).status, 409);
+  assert.equal((await api('PATCH', `/api/sites/${pid}/reservations/${id}`, { status: 'eaten' })).status, 400);
+});
+
+test('the website preview shows the saved draft to the team, before and apart from publishing', async () => {
+  signIn();
+  const pid = (await api('POST', '/api/properties', { title: 'Preview Cafe' })).json.id;
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(32, 3)]);
+  const plan = (await api('POST', `/api/sites/${pid}/images`, new Uint8Array(png), { 'Content-Type': 'application/octet-stream' })).json.path;
+  await api('PUT', `/api/sites/${pid}/draft`, {
+    hero: { title: 'Draft title' },
+    booking: { on: true, plan, timezone: 'UTC', first: '12:00', last: '13:00', tables: [{ id: 't1', label: 'T1', seats: 2, x: 0.5, y: 0.5 }] }
+  });
+  const pre = await api('GET', `/api/sites/${pid}/preview`);
+  assert.equal(pre.status, 200);
+  assert.equal(pre.json.preview, true);
+  assert.equal(pre.json.site.hero.title, 'Draft title');
+  assert.equal(pre.json.site.booking.tables[0].id, 't1');
+  assert.equal(pre.json.publishedAt, null);
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const av = await api('GET', `/api/sites/${pid}/preview/availability?date=${tomorrow}`);
+  assert.deepEqual(av.json.slots.map((s) => s.time), ['12:00', '12:30', '13:00']);
+  assert.equal((await api('GET', `/api/sites/${pid}`)).status, 404, 'still nothing public');
+  assert.equal((await api('GET', `/api/sites/${pid}/availability`)).status, 404, 'and no public booking');
+
+  await api('POST', `/api/sites/${pid}/publish`);
+  await api('PUT', `/api/sites/${pid}/draft`, { hero: { title: 'Newer draft' } });
+  assert.equal((await api('GET', `/api/sites/${pid}/preview`)).json.site.hero.title, 'Newer draft');
+  assert.equal((await api('GET', `/api/sites/${pid}`)).json.site.hero.title, 'Draft title', 'the public site waits for Publish');
+
+  cookie = '';
+  assert.equal((await api('GET', `/api/sites/${pid}/preview`)).status, 401);
+  assert.equal((await api('GET', `/api/sites/${pid}/preview/availability`)).status, 401);
+});
+
+test('a project carries its brand information, checked, and its website shows it', async () => {
+  const owner = await signUpUser('Brand Owner', 'brand-owner@geonova.com.np');
+  const other = await signUpUser('Brand Other', 'brand-other@geonova.com.np');
+  cookie = owner.cookie;
+  const pid = (await api('POST', '/api/properties', { title: 'Himal Cafe' })).json.id;
+  const set = await api('PUT', `/api/properties/${pid}/info`, {
+    tagline: 'Coffee with a view <b>', about: 'Since 2009.', phone: '+977 1 5550000', email: 'hello@himal.cafe',
+    website: 'himal.cafe', instagram: 'https://instagram.com/himalcafe', address: 'Jhamsikhel, Lalitpur'
+  });
+  assert.equal(set.status, 200);
+  assert.equal(set.json.info.tagline, 'Coffee with a view b', 'no HTML');
+  assert.equal(set.json.info.website, 'https://himal.cafe', 'a bare domain becomes a link');
+  assert.equal((await api('PUT', `/api/properties/${pid}/info`, { email: 'not-an-email' })).status, 400);
+  assert.equal((await api('PUT', `/api/properties/${pid}/info`, { facebook: 'javascript:alert(1)' })).status, 400);
+  assert.equal((await api('PUT', `/api/properties/${pid}/info`, { about: '' })).json.info.about, undefined, 'empty removes it');
+
+  await api('PUT', `/api/sites/${pid}/draft`, { hero: { title: 'Himal Cafe' } });
+  await api('POST', `/api/sites/${pid}/publish`);
+  cookie = '';
+  assert.equal((await api('GET', `/api/sites/${pid}`)).json.project.info.phone, '+977 1 5550000');
+  cookie = other.cookie;
+  assert.equal((await api('PUT', `/api/properties/${pid}/info`, { phone: '1' })).status, 404, 'not someone else’s');
 });

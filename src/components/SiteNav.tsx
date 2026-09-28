@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useLayoutEffect, useRef, useState, ViewTransition } from 'react';
+import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
 import { getSession, logout } from '../lib/api';
 import { ThemeToggle } from './ThemeToggle';
@@ -64,6 +65,12 @@ export function SiteNav() {
   }, [pathname]);
 
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  // The profile/settings drawer renders outside the nav: the nav's backdrop-filter
+  // makes it the containing block for position: fixed, which would squeeze the
+  // drawer into the bar. .site, not body, so it keeps the site's colour tokens.
+  const [drawerHost, setDrawerHost] = useState<Element | null>(null);
+  useEffect(() => { setDrawerHost(navRef.current?.closest('.site') ?? document.body); }, []);
   const [user, setUser] = useState<{ name: string; email: string } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [detailView, setDetailView] = useState<'profile' | 'settings' | null>(null);
@@ -78,7 +85,8 @@ export function SiteNav() {
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+      const t = event.target as Node;
+      if (menuRef.current && !menuRef.current.contains(t) && !panelRef.current?.contains(t)) {
         setMenuOpen(false);
         setDetailView(null);
       }
@@ -177,9 +185,10 @@ export function SiteNav() {
               )}
             </AnimatePresence>
 
-            <AnimatePresence>
+            {drawerHost && createPortal(<AnimatePresence>
               {detailView && (
                 <motion.div
+                  ref={panelRef}
                   className="site-account-backdrop"
                   onClick={closeMenu}
                   initial={{ opacity: 0 }}
@@ -242,7 +251,7 @@ export function SiteNav() {
                   </motion.aside>
                 </motion.div>
               )}
-            </AnimatePresence>
+            </AnimatePresence>, drawerHost)}
           </div>
         ) : (
           <>

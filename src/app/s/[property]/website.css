@@ -1,0 +1,169 @@
+/* A project's website (/s/<project>). Quiet and editorial: warm paper, the
+ * project's own serif and accent (--ws-serif, --ws-accent), generous space,
+ * and the live tour as the centrepiece. Its own scroll container: globals.css
+ * locks body for the 3D app. */
+
+.ws {
+  --ink: #1c1a17;
+  --dim: #6f675d;
+  --paper: #f5f1ea;
+  --card: #fffdf9;
+  --line: rgba(28, 26, 23, 0.12);
+  --wide: min(1240px, calc(100% - 32px));
+  --text: min(760px, calc(100% - 32px));
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  color: var(--ink);
+  background: var(--paper);
+  font: 400 17px/1.65 system-ui, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+@media (prefers-color-scheme: dark) {
+  .ws { --ink: #efe9df; --dim: #a79e92; --paper: #151412; --card: #1e1c19; --line: rgba(239, 233, 223, 0.12); }
+}
+.ws a { color: inherit; }
+.ws h1, .ws h2 { font-family: var(--ws-serif); font-weight: 400; letter-spacing: -0.01em; text-wrap: balance; }
+.ws-dim { color: var(--dim); }
+
+/* ---- top bar */
+.ws-top {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 14px max(16px, calc((100% - 1240px) / 2));
+  background: color-mix(in srgb, var(--paper) 90%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+.ws-brand { display: flex; align-items: center; gap: 12px; font: 400 21px/1.1 var(--ws-serif); }
+.ws-brand img { max-height: 36px; max-width: 140px; object-fit: contain; }
+.ws-top nav { display: flex; gap: 22px; font-size: 14px; letter-spacing: 0.04em; }
+.ws-top nav a { text-decoration: none; color: var(--dim); }
+.ws-top nav a:hover, .ws-top nav a:last-child { color: var(--ink); }
+
+/* ---- hero */
+.ws-hero { width: var(--text); margin: 0 auto; padding: 14vh 0 7vh; text-align: center; }
+.ws-hero > * { animation: ws-rise 1s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.ws-hero > :nth-child(2) { animation-delay: 0.1s; }
+.ws-hero > :nth-child(3) { animation-delay: 0.2s; }
+@keyframes ws-rise { from { opacity: 0; translate: 0 24px; } }
+.ws-eyebrow { margin: 0 0 18px; font-size: 13px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ws-accent); }
+.ws-hero h1 { margin: 0; font-size: clamp(44px, 8vw, 104px); line-height: 1.02; }
+.ws-lede { margin: 26px auto 0; max-width: 36em; font-size: 19px; color: var(--dim); text-wrap: pretty; }
+
+/* ---- the tour */
+.ws-stage { width: var(--wide); margin: 0 auto; animation: ws-rise 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) 0.3s both; }
+.ws-tour {
+  display: block; width: 100%; aspect-ratio: 16 / 9; max-height: 82vh;
+  border: 0; border-radius: 18px; background: #0d0c0b;
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.45);
+}
+.ws-caption { margin: 14px 0 0; text-align: center; font-size: 14px; color: var(--dim); }
+.ws-caption a { color: var(--ws-accent); text-decoration: none; }
+
+/* ---- facts */
+.ws-facts {
+  width: var(--wide); margin: 12vh auto 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+}
+.ws-facts div { padding: 28px 16px; text-align: center; }
+.ws-facts div + div { border-left: 1px solid var(--line); }
+.ws-facts strong { display: block; font: 400 clamp(30px, 4vw, 44px)/1.1 var(--ws-serif); }
+.ws-facts span { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); }
+
+/* ---- story */
+.ws-story { width: var(--wide); margin: 16vh auto 0; display: grid; grid-template-columns: 1fr 1.3fr; gap: 6vw; }
+.ws-story h2 { margin: 0; font-size: clamp(32px, 4vw, 52px); line-height: 1.1; }
+.ws-story p { margin: 0 0 1.1em; color: var(--dim); }
+
+/* ---- rooms, as chapters */
+.ws-rooms { width: var(--wide); margin: 16vh auto 0; display: grid; gap: 14vh; }
+.ws-room { display: grid; grid-template-columns: 1.2fr 1fr; gap: 5vw; align-items: center; }
+.ws-room:nth-child(even) > img, .ws-room:nth-child(even) > .ws-room-ph { order: 2; }
+.ws-room > img, .ws-room-ph { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 14px; }
+.ws-room-ph { background: linear-gradient(135deg, var(--card), color-mix(in srgb, var(--ws-accent) 22%, var(--card))); }
+.ws-num { margin: 0; font: 400 15px/1 var(--ws-serif); letter-spacing: 0.2em; color: var(--ws-accent); }
+.ws-room h2 { margin: 12px 0 18px; font-size: clamp(30px, 3.6vw, 48px); line-height: 1.1; }
+.ws-room p { margin: 0 0 1em; color: var(--dim); }
+.ws-features { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 0; padding: 0; list-style: none; }
+.ws-features li { padding: 5px 12px; border: 1px solid var(--line); border-radius: 999px; font-size: 13px; }
+.ws-link {
+  margin-top: 26px; padding: 0 0 4px; border: 0; border-bottom: 1px solid currentColor; background: none;
+  color: var(--ws-accent); font: 600 15px/1.2 inherit; letter-spacing: 0.02em; cursor: pointer;
+}
+.ws-link span { display: inline-block; transition: translate 0.2s; }
+.ws-link:hover span { translate: 4px 0; }
+
+/* ---- plan and photos */
+.ws-plan { width: var(--wide); margin: 16vh auto 0; text-align: center; }
+.ws-plan h2, .ws-menu h2, .ws-contact h2 { margin: 0 0 24px; font-size: clamp(32px, 4vw, 52px); line-height: 1.1; }
+.ws-plan img { max-width: 100%; max-height: 80vh; border-radius: 14px; background: var(--card); padding: 12px; box-sizing: border-box; }
+.ws-gallery { width: var(--wide); margin: 16vh auto 0; columns: 3 280px; column-gap: 14px; }
+.ws-gallery img { display: block; width: 100%; margin: 0 0 14px; border-radius: 12px; break-inside: avoid; }
+
+/* ---- menu */
+.ws-menu { width: var(--text); margin: 16vh auto 0; text-align: center; }
+.ws-menu ul { margin: 36px 0 0; padding: 0; list-style: none; text-align: left; }
+.ws-menu li { padding: 16px 0; border-bottom: 1px solid var(--line); }
+.ws-menu-row { display: flex; align-items: baseline; gap: 12px; }
+.ws-menu-row b { font: 400 21px/1.3 var(--ws-serif); }
+.ws-menu-row span { flex: 1; border-bottom: 1px dotted var(--line); translate: 0 -5px; }
+.ws-menu-row em { font-style: normal; font-variant-numeric: tabular-nums; }
+.ws-menu li p { margin: 4px 0 0; font-size: 15px; color: var(--dim); }
+.ws-tag {
+  margin-left: 10px; padding: 1px 8px; border-radius: 999px; font-size: 12px;
+  color: var(--ws-accent); border: 1px solid color-mix(in srgb, var(--ws-accent) 45%, transparent);
+}
+
+/* ---- table booking: the section (the panel itself is components/table-booking.css) */
+.ws-book { width: var(--wide); margin: 16vh auto 0; }
+.ws-book > h2 { margin: 0 0 8px; text-align: center; font-size: clamp(32px, 4vw, 52px); line-height: 1.1; }
+.ws-book > .ws-dim { margin: 0 auto 40px; max-width: 34em; text-align: center; }
+
+/* ---- contact */
+.ws-contact { width: var(--text); margin: 16vh auto 0; padding-bottom: 12vh; text-align: center; }
+.ws-btn {
+  margin-top: 18px; min-height: 50px; padding: 0 30px; border: 0; border-radius: 999px; cursor: pointer;
+  font: 600 16px/1 inherit; color: #fff; background: var(--ws-accent);
+}
+.ws-btn:hover { filter: brightness(1.08); }
+.ws-hero-cta { display: inline-flex; align-items: center; margin-top: 30px; text-decoration: none; color: #fff !important; }
+.ws-foot {
+  display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  padding: 26px max(16px, calc((100% - 1240px) / 2)); border-top: 1px solid var(--line);
+  font-size: 14px; color: var(--dim);
+}
+
+/* ---- phones */
+@media (max-width: 760px) {
+  .ws-top nav { display: none; }
+  .ws-hero { padding: 9vh 0 5vh; }
+  .ws-tour { aspect-ratio: 3 / 4; max-height: 72vh; border-radius: 14px; }
+  .ws-story, .ws-room { grid-template-columns: 1fr; }
+  .ws-room:nth-child(even) > img, .ws-room:nth-child(even) > .ws-room-ph { order: 0; }
+  .ws-facts div + div { border-left: 0; }
+  .ws-rooms { gap: 10vh; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ws-hero > *, .ws-stage { animation: none; }
+}
+
+/* The studio's Preview (studio/[property]/site/preview): a banner above everything. */
+.ws-preview {
+  position: sticky; top: 0; z-index: 6; margin: 0; padding: 10px 16px;
+  display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; font-size: 14px;
+  background: #1c1a17; color: #fff;
+}
+.ws-preview a { color: #fff; text-decoration: underline; }
+.ws-preview + .ws-top { top: 40px; }
+
+/* How to reach the brand (its brand information): under the enquiry button. */
+.ws-reach {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px 24px;
+  margin: 40px 0 0; padding: 24px 0 0; list-style: none; text-align: left; border-top: 1px solid var(--line);
+}
+.ws-reach li { display: grid; gap: 2px; }
+.ws-reach span { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); }
+.ws-reach a { color: var(--ink); text-decoration: none; overflow-wrap: anywhere; }
+.ws-reach a:hover { color: var(--ws-accent); }

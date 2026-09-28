@@ -2,21 +2,21 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  createProperty, deleteProperty, getProperties, getProperty, getScenes, moveSceneToProperty, renameProperty,
-  addPropertyMember, removePropertyMember, getSession, getActivity, getProjectLeads, setProjectLeadEmails, projectLeadsCsvUrl, type ProjectLeads, setProjectTheme, uploadProjectLogo, removeProjectLogo, API_BASE_URL, LAST_PROJECT_KEY, type SessionUser, type ActivityEntry
+  createProperty, deleteProperty, claimProperty, getProperties, getProperty, getScenes, moveSceneToProperty, renameProperty,
+  addPropertyMember, removePropertyMember, getSession, getActivity, getProjectLeads, setProjectLeadEmails, projectLeadsCsvUrl, type ProjectLeads, setProjectTheme, setProjectInfo, uploadProjectLogo, removeProjectLogo, API_BASE_URL, LAST_PROJECT_KEY, type SessionUser, type ActivityEntry
 } from '../../lib/api';
 import { useStudioSession } from '../../lib/useStudioSession';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { NewProjectDialog } from '../../components/NewProjectDialog';
+import { BrandInfoFields, infoProblem } from '../../components/BrandInfoFields';
 import { TeamDialog } from '../../components/TeamDialog';
 import type { ApiScene, Property } from '../../@types/scene.types';
-import type { BrandFont, ProjectTheme } from '../../@types/config.types';
+import type { BrandFont, ProjectInfo, ProjectTheme } from '../../@types/config.types';
 import '../../components/editor.css';
 
-/** Owner/admin can rename, delete or share it; a project without an owner
- *  (made before ownership existed) is everyone's to manage, same as always. */
-const canManage = (p: Property, me: SessionUser | null) =>
-  !me || me.role === 'admin' || p.ownerId === null || p.ownerId === me.id;
+/** Only its owner can rename, delete, rebrand or share it (an admin too sees
+ *  only their own projects). The shared team password, with no account, can. */
+const canManage = (p: Property, me: SessionUser | null) => !me || p.ownerId === me.id;
 
 /**
  * The studio's front door: one card per client project (a "property" in the
@@ -173,6 +173,27 @@ function ProjectCard({ project, current, me, onChanged }: { project: Property; c
     }
   };
 
+  // A project from before accounts: its name only, until someone claims it.
+  if (project.claimable) {
+    const claim = async () => {
+      if (!window.confirm(`Claim "${project.title}"?
+
+It becomes yours: from then on only you, and whoever you share it with, can see it.`)) return;
+      try { await claimProperty(project.id); onChanged(); } catch (e) { setError(e instanceof Error ? e.message : 'Could not claim it. Try again.'); }
+    };
+    return (
+      <div className="pl-card pl-card-unclaimed">
+        <span className="pl-card-tile" aria-hidden>{project.title.trim()[0]}</span>
+        <span className="pl-card-txt">
+          <span className="pl-card-title">{project.title}</span>
+          <span className="pl-card-meta">From before accounts · {count === 1 ? '1 space' : `${count} spaces`}</span>
+          {error && <span className="ed2-warn ed2-fine">{error}</span>}
+        </span>
+        <button className="pl-btn" onClick={claim}>Claim</button>
+      </div>
+    );
+  }
+
   const remove = async () => {
     setMenu(false);
     const spaces = count === 1 ? 'Its 1 space moves' : `Its ${count} spaces move`;
@@ -218,6 +239,9 @@ function ProjectCard({ project, current, me, onChanged }: { project: Property; c
           <div className="pl-menu-list" role="menu">
             <button role="menuitem" onClick={() => { setMenu(false); setLeads(true); }}>Enquiries…</button>
             <button role="menuitem" onClick={() => { setMenu(false); setShowLog(true); }}>Activity</button>
+            <a role="menuitem" href={`/studio/${encodeURIComponent(project.id)}/site`} onClick={() => setMenu(false)}>Website…</a>
+            <a role="menuitem" href={`/studio/${encodeURIComponent(project.id)}/reservations`} onClick={() => setMenu(false)}>Reservations…</a>
+            <a role="menuitem" href={`/studio/${encodeURIComponent(project.id)}/report`} target="_blank" rel="noopener" onClick={() => setMenu(false)}>Monthly report ↗</a>
             {mine && <button role="menuitem" onClick={() => { setMenu(false); setError(''); setDraft(project.title); setRenaming(true); }}>Rename</button>}
             {mine && <button role="menuitem" onClick={() => { setMenu(false); setSharing(true); }}>Share…</button>}
             {mine && <button role="menuitem" onClick={() => { setMenu(false); setBranding(true); }}>Branding…</button>}
@@ -316,6 +340,9 @@ const FONT_FACES: Record<BrandFont, [string, string]> = {
 function BrandingDialog({ project, onClose }: { project: Property; onClose: () => void }) {
   const [theme, setTheme] = useState<ProjectTheme>(project.theme ?? {});
   const [brand, setBrand] = useState(project.theme?.brand ?? '');
+  const [info, setInfo] = useState<ProjectInfo>(project.info ?? {});
+  const [savedInfo, setSavedInfo] = useState<ProjectInfo>(project.info ?? {});
+  const [infoNote, setInfoNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -387,6 +414,24 @@ function BrandingDialog({ project, onClose }: { project: Property; onClose: () =
               {logoUrl && <button className="pl-btn pl-btn-danger" disabled={busy} onClick={() => run(() => removeProjectLogo(project.id))}>Remove</button>}
             </span>
             <span className="pl-sub">A PNG with a transparent background works best on the dark tour. 2 MB at most.</span>
+          </div>
+
+          <div className="pl-field">
+            <span>Brand information</span>
+            <span className="pl-sub">Shown on the project’s website: how guests reach you, and a word about you. Leave a field empty to hide it.</span>
+            <BrandInfoFields value={info} onChange={(v) => { setInfo(v); setInfoNote(''); }} className="pl-field" />
+            <span className="pl-share-form">
+              <button className="pl-btn pl-btn-main" disabled={busy || JSON.stringify(info) === JSON.stringify(savedInfo)} onClick={async () => {
+                const problem = infoProblem(info);
+                if (problem) { setError(problem); return; }
+                setBusy(true); setError('');
+                try {
+                  const p = await setProjectInfo(project.id, info);
+                  if (p) { setInfo(p.info ?? {}); setSavedInfo(p.info ?? {}); setInfoNote('Saved.'); }
+                } catch (e) { setError(e instanceof Error ? e.message : 'That didn’t save. Try again.'); } finally { setBusy(false); }
+              }}>Save brand information</button>
+              {infoNote && <span className="pl-sub">{infoNote}</span>}
+            </span>
           </div>
           {error && <p className="ed2-warn ed2-fine">{error}</p>}
         </div>

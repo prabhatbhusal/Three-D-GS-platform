@@ -14,6 +14,7 @@ import { spawnFor, setSessionSpawn, hydrateScenes, SCENE_BY_ID, firstScene, isPu
 import { hasWebGL2 } from '../lib/deviceTier';
 import { tierProfile, detectTier } from '../lib/lccConfig';
 import { EnquiryPanel } from './EnquiryPanel';
+import { useVisitBeacon } from '../lib/stats';
 import './viewer.css';
 import {
   liveViewpoints, subscribeViewpoints, exportViewpoints, poseWaypoint,
@@ -168,6 +169,7 @@ function Stage({ onState, viewerMode }: StageProps) {
   // Saved tracks, hotspots and placement for whichever space is open.
   // The public tour reads the published copy; the studio (and its Preview) the draft.
   useEffect(() => { loadSceneDoc(mgr.activeId, isPublicTour() ? 'published' : 'draft'); }, [mgr.activeId]);
+  useVisitBeacon(mgr.activeId);
   useSceneTransform(mgr.renderer, mgr.activeId, mgr.unitScale, mgr.baseMatrix);
 
   const playViewport = useCallback(
@@ -203,6 +205,9 @@ function Stage({ onState, viewerMode }: StageProps) {
     [play]
   );
 
+  // A day/night switch: the same place in another scan, so the view carries over.
+  const carry = useRef<{ p: THREE.Vector3; q: THREE.Quaternion } | null>(null);
+
   // New scene -> cancel flight, drop the walker at its spawn, and reopen in
   // viewpoints mode (CLAUDE.md §6.1 — walk must never carry over from the
   // space before it, or become the default by accident). Fly is the one
@@ -211,9 +216,16 @@ function Stage({ onState, viewerMode }: StageProps) {
     stop();
     setFlying(false);
     const stayAerial = viewerMode && (navMode.flyEnabled || navMode.orbitEnabled);
-    if (!stayAerial) resetNavMode();
+    const kept = carry.current;
+    if (!stayAerial && !kept) resetNavMode();
     preFly.current = null; // the old space's pose means nothing here
-    if (mgr.ready) {
+    if (mgr.ready && kept) {
+      carry.current = null;
+      walkerRef.current?.reset([kept.p.x, kept.p.y, kept.p.z]);
+      camera.quaternion.copy(kept.q);
+      camera.updateMatrixWorld();
+      walkerRef.current?.adoptCameraOrientation();
+    } else if (mgr.ready) {
       const { spawn, yaw } = spawnFor(mgr.activeId);
       walkerRef.current?.reset(spawn, yaw);
       if (stayAerial && navMode.orbitEnabled) frameAerial();
@@ -302,6 +314,10 @@ function Stage({ onState, viewerMode }: StageProps) {
       flying,
       viewpoints: liveViewpoints(mgr.activeId),
       select: mgr.select,
+      selectKeepingView: (id) => {
+        carry.current = { p: camera.position.clone(), q: camera.quaternion.clone() };
+        mgr.select(id);
+      },
       playViewport,
       stopFly,
       flyReset: () => {

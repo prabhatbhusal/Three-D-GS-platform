@@ -63,7 +63,9 @@ export async function listScenes() {
     // Which loader the client uses: the LCC SDK, or meshModel.ts for obj/ply.
     format: s.splat?.format ?? 'lcc2',
     neighbours: s.neighbours ?? [],
-    propertyId: s.propertyId ?? null
+    propertyId: s.propertyId ?? null,
+    ownerId: s.ownerId ?? null,
+    night: s.night ?? null
   }));
 }
 
@@ -92,7 +94,10 @@ async function readRaw(file) {
   }
 }
 
-export async function saveScene(id, doc) {
+/** `creator`: the account saving a new space. It's recorded as the space's
+ *  `ownerId`, which decides who may see it while it's in no project
+ *  (access.js); the editor can't change it, like the publish fields. */
+export async function saveScene(id, doc, { creator = null } = {}) {
   if (doc.id && doc.id !== id) throw Object.assign(new Error('id mismatch'), { status: 400 });
   // Publish state is owned by the publish routes below, not by the editor: a
   // studio tab opened before a publish would otherwise save its stale
@@ -104,6 +109,7 @@ export async function saveScene(id, doc) {
     else if (k === 'status') withId.status = 'draft';
     else delete withId[k];
   }
+  withId.ownerId = existing ? existing.ownerId ?? null : creator;
   await fs.mkdir(SCENES_DIR, { recursive: true });
   await fs.writeFile(sceneFile(id), JSON.stringify(withId, null, 2));
   return withId;
@@ -239,11 +245,13 @@ export async function restoreVersion(id, n) {
  * the draft on disk directly so nothing else in it changes — publish state
  * included. The published snapshot keeps whatever it had until the next publish.
  */
-export async function setSceneProperty(id, propertyId) {
+/** Moving a space out of its project makes it the mover's (`by`): out of a
+ *  project, only its owner sees it. */
+export async function setSceneProperty(id, propertyId, by = null) {
   const raw = await readRaw(sceneFile(id));
   if (!raw) return null;
   if (propertyId !== null && !(await getProperty(propertyId))) throw badRequest('That project does not exist.');
-  const next = { ...raw, propertyId };
+  const next = { ...raw, propertyId, ...(propertyId === null && by ? { ownerId: by } : {}) };
   await fs.writeFile(sceneFile(id), JSON.stringify(next, null, 2));
   return { id, propertyId };
 }
@@ -281,23 +289,38 @@ export function propertyIdFor(title) {
 }
 
 /** `ownerId`/`members` arrived 2026-09-24; a property saved before then has
- *  neither. `ownerId: null` means "no owner" — visible and manageable by
- *  everyone, the same as it always was, so an existing project doesn't
- *  vanish from anyone's list on upgrade. */
+ *  neither. `ownerId: null` means "no owner yet": nobody's work to see, only
+ *  to claim (propertyIsClaimable, POST /api/properties/:id/claim). */
 const fillPropertyDefaults = (doc) => (doc ? { ownerId: null, members: [], ...doc } : doc);
 
-/** Can this session see the project in a list, or open it directly? */
+/**
+ * Can this session see the project in a list, or open it directly? Its owner
+ * and the people it's shared with — nobody else. Being an admin doesn't show
+ * you other people's work (2026-09-27): admin is for running the team's
+ * accounts. The legacy shared-password session (no account) still sees all.
+ */
 export function propertyIsVisible(property, session) {
-  if (!session?.sub || session.role === 'admin') return true; // admin, or the legacy full-access session
-  return property.ownerId === null || property.ownerId === session.sub || (property.members ?? []).includes(session.sub);
+  if (!session?.sub) return true; // the legacy full-access session
+  return property.ownerId === session.sub || (property.members ?? []).includes(session.sub);
 }
 
-/** Can this session rename/delete it, or manage who else can see it? Owner
- *  or admin only — being a member you were added to isn't being in charge
- *  of it. */
+/** Can this session rename/delete it, or manage who else can see it? The
+ *  owner only — being a member you were added to isn't being in charge of it. */
 export function propertyIsManageable(property, session) {
-  if (!session?.sub || session.role === 'admin') return true;
+  if (!session?.sub) return true;
   return property.ownerId === session.sub;
+}
+
+/** A project from before accounts, with no owner: any account may claim it,
+ *  after which it's that account's alone. */
+export const propertyIsClaimable = (property, session) => !!session?.sub && property.ownerId === null;
+
+export async function claimProperty(id, userId) {
+  const doc = await getProperty(id);
+  if (!doc || doc.ownerId !== null) return null;
+  const next = { ...doc, ownerId: userId };
+  await fs.writeFile(propertyFile(id), JSON.stringify(next, null, 2));
+  return next;
 }
 
 export async function listProperties() {
@@ -366,14 +389,17 @@ export async function renameProperty(id, title) {
  * property yet" (propertyId null) and published tours keep working, since a
  * tour doesn't read the property. Returns how many spaces were released.
  */
-export async function deleteProperty(id) {
+/** Its spaces are kept, out of any project, as the deleter's (`by`): they
+ *  stay private to whoever had them. */
+export async function deleteProperty(id, by = null) {
   const p = await getProperty(id);
   if (!p) return null;
   let released = 0;
   for (const f of (await sceneFiles()).filter(isDraftFile)) {
     const raw = await readRaw(path.join(SCENES_DIR, f));
     if (raw?.propertyId !== id) continue;
-    await fs.writeFile(path.join(SCENES_DIR, f), JSON.stringify({ ...raw, propertyId: null }, null, 2));
+    const ownerId = by ?? raw.ownerId ?? p.ownerId ?? null;
+    await fs.writeFile(path.join(SCENES_DIR, f), JSON.stringify({ ...raw, propertyId: null, ownerId }, null, 2));
     released += 1;
   }
   await fs.rm(propertyFile(id), { force: true });
@@ -419,6 +445,37 @@ export async function setPropertyTheme(id, patch) {
     if (patch.logo) theme.logo = patch.logo; else delete theme.logo;
   }
   const next = { ...p, theme };
+  await fs.writeFile(propertyFile(id), JSON.stringify(next, null, 2));
+  return next;
+}
+
+/** What a project says about its brand (2026-09-27): a tagline, a short
+ *  "about", and how to reach it. Public by nature — its website shows it — so
+ *  checked here: lengths capped, a real email, and web addresses only. An
+ *  empty field removes it. */
+export const INFO_FIELDS = { tagline: 120, about: 1200, phone: 40, email: 200, address: 300, website: 300, facebook: 300, instagram: 300 };
+const URL_FIELDS = ['website', 'facebook', 'instagram'];
+export async function setPropertyInfo(id, patch) {
+  const p = await getProperty(id);
+  if (!p) return null;
+  const info = { ...(p.info ?? {}) };
+  for (const [k, max] of Object.entries(INFO_FIELDS)) {
+    if (!(k in (patch ?? {}))) continue;
+    const v = typeof patch[k] === 'string' ? patch[k].replace(/[<>]/g, '').trim() : '';
+    if (!v) { delete info[k]; continue; }
+    if (v.length > max) throw badRequest(`${k} is too long — keep it under ${max} characters.`);
+    if (k === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) throw badRequest('That email address doesn’t look right.');
+    if (URL_FIELDS.includes(k)) {
+      const url = /^https?:\/\//i.test(v) ? v : `https://${v}`;
+      let ok = false;
+      try { const u = new URL(url); ok = /^https?:$/.test(u.protocol) && u.hostname.includes('.'); } catch { /* not an address */ }
+      if (!ok || !isWebUrl(url)) throw badRequest(`The ${k} link must be a web address, like example.com.`);
+      info[k] = url;
+      continue;
+    }
+    info[k] = v;
+  }
+  const next = { ...p, info };
   await fs.writeFile(propertyFile(id), JSON.stringify(next, null, 2));
   return next;
 }
@@ -475,7 +532,8 @@ export async function listPublished() {
       version: snap.publishedVersion,
       trackCount: snap.tracks?.length ?? 0,
       thumb: snap.tracks?.find((t) => t.thumb)?.thumb ?? null,
-      propertyId: snap.propertyId ?? null
+      propertyId: snap.propertyId ?? null,
+      night: snap.night ?? null
     });
   }
   return out.sort((a, b) => (a.publishedAt < b.publishedAt ? 1 : -1));

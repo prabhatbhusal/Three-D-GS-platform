@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { submitLead } from '../lib/api';
+import { useT } from '../lib/i18n';
 
 /**
  * The persistent CTA + enquiry panel (CLAUDE.md §6.4) — this is the product,
@@ -42,11 +43,19 @@ interface EnquiryPanelProps {
   propertyId?: string;
   /** The pill's words; the tour's default is about the space you're in. */
   label?: string;
+  /** The last hotspot the visitor opened in this space, sent with the
+   *  enquiry: what they were looking at when they decided to ask. */
+  hotspot?: { id: string; label: string } | null;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
 
-export function EnquiryPanel({ sceneId, sceneName, propertyId, label = 'Ask about this space', open: openProp, onOpenChange }: EnquiryPanelProps) {
+export function EnquiryPanel({ sceneId, sceneName, propertyId, label, hotspot, open: openProp, onOpenChange }: EnquiryPanelProps) {
+  const t = useT();
+  // Asked from inside a space, the enquiry is about that space unless they
+  // say otherwise: it's chosen for them. (The project page's form isn't.)
+  const spaceOption = sceneId !== 'hub' && sceneName ? `This space: ${sceneName}` : '';
+  const REQ = ['General enquiry', 'Room booking', 'Meeting or event space', 'Something else'];
   const [openSelf, setOpenSelf] = useState(false);
   const open = openProp ?? openSelf;
   const setOpen = (o: boolean) => (onOpenChange ? onOpenChange(o) : setOpenSelf(o));
@@ -61,18 +70,21 @@ export function EnquiryPanel({ sceneId, sceneName, propertyId, label = 'Ask abou
     e.preventDefault();
     for (const f of REQUIRED) {
       if (!values[f]?.trim()) {
-        setError(`Add your ${LABEL[f].toLowerCase()} so the team can reach you.`);
+        setError(t(`Add your ${LABEL[f].toLowerCase()} so the team can reach you.`));
         return;
       }
     }
     setStatus('sending');
     setError('');
     try {
-      await submitLead({ ...values, sceneId, sceneName, propertyId, formRenderedAt: renderedAt });
+      await submitLead({
+        ...values, requirement: values.requirement ?? spaceOption, sceneId, sceneName, propertyId,
+        hotspotId: hotspot?.id, hotspotLabel: hotspot?.label, formRenderedAt: renderedAt
+      });
       setStatus('done');
     } catch (err) {
       setStatus('error');
-      setError(err instanceof Error ? err.message : "That didn't go through — check your connection and try again.");
+      setError(err instanceof Error ? err.message : t('That didn’t go through — check your connection and try again.'));
     }
   };
 
@@ -80,56 +92,54 @@ export function EnquiryPanel({ sceneId, sceneName, propertyId, label = 'Ask abou
     <>
       <button className={`vw-cta-btn ${open ? 'on' : ''}`} onClick={() => setOpen(!open)} aria-expanded={open}>
         <Chat />
-        <span>{label}</span>
+        <span>{label ?? t('Ask about this space')}</span>
       </button>
 
       {open && (
         <>
           <div className="vw-sheet-scrim" onClick={() => setOpen(false)} />
-          <div className="vw-sheet vw-sheet-ask" role="dialog" aria-label="Ask about this space">
-            <button className="vw-sheet-x" onClick={() => setOpen(false)} aria-label="Close">✕</button>
+          <div className="vw-sheet vw-sheet-ask" role="dialog" aria-label={t('Ask about this space')}>
+            <button className="vw-sheet-x" onClick={() => setOpen(false)} aria-label={t('Close')}>✕</button>
 
             {status === 'done' ? (
               <div className="vw-sheet-done">
                 <span className="vw-sheet-tick" aria-hidden>✓</span>
-                <h2>Thanks, we&apos;ve got it</h2>
-                <p className="vw-sheet-sub">Someone from the team will get back to you about {sceneName || 'this space'} soon.</p>
-                <button className="vw-sheet-go vw-sheet-go-quiet" onClick={() => setOpen(false)}>Keep exploring</button>
+                <h2>{t('Thanks, we’ve got it')}</h2>
+                <p className="vw-sheet-sub">{t('Someone from the team will get back to you about {place} soon.', { place: sceneName || t('this space') })}</p>
+                <button className="vw-sheet-go vw-sheet-go-quiet" onClick={() => setOpen(false)}>{t('Keep exploring')}</button>
               </div>
             ) : (
               <form onSubmit={submit} noValidate>
-                <h2>Ask about this space</h2>
-                <p className="vw-sheet-sub">{sceneName ? `About ${sceneName}` : 'Send an enquiry'}</p>
+                <h2>{label ?? t('Ask about this space')}</h2>
+                <p className="vw-sheet-sub">{sceneName ? t('About {place}', { place: sceneName }) : t('Send an enquiry')}</p>
 
                 <div className="vw-sheet-grid">
                   <label className="vw-sheet-input vw-span-2">
-                    <span>{LABEL.name}</span>
+                    <span>{t(LABEL.name)}</span>
                     <input value={values.name || ''} onChange={(e) => set('name', e.target.value)} autoComplete="name" maxLength={100} />
                   </label>
                   <label className="vw-sheet-input">
-                    <span>{LABEL.phone}</span>
+                    <span>{t(LABEL.phone)}</span>
                     <input type="tel" value={values.phone || ''} onChange={(e) => set('phone', e.target.value)} autoComplete="tel" maxLength={30} />
                   </label>
                   <label className="vw-sheet-input">
-                    <span>{LABEL.email} <em>optional</em></span>
+                    <span>{t(LABEL.email)} <em>{t('optional')}</em></span>
                     <input type="email" value={values.email || ''} onChange={(e) => set('email', e.target.value)} autoComplete="email" maxLength={200} />
                   </label>
                   <label className="vw-sheet-input vw-span-2">
-                    <span>{LABEL.requirement}</span>
-                    <select value={values.requirement || ''} onChange={(e) => set('requirement', e.target.value)}>
-                      <option value="">Choose one</option>
-                      <option>General enquiry</option>
-                      <option>Room booking</option>
-                      <option>Meeting or event space</option>
-                      <option>Something else</option>
+                    <span>{t(LABEL.requirement)}</span>
+                    <select value={values.requirement ?? spaceOption} onChange={(e) => set('requirement', e.target.value)}>
+                      <option value="">{t('Choose one')}</option>
+                      {spaceOption && <option value={spaceOption}>{t('This space: {name}', { name: sceneName ?? '' })}</option>}
+                      {REQ.map((r) => <option key={r} value={r}>{t(r)}</option>)}
                     </select>
                   </label>
                   <label className="vw-sheet-input vw-span-2">
-                    <span>{LABEL.dates} <em>optional</em></span>
-                    <input value={values.dates || ''} onChange={(e) => set('dates', e.target.value)} placeholder="e.g. 12–14 October" maxLength={100} />
+                    <span>{t(LABEL.dates)} <em>{t('optional')}</em></span>
+                    <input value={values.dates || ''} onChange={(e) => set('dates', e.target.value)} placeholder={t('e.g. 12–14 October')} maxLength={100} />
                   </label>
                   <label className="vw-sheet-input vw-span-2">
-                    <span>{LABEL.message} <em>optional</em></span>
+                    <span>{t(LABEL.message)} <em>{t('optional')}</em></span>
                     <textarea rows={3} value={values.message || ''} onChange={(e) => set('message', e.target.value)} maxLength={2000} />
                   </label>
                 </div>
@@ -148,9 +158,9 @@ export function EnquiryPanel({ sceneId, sceneName, propertyId, label = 'Ask abou
 
                 {error && <p className="vw-sheet-err">{error}</p>}
                 <button className="vw-sheet-go" type="submit" disabled={status === 'sending'}>
-                  {status === 'sending' ? 'Sending…' : 'Send enquiry'}
+                  {status === 'sending' ? t('Sending…') : t('Send enquiry')}
                 </button>
-                <p className="vw-sheet-fine vw-sheet-center">Name and phone are all we need.</p>
+                <p className="vw-sheet-fine vw-sheet-center">{t('Name and phone are all we need.')}</p>
               </form>
             )}
           </div>

@@ -19,6 +19,8 @@ export interface Scene {
   neighbours?: string[];
   /** Which client this space belongs to (§5.1). Null/absent = not filed yet. */
   propertyId?: string | null;
+  /** Another space in the same project: this one's night version (day/night switch in the tour). */
+  night?: string | null;
 }
 
 export interface SpawnState {
@@ -38,6 +40,7 @@ export interface ApiScene {
   meta?: string;
   format?: ModelFormat;
   neighbours?: string[];
+  night?: string | null;
   propertyId?: string | null;
 }
 
@@ -53,8 +56,12 @@ export interface Property {
   members: string[];
   /** Branding on its tours; see ProjectTheme. */
   theme?: import('./config.types').ProjectTheme;
+  /** Its brand information; see ProjectInfo. */
+  info?: import('./config.types').ProjectInfo;
   /** Only on GET /api/properties. */
   spaceCount?: number;
+  /** Only on GET /api/properties: a project from before accounts, listed by name only, to claim. */
+  claimable?: boolean;
   /** Only on GET /api/properties/:id (the share panel). */
   ownerName?: string | null;
   memberDetails?: { id: string; name: string; email: string }[];
@@ -141,5 +148,7 @@ export interface SceneDoc {
   /** Absent on docs saved before 2026-09-21 -> null (migrate.js). */
   booking: Booking | null;
   neighbours: string[];
+  /** This space's night version: another space's id (lib/scenes.ts dayNightPair). */
+  night?: string | null;
   status: 'draft' | 'published';
 }

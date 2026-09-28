@@ -1,19 +1,23 @@
 'use client';
 
 import { useEffect, useReducer, useRef, useState } from 'react';
-import { visibleScenes, SCENE_BY_ID } from '../lib/scenes';
+import { tourSpaces, visibleScenes, dayNightPair, sameTimeOfDay, SCENE_BY_ID, isPublicTour } from '../lib/scenes';
 import { useUiConfig, setUiConfig } from '../lib/uiConfig';
 import { useNavMode, setVisitorMode, visitorMode } from '../lib/navMode';
 import { zoomOrbit, scaleFlySpeed, walkerCfg } from '../lib/walkerConfig';
 import { bookingFor, sceneHasAudio, subscribeDoc } from '../lib/sceneDoc';
-import { safeUrl } from '../lib/api';
+import { safeUrl, getSiteBooking, getSitePreview, type SiteBooking, type SiteTable } from '../lib/api';
+import { TableBooking } from './TableBooking';
+import { TableCard } from './TableCard';
 import { setMuted, unlockAudio, useSound } from '../lib/audio';
 import { closeCurtain, openCurtain } from './Curtain';
 import { FloorMap } from './FloorMap';
 import { TouchControls } from './TouchControls';
 import { HotspotMarkers, HotspotPanel } from './HotspotMarkers';
+import { hotspotsFor } from '../lib/sceneDoc';
 import { EnquiryPanel } from './EnquiryPanel';
 import { BookingCard } from './BookingCard';
+import { useT, setLang, LANGS, type Lang } from '../lib/i18n';
 import type { ViewerState } from '../@types/app.types';
 import './viewer.css';
 
@@ -32,11 +36,28 @@ interface ViewerProps {
  */
 export function Viewer({ state, isTouch, autoStart = false, tour = false }: ViewerProps) {
   const ui = useUiConfig();
+  const t = useT();
   const [enteredByUser, setEnteredByUser] = useState(false);
   const [openHs, setOpenHs] = useState<string | null>(null);
+  // the last hotspot opened, and in which space: an enquiry reports it
+  const [lastHs, setLastHs] = useState<{ sceneId: string; id: string; label: string } | null>(null);
   const [panel, setPanel] = useState<Panel>('views');
   // Book now and Ask about this space are two cards in the same place: one at a time.
-  const [sheet, setSheet] = useState<'book' | 'ask' | null>(null);
+  // 'table': the Reserve a table card (like Book now); 'plan': its floor plan, to pick by sight.
+  const [sheet, setSheet] = useState<'book' | 'ask' | 'table' | 'plan' | null>(null);
+  // Table booking from the project's website: the published setup on the tour,
+  // the saved draft in the studio's Preview (which never books). Null when off.
+  const pid = state?.activeId ? SCENE_BY_ID[state.activeId]?.propertyId ?? null : null;
+  const [tables, setTables] = useState<{ pid: string; booking: SiteBooking } | null>(null);
+  const [tableId, setTableId] = useState('');
+  useEffect(() => {
+    if (!pid) { setTables(null); return; }
+    let live = true;
+    const load = isPublicTour() ? getSiteBooking(pid) : getSitePreview(pid).then((s) => s?.site.booking ?? null).catch(() => null);
+    load.then((booking) => { if (live) setTables(booking ? { pid, booking } : null); });
+    return () => { live = false; };
+  }, [pid]);
+  const reserve = (id = '') => { setTableId(id); setSheet('table'); };
   const [, bump] = useReducer((n) => n + 1, 0);
   useEffect(() => subscribeDoc(bump), []); // booking + hotspot audio arrive with the scene doc
   const nav = useNavMode();
@@ -75,6 +96,36 @@ export function Viewer({ state, isTouch, autoStart = false, tour = false }: View
     });
   };
 
+  // A project's website (/s/<project>) embeds this tour and can send it to a
+  // room: { type: 'rcaas:view', space?, view? }. Only our own pages may. It
+  // enters the tour if need be, opens the space, then flies to the view.
+  const wanted = useRef<{ space?: string; view?: string } | null>(null);
+  const [, bumpWanted] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => {
+    const on = (e: MessageEvent) => {
+      if (e.origin !== location.origin || e.source !== window.parent || e.data?.type !== 'rcaas:view') return;
+      const str = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
+      wanted.current = { space: str(e.data.space), view: str(e.data.view) };
+      bumpWanted();
+    };
+    window.addEventListener('message', on);
+    return () => window.removeEventListener('message', on);
+  }, []);
+  useEffect(() => {
+    const w = wanted.current;
+    if (!w || !state) return;
+    if (!entered) { if (ready || failed) enter(); return; }
+    if (w.space && w.space !== state.activeId) {
+      if (!visibleScenes().some((s) => s.id === w.space)) wanted.current = null; // not in this tour
+      else if (!state.loading) state.select(w.space);
+      return;
+    }
+    if (!controllable) return;
+    wanted.current = null;
+    const vp = w.view ? state.viewpoints?.find((v) => v.id === w.view) : undefined;
+    if (vp) state.playViewport(vp);
+  });
+
   return (
     <div className="vw" data-touch={isTouch ? '' : undefined} data-tour={tour ? '' : undefined}>
       {state?.loading && entered && <LoadingGate progress={state.progress} />}
@@ -96,16 +147,40 @@ export function Viewer({ state, isTouch, autoStart = false, tour = false }: View
           <TopChrome state={state} showBrand={ui.showBrand} brand={ui.brand}
             hd={ui.hd !== false} canExit={!tour && !isEmbed()}
             panel={panel} setPanel={setPanel}
-            bookOpen={sheet === 'book'} onBook={() => setSheet(sheet === 'book' ? null : 'book')} />
+            bookOpen={sheet === 'book'} onBook={() => setSheet(sheet === 'book' ? null : 'book')}
+            reserveOpen={sheet === 'table' || sheet === 'plan'}
+            onReserve={tables ? () => (sheet === 'table' || sheet === 'plan' ? setSheet(null) : reserve()) : undefined} />
+          {sheet === 'table' && tables && (
+            <TableCard key={tableId} project={tables.pid} booking={tables.booking} venue={ui.brand}
+              initialTable={tableId} preview={!isPublicTour()} onClose={() => setSheet(null)}
+              onOpenPlan={(id) => { setTableId(id); setSheet('plan'); }} />
+          )}
+          {sheet === 'plan' && tables && (
+            <>
+              <div className="vw-reserve-scrim" onClick={() => setSheet(null)} />
+              <div className="vw-reserve tb-host" role="dialog" aria-label={t('Reserve a table')}>
+                <button className="vw-sheet-x" onClick={() => setSheet(null)} aria-label={t('Close')}>✕</button>
+                <h2>{t('Reserve a table')}</h2>
+                <TableBooking key={tableId} project={tables.pid} booking={tables.booking} tourSpace={null}
+                  preview={!isPublicTour()} initialTable={tableId}
+                  onView={(tb: SiteTable) => {
+                    const vp = state.viewpoints?.find((v) => v.id === tb.view);
+                    if (!vp) return;
+                    setSheet(null);
+                    state.playViewport(vp);
+                  }} />
+              </div>
+            </>
+          )}
           {sheet === 'book' && bookingFor(state.activeId)?.enabled && (
             <BookingCard booking={bookingFor(state.activeId)!} place={state.activeName} onClose={() => setSheet(null)} />
           )}
           {failed && (
             <div className="vw-failed" role="alert">
-              <h2>{state.activeName || 'This space'} didn&apos;t load</h2>
+              <h2>{t('{place} didn’t load', { place: state.activeName || t('This space') })}</h2>
               <p>
-                Its model couldn&apos;t be fetched.
-                {visibleScenes().length > 1 ? ' Pick another space, or come back later.' : ' Try again later.'}
+                {t('Its model couldn’t be fetched.')}{' '}
+                {tourSpaces().length > 1 ? t('Pick another space, or come back later.') : t('Try again later.')}
               </p>
             </div>
           )}
@@ -118,7 +193,11 @@ export function Viewer({ state, isTouch, autoStart = false, tour = false }: View
           {panel === 'spaces' && <SpacesPanel state={state} onClose={() => setPanel(null)} />}
           {panel === 'help' && <HelpPanel walking={walking} isTouch={isTouch} onClose={() => setPanel(null)} />}
           {controllable && (
-            <HotspotMarkers sceneId={state.activeId} mode="view" onOpen={(id) => setOpenHs(id)} />
+            <HotspotMarkers sceneId={state.activeId} mode="view" onOpen={(id) => {
+              setOpenHs(id);
+              const hs = hotspotsFor(state.activeId).find((h) => h.id === id);
+              setLastHs({ sceneId: state.activeId, id, label: hs?.label ?? id });
+            }} />
           )}
           {openHs && (
             <HotspotPanel
@@ -126,6 +205,7 @@ export function Viewer({ state, isTouch, autoStart = false, tour = false }: View
               id={openHs}
               onClose={() => setOpenHs(null)}
               onPortal={(sid) => { setOpenHs(null); state.select(sid); }}
+              onReserve={tables ? (id) => { setOpenHs(null); reserve(id); } : undefined}
             />
           )}
           {!isTouch && controllable && <div className="vw-cross" />}
@@ -140,6 +220,7 @@ export function Viewer({ state, isTouch, autoStart = false, tour = false }: View
        *  App.tsx sets from lib/scenes.ts before the SDK even starts loading. */}
       {state?.activeId && (
         <EnquiryPanel sceneId={state.activeId} sceneName={state.activeName}
+          hotspot={lastHs?.sceneId === state.activeId ? lastHs : null}
           open={sheet === 'ask'} onOpenChange={(o) => setSheet(o ? 'ask' : null)} />
       )}
     </div>
@@ -171,6 +252,7 @@ interface EnterGateProps {
 function EnterGate({ brand, place, tagline, ready, progress, onEnter, entering }: EnterGateProps) {
   const pct = Math.round((progress ?? 0) * 100);
   const { logo } = useUiConfig(); // the project's own (per-project branding)
+  const t = useT();
   // arrived behind the home page's curtain: open it on this screen
   useEffect(() => { openCurtain(); }, []);
   return (
@@ -183,8 +265,9 @@ function EnterGate({ brand, place, tagline, ready, progress, onEnter, entering }
         {tagline && <p className="vw-enter-sub">{tagline}</p>}
         <button className="vw-enter-btn" onClick={onEnter} disabled={!ready || entering}>
           <span className="vw-enter-play" aria-hidden>{Icon.play}</span>
-          <span>{ready ? 'Start virtual tour' : `Preparing the space ${pct}%`}</span>
+          <span>{ready ? t('Start virtual tour') : t('Preparing the space {pct}%', { pct })}</span>
         </button>
+        <LangPicker className="vw-enter-lang" />
       </div>
     </div>
   );
@@ -223,7 +306,8 @@ const Icon = {
   play: <svg viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5-12-7.5Z" /></svg>,
   pause: <svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" /></svg>,
   restart: <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8" /><path d="M3 3v5h5" /></svg>,
-  exit: <svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6" /></svg>
+  exit: <svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6" /></svg>,
+  moon: <svg viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5Z" /></svg>
 };
 
 function IconBtn({ label, on, onClick, children }: { label: string; on?: boolean; onClick: () => void; children: React.ReactNode }) {
@@ -234,13 +318,15 @@ function IconBtn({ label, on, onClick, children }: { label: string; on?: boolean
   );
 }
 
-function TopChrome({ state, showBrand, brand, hd, canExit, panel, setPanel, bookOpen, onBook }: {
+function TopChrome({ state, showBrand, brand, hd, canExit, panel, setPanel, bookOpen, onBook, reserveOpen, onReserve }: {
   state: ViewerState; showBrand: boolean; brand: string; hd: boolean; canExit: boolean;
   panel: Panel; setPanel: (p: Panel) => void; bookOpen: boolean; onBook: () => void;
+  reserveOpen: boolean; onReserve?: () => void;
 }) {
   const [full, setFull] = useState(false);
   const { logo } = useUiConfig();
   const sound = useSound();
+  const t = useT();
   useEffect(() => {
     const on = () => setFull(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', on);
@@ -248,6 +334,8 @@ function TopChrome({ state, showBrand, brand, hd, canExit, panel, setPanel, book
   }, []);
   const toggle = (p: Panel) => setPanel(panel === p ? null : p);
   const booking = bookingFor(state.activeId);
+  const pair = dayNightPair(state.activeId);
+  const atNight = pair?.night === state.activeId;
   const bookHref = booking?.enabled ? safeUrl(booking.url) : null;
 
   return (
@@ -260,37 +348,61 @@ function TopChrome({ state, showBrand, brand, hd, canExit, panel, setPanel, book
       </div>
 
       <div className="vw-tr">
-        {visibleScenes().length > 1 && (
+        {tourSpaces().length > 1 && (
           <span className="vw-phone-only">
-            <IconBtn label="Spaces" on={panel === 'spaces'} onClick={() => toggle('spaces')}>{Icon.spaces}</IconBtn>
+            <IconBtn label={t('Spaces')} on={panel === 'spaces'} onClick={() => toggle('spaces')}>{Icon.spaces}</IconBtn>
           </span>
+        )}
+        {pair && (
+          <IconBtn label={atNight ? t('Switch to day') : t('Switch to night')} on={atNight}
+            onClick={() => { if (!state.loading) state.selectKeepingView(atNight ? pair.day : pair.night); }}>
+            {Icon.moon}
+          </IconBtn>
         )}
         {/* §6.3: always visible while this space has audio. */}
         {sceneHasAudio(state.activeId) && (
-          <IconBtn label={sound.muted ? 'Turn sound on' : 'Turn sound off'} on={!sound.muted} onClick={() => setMuted(!sound.muted)}>
+          <IconBtn label={sound.muted ? t('Turn sound on') : t('Turn sound off')} on={!sound.muted} onClick={() => setMuted(!sound.muted)}>
             {sound.muted ? Icon.soundOff : Icon.soundOn}
           </IconBtn>
         )}
+        <LangPicker className="vw-hd" />
         <button className={`vw-hd ${hd ? 'on' : ''}`} onClick={() => setHd(!hd)} aria-pressed={hd}
-          title={hd ? 'Full resolution. Tap for a lighter view.' : 'Lighter view. Tap for full resolution.'}>HD</button>
-        <IconBtn label="Controls" on={panel === 'help'} onClick={() => toggle('help')}>{Icon.help}</IconBtn>
-        <IconBtn label={full ? 'Leave full screen' : 'Full screen'} onClick={() => {
+          title={hd ? t('Full resolution. Tap for a lighter view.') : t('Lighter view. Tap for full resolution.')}>HD</button>
+        <IconBtn label={t('Controls')} on={panel === 'help'} onClick={() => toggle('help')}>{Icon.help}</IconBtn>
+        <IconBtn label={full ? t('Leave full screen') : t('Full screen')} onClick={() => {
           if (document.fullscreenElement) document.exitFullscreen().catch(() => { });
           else document.documentElement.requestFullscreen?.().catch(() => { });
         }}>{full ? Icon.unfull : Icon.full}</IconBtn>
         {bookHref && (
           // Opens the booking card; the card links on to the hotel's own page.
           <button className={`vw-book ${bookOpen ? 'on' : ''}`} onClick={onBook} aria-expanded={bookOpen}>
-            {booking!.label.trim() || 'Book now'}
+            {booking!.label.trim() || t('Book now')}
+          </button>
+        )}
+        {onReserve && (
+          // The project's table booking, over the tour (TableBooking).
+          <button className={`vw-book vw-book-alt ${reserveOpen ? 'on' : ''}`} onClick={onReserve} aria-expanded={reserveOpen}>
+            {t('Reserve a table')}
           </button>
         )}
         {canExit && (
-          <a className="vw-exit" href="/gallery" aria-label="Exit 3D">
-            <span>Exit 3D</span>{Icon.exit}
+          <a className="vw-exit" href="/gallery" aria-label={t('Exit 3D')}>
+            <span>{t('Exit 3D')}</span>{Icon.exit}
           </a>
         )}
       </div>
     </>
+  );
+}
+
+/** English, नेपाली or 中文 for the tour's own words (lib/i18n.ts). */
+function LangPicker({ className }: { className: string }) {
+  const t = useT();
+  return (
+    <select className={`vw-lang ${className}`} value={t.lang} onChange={(e) => setLang(e.target.value as Lang)}
+      aria-label={t('Language')} title={t('Language')}>
+      {LANGS.map(([l, name]) => <option key={l} value={l} lang={l}>{name}</option>)}
+    </select>
   );
 }
 
@@ -318,6 +430,7 @@ const MODES = [
  */
 function ModeSlider({ mode }: { mode: string }) {
   const i = Math.max(0, MODES.findIndex(([m]) => m === mode));
+  const t = useT();
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const step = (k: number) => {
     const j = (k + MODES.length) % MODES.length;
@@ -327,7 +440,7 @@ function ModeSlider({ mode }: { mode: string }) {
 
   return (
     <div
-      className="vw-rail" role="radiogroup" aria-label="How to move"
+      className="vw-rail" role="radiogroup" aria-label={t('How to move')}
       style={{ '--i': i } as React.CSSProperties}
       onKeyDown={(e) => {
         if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); step(i + 1); }
@@ -344,8 +457,8 @@ function ModeSlider({ mode }: { mode: string }) {
         >
           {icon}
           <span className="vw-rail-tip">
-            <span className="vw-rail-name">{label}</span>
-            {k === i && <span className="vw-rail-promise">{promise}</span>}
+            <span className="vw-rail-name">{t(label)}</span>
+            {k === i && <span className="vw-rail-promise">{t(promise)}</span>}
           </span>
         </button>
       ))}
@@ -363,23 +476,24 @@ function FlyBar({ state, mode }: { state: ViewerState; mode: 'orbit' | 'fly' }) 
     const id = setInterval(bump, 250);
     return () => clearInterval(id);
   }, [mode]);
-  const exit = mode === 'fly' ? 'Exit fly mode' : 'Exit orbit';
+  const t = useT();
+  const exit = mode === 'fly' ? t('Exit fly mode') : t('Exit orbit');
   const boost = walkerCfg.flyBoost;
   return (
-    <div className="vw-flybar" role="group" aria-label={mode === 'fly' ? 'Fly controls' : 'Orbit controls'}>
+    <div className="vw-flybar" role="group" aria-label={mode === 'fly' ? t('Fly controls') : t('Orbit controls')}>
       {mode === 'fly' ? (
         <>
-          <button className="vw-tb" onClick={() => { scaleFlySpeed(1 / 1.5); bump(); }} aria-label="Fly slower" title="Slower">{Icon.minus}</button>
+          <button className="vw-tb" onClick={() => { scaleFlySpeed(1 / 1.5); bump(); }} aria-label={t('Fly slower')} title={t('Slower')}>{Icon.minus}</button>
           <span className="vw-speed" aria-live="polite">{boost >= 1 ? boost.toFixed(boost < 10 ? 1 : 0) : boost.toFixed(2)}×</span>
-          <button className="vw-tb" onClick={() => { scaleFlySpeed(1.5); bump(); }} aria-label="Fly faster" title="Faster">{Icon.plus}</button>
+          <button className="vw-tb" onClick={() => { scaleFlySpeed(1.5); bump(); }} aria-label={t('Fly faster')} title={t('Faster')}>{Icon.plus}</button>
         </>
       ) : (
         <>
-          <button className="vw-tb" onClick={() => zoomOrbit(1.25)} aria-label="Zoom out" title="Zoom out">{Icon.minus}</button>
-          <button className="vw-tb" onClick={() => zoomOrbit(0.8)} aria-label="Zoom in" title="Zoom in">{Icon.plus}</button>
+          <button className="vw-tb" onClick={() => zoomOrbit(1.25)} aria-label={t('Zoom out')} title={t('Zoom out')}>{Icon.minus}</button>
+          <button className="vw-tb" onClick={() => zoomOrbit(0.8)} aria-label={t('Zoom in')} title={t('Zoom in')}>{Icon.plus}</button>
         </>
       )}
-      <button className="vw-tb vw-tb-wide" onClick={() => state.flyReset()} aria-label="Reset view">{Icon.recenter}<span>Reset view</span></button>
+      <button className="vw-tb vw-tb-wide" onClick={() => state.flyReset()} aria-label={t('Reset view')}>{Icon.recenter}<span>{t('Reset view')}</span></button>
       <button className="vw-tb vw-tb-wide" onClick={() => setVisitorMode('viewpoints')} aria-label={exit}>{Icon.close}<span>{exit}</span></button>
     </div>
   );
@@ -391,23 +505,25 @@ function FlyBar({ state, mode }: { state: ViewerState; mode: 'orbit' | 'fly' }) 
  * Phones use the Spaces button instead — there's no room for a rail.
  */
 function LayersRail({ state }: { state: ViewerState }) {
-  const spaces = visibleScenes();
+  const spaces = tourSpaces();
+  const t = useT();
   if (spaces.length < 2) return null;
-  const at = Math.max(0, spaces.findIndex((s) => s.id === state.activeId));
+  const here = dayNightPair(state.activeId)?.day ?? state.activeId; // a night version shows as its day space
+  const at = Math.max(0, spaces.findIndex((s) => s.id === here));
   return (
-    <nav className="vw-layers" aria-label="Spaces" style={{ '--at': at } as React.CSSProperties}>
-      <span className="vw-layers-head">Spaces</span>
+    <nav className="vw-layers" aria-label={t('Spaces')} style={{ '--at': at } as React.CSSProperties}>
+      <span className="vw-layers-head">{t('Spaces')}</span>
       <span className="vw-layers-list">
         {/* the spine, and the accent marker that glides to where you are */}
         <span className="vw-layers-spine" aria-hidden />
         <span className="vw-layers-marker" aria-hidden />
         {spaces.map((s, i) => {
-          const on = s.id === state.activeId;
+          const on = s.id === here;
           return (
             <button
               key={s.id} className={`vw-layer ${on ? 'on' : ''} ${on && state.loading ? 'is-loading' : ''}`}
               aria-current={on ? 'true' : undefined}
-              disabled={state.loading && !on} onClick={() => !on && state.select(s.id)} title={s.name}
+              disabled={state.loading && !on} onClick={() => !on && state.select(sameTimeOfDay(state.activeId, s.id))} title={s.name}
             >
               <span className="vw-layer-node" aria-hidden />
               <span className="vw-layer-no" aria-hidden>{String(i + 1).padStart(2, '0')}</span>
@@ -429,6 +545,7 @@ function BottomChrome({ state, showLabels, mode, trayOpen, onToggleTray }: {
   const vps = state.viewpoints || [];
   const [idx, setIdx] = useState(-1);
   const [auto, setAuto] = useState(false);
+  const t = useT();
 
 
   const go = (i: number) => {
@@ -481,30 +598,31 @@ function BottomChrome({ state, showLabels, mode, trayOpen, onToggleTray }: {
       )}
 
       {/* The tour bar: ‹ Scenes, start over | play/pause › */}
-      <div className={`vw-tourbar ${playing ? 'is-playing' : ''}`} role="toolbar" aria-label="Tour">
-        <button className="vw-tourbar-btn" onClick={() => go(idx < 0 ? vps.length - 1 : idx - 1)} aria-label="Previous scene" title="Previous scene">{Icon.chevL}</button>
-        <button className={`vw-tourbar-views ${trayOpen ? 'on' : ''}`} onClick={onToggleTray} aria-pressed={trayOpen} title="Scenes">
-          {Icon.views}<span>Scenes</span>
+      <div className={`vw-tourbar ${playing ? 'is-playing' : ''}`} role="toolbar" aria-label={t('Tour')}>
+        <button className="vw-tourbar-btn" onClick={() => go(idx < 0 ? vps.length - 1 : idx - 1)} aria-label={t('Previous scene')} title={t('Previous scene')}>{Icon.chevL}</button>
+        <button className={`vw-tourbar-views ${trayOpen ? 'on' : ''}`} onClick={onToggleTray} aria-pressed={trayOpen} title={t('Scenes')}>
+          {Icon.views}<span>{t('Scenes')}</span>
         </button>
-        <button className="vw-tourbar-btn" onClick={() => go(0)} aria-label="Start over" title="Start over">{Icon.restart}</button>
+        <button className="vw-tourbar-btn" onClick={() => go(0)} aria-label={t('Start over')} title={t('Start over')}>{Icon.restart}</button>
         <span className="vw-tourbar-sep" aria-hidden />
         <button className="vw-tourbar-btn vw-tourbar-play" onClick={() => (playing ? pause() : playAll())}
-          aria-label={playing ? 'Pause' : 'Play the tour'} title={playing ? 'Pause' : 'Play the tour'}>
+          aria-label={playing ? t('Pause') : t('Play the tour')} title={playing ? t('Pause') : t('Play the tour')}>
           {playing ? Icon.pause : Icon.play}
         </button>
-        <button className="vw-tourbar-btn" onClick={() => go(idx + 1)} aria-label="Next scene" title="Next scene">{Icon.chevR}</button>
+        <button className="vw-tourbar-btn" onClick={() => go(idx + 1)} aria-label={t('Next scene')} title={t('Next scene')}>{Icon.chevR}</button>
       </div>
     </div>
   );
 }
 
 function SpacesPanel({ state, onClose }: { state: ViewerState; onClose: () => void }) {
+  const t = useT();
   return (
-    <div className="vw-pop vw-pop-spaces" role="dialog" aria-label="Spaces">
-      <p className="vw-pop-title">Spaces</p>
-      {visibleScenes().map((s) => (
-        <button key={s.id} className={`vw-space ${s.id === state.activeId ? 'on' : ''}`}
-          disabled={state.loading} onClick={() => { state.select(s.id); onClose(); }}>
+    <div className="vw-pop vw-pop-spaces" role="dialog" aria-label={t('Spaces')}>
+      <p className="vw-pop-title">{t('Spaces')}</p>
+      {tourSpaces().map((s) => (
+        <button key={s.id} className={`vw-space ${s.id === (dayNightPair(state.activeId)?.day ?? state.activeId) ? 'on' : ''}`}
+          disabled={state.loading} onClick={() => { state.select(sameTimeOfDay(state.activeId, s.id)); onClose(); }}>
           <span className="vw-space-tile" aria-hidden>{s.name.trim()[0]}</span>
           <span className="vw-space-txt">
             <span className="vw-space-nm">{s.name}</span>
@@ -517,6 +635,7 @@ function SpacesPanel({ state, onClose }: { state: ViewerState; onClose: () => vo
 }
 
 function HelpPanel({ walking, isTouch, onClose }: { walking: boolean; isTouch: boolean; onClose: () => void }) {
+  const t = useT();
   const rows: [string, string][] = isTouch
     ? [['Drag', 'Look around'], ['Tap a card', 'Fly to that view'], ['Tap a ring', 'Open what’s there'], ['Walk', 'Move with the joystick']]
     : [
@@ -531,18 +650,19 @@ function HelpPanel({ walking, isTouch, onClose }: { walking: boolean; isTouch: b
       ['Any key or click', 'Stop a flythrough']
     ];
   return (
-    <div className="vw-pop vw-pop-help" role="dialog" aria-label="Controls">
-      <p className="vw-pop-title">Controls</p>
+    <div className="vw-pop vw-pop-help" role="dialog" aria-label={t('Controls')}>
+      <p className="vw-pop-title">{t('Controls')}</p>
       {rows.map(([k, v]) => (
-        <p key={k} className="vw-help-row"><span className="vw-help-k">{k}</span><span>{v}</span></p>
+        <p key={k} className="vw-help-row"><span className="vw-help-k">{t(k)}</span><span>{t(v)}</span></p>
       ))}
-      <button className="vw-pop-close" onClick={onClose}>Close</button>
+      <button className="vw-pop-close" onClick={onClose}>{t('Close')}</button>
     </div>
   );
 }
 
 function FirstRunHint({ walking, aerial, fly }: { walking: boolean; aerial: boolean; fly: boolean }) {
   const [gone, setGone] = useState(false);
+  const tr = useT();
   const t = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
     t.current = setTimeout(() => setGone(true), fly ? 9000 : 4200); // Fly has more to learn
@@ -553,20 +673,20 @@ function FirstRunHint({ walking, aerial, fly }: { walking: boolean; aerial: bool
     <div className="vw-hint">
       {fly ? (
         <>
-          <span className="vw-hint-k">W A S D</span> fly<span className="vw-hint-sep" />
-          <span className="vw-hint-k">E</span> up <span className="vw-hint-k">Q</span> down<span className="vw-hint-sep" />
-          <span className="vw-hint-k">Shift</span> faster<span className="vw-hint-sep" />
-          <span className="vw-hint-k">Drag</span> to look<span className="vw-hint-sep" />
-          <span className="vw-hint-k">Scroll</span> speed
+          <span className="vw-hint-k">W A S D</span> {tr('fly')}<span className="vw-hint-sep" />
+          <span className="vw-hint-k">E</span> {tr('up')} <span className="vw-hint-k">Q</span> {tr('down')}<span className="vw-hint-sep" />
+          <span className="vw-hint-k">Shift</span> {tr('faster')}<span className="vw-hint-sep" />
+          <span className="vw-hint-k">{tr('Drag')}</span> {tr('to look')}<span className="vw-hint-sep" />
+          <span className="vw-hint-k">{tr('Scroll')}</span> {tr('speed')}
         </>
       ) : aerial ? (
-        <><span className="vw-hint-k">Drag</span> to circle the space<span className="vw-hint-sep" /><span className="vw-hint-k">Scroll</span> to zoom</>
+        <><span className="vw-hint-k">{tr('Drag')}</span> {tr('to circle the space')}<span className="vw-hint-sep" /><span className="vw-hint-k">{tr('Scroll')}</span> {tr('to zoom')}</>
       ) : (<>
-      <span className="vw-hint-k">Drag</span> to look around
+      <span className="vw-hint-k">{tr('Drag')}</span> {tr('to look around')}
       <span className="vw-hint-sep" />
       {walking
-        ? <><span className="vw-hint-k">W A S D</span> to walk</>
-        : <><span className="vw-hint-k">Walk</span> to move freely</>}
+        ? <><span className="vw-hint-k">W A S D</span> {tr('to walk')}</>
+        : <><span className="vw-hint-k">{tr('Walk')}</span> {tr('to move freely')}</>}
       </>)}
     </div>
   );

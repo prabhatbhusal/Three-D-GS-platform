@@ -62,23 +62,6 @@ function hashKey(s: string): string {
   return (h >>> 0).toString(36);
 }
 
-/* ------------------------------------------------------------------ */
-/* Rule 9: overrides — URL wins, then a persisted manual choice          */
-/* ------------------------------------------------------------------ */
-
-const ALIASES: Record<string, Tier> = { 'desktop-high': 'high', 'desktop-low': 'medium', mobile: 'medium', minimal: 'low' };
-
-function urlOverride(): Tier | null {
-  try {
-    const raw = new URLSearchParams(location.search).get('tier');
-    if (!raw) return null;
-    const t = ALIASES[raw] ?? raw;
-    return TIER_ORDER.includes(t as Tier) ? (t as Tier) : null;
-  } catch {
-    return null;
-  }
-}
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- parsed JSON of unknown prior shape
 function readStorage(key: string): any {
   try {
@@ -96,10 +79,15 @@ function writeStorage(key: string, value: unknown) {
   }
 }
 
-/** A manual choice from the viewer's quality control. Wins over everything. */
-export function setManualTier(tier: Tier) {
-  if (!TIER_ORDER.includes(tier)) return;
-  writeStorage(STORAGE_PREFIX + 'manual', tier);
+/** The app intentionally ignores manual overrides: quality should follow the
+ * device's measured behaviour, not a user-selected "make it look better"
+ * toggle. The API remains for compatibility, but it no longer changes the
+ * auto-resolved tier.
+ */
+export function setManualTier(_tier: Tier) {
+  // Intentionally ignored: the browser cannot reliably know a better tier than
+  // the measured performance, and force-setting to 'high' creates the exact
+  // regression this feature aims to avoid.
 }
 
 export function clearManualTier() {
@@ -128,17 +116,12 @@ export function guessTier(): Tier {
 }
 
 /* ------------------------------------------------------------------ */
-/* Resolve once per load: manual > persisted-measured > URL > guess     */
+/* Resolve once per load from device measurement or a safe guess.        */
+/* Manual and URL overrides are intentionally ignored.                  */
 /* ------------------------------------------------------------------ */
 
 export function resolveInitialTier(): TierResolution {
   if (!hasWebGL2()) return { tier: 'low', guessed: 'low', source: 'no-webgl2' };
-
-  const manual = readStorage(STORAGE_PREFIX + 'manual');
-  if (manual && TIER_ORDER.includes(manual)) return { tier: manual, guessed: manual, source: 'manual' };
-
-  const fromUrl = urlOverride();
-  if (fromUrl) return { tier: fromUrl, guessed: fromUrl, source: 'url' };
 
   const key = STORAGE_PREFIX + hashKey(deviceKey());
   const persisted = readStorage(key);

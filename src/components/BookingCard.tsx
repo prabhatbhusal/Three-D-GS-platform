@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { safeUrl } from '../lib/api';
 import { bookingHref, isoDay, nightsBetween, stayProblem, type Stay } from '../lib/booking';
 import type { Booking } from '../@types/scene.types';
+import { useT } from '../lib/i18n';
 
 const Cal = () => (
   <svg viewBox="0 0 24 24" aria-hidden><rect x="3.5" y="5" width="17" height="15.5" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /></svg>
@@ -19,6 +20,7 @@ const People = () => (
  * booking or a payment here.
  */
 export function BookingCard({ booking, place, onClose }: { booking: Booking; place: string; onClose: () => void }) {
+  const t = useT();
   const [stay, setStay] = useState<Stay>(() => ({ checkin: isoDay(1), checkout: isoDay(3), guests: 2 }));
   const set = (patch: Partial<Stay>) => setStay((s) => {
     const next = { ...s, ...patch };
@@ -38,8 +40,8 @@ export function BookingCard({ booking, place, onClose }: { booking: Booking; pla
   return (
     <>
       <div className="vw-sheet-scrim" onClick={onClose} />
-      <div className="vw-sheet vw-sheet-book" role="dialog" aria-label={booking.label || 'Book now'}>
-        <button className="vw-sheet-x" onClick={onClose} aria-label="Close">✕</button>
+      <div className="vw-sheet vw-sheet-book" role="dialog" aria-label={booking.label || t('Book now')}>
+        <button className="vw-sheet-x" onClick={onClose} aria-label={t('Close')}>✕</button>
         <h2>{booking.title?.trim() || place}</h2>
         {booking.subtitle?.trim() && <p className="vw-sheet-sub">{booking.subtitle}</p>}
 
@@ -48,29 +50,29 @@ export function BookingCard({ booking, place, onClose }: { booking: Booking; pla
             <label className="vw-sheet-field">
               <Cal />
               <span className="vw-sheet-field-txt">
-                <span>Check in</span>
+                <span>{t('Check in')}</span>
                 <input type="date" value={stay.checkin} min={isoDay(0)} onChange={(e) => set({ checkin: e.target.value })} />
               </span>
             </label>
             <label className="vw-sheet-field">
               <Cal />
               <span className="vw-sheet-field-txt">
-                <span>Check out</span>
+                <span>{t('Check out')}</span>
                 <input type="date" value={stay.checkout} min={stay.checkin ? isoDay(1, new Date(`${stay.checkin}T12:00:00`)) : isoDay(1)} onChange={(e) => set({ checkout: e.target.value })} />
               </span>
             </label>
             <label className="vw-sheet-field">
               <People />
               <span className="vw-sheet-field-txt">
-                <span>Guests</span>
+                <span>{t('Guests')}</span>
                 <select value={stay.guests} onChange={(e) => set({ guests: Number(e.target.value) })}>
                   {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                    <option key={n} value={n}>{n} {n === 1 ? 'adult' : 'adults'}</option>
+                    <option key={n} value={n}>{t(n === 1 ? '{n} adult' : '{n} adults', { n })}</option>
                   ))}
                 </select>
               </span>
             </label>
-            {nights >= 1 && <p className="vw-sheet-fine">{nights === 1 ? '1 night' : `${nights} nights`}</p>}
+            {nights >= 1 && <p className="vw-sheet-fine">{nights === 1 ? t('1 night') : t('{n} nights', { n: nights })}</p>}
           </div>
         )}
 
@@ -81,13 +83,13 @@ export function BookingCard({ booking, place, onClose }: { booking: Booking; pla
         )}
         {booking.priceNote?.trim() && <p className="vw-sheet-fine">{booking.priceNote}</p>}
 
-        {problem && <p className="vw-sheet-err">{problem}</p>}
+        {problem && <p className="vw-sheet-err">{t(problem)}</p>}
         {href && !problem ? (
-          <a className="vw-sheet-go" href={href} target="_blank" rel="noopener noreferrer">{booking.label.trim() || 'Book now'}</a>
+          <a className="vw-sheet-go" href={href} target="_blank" rel="noopener noreferrer">{booking.label.trim() || t('Book now')}</a>
         ) : (
-          <button className="vw-sheet-go" disabled>{booking.label.trim() || 'Book now'}</button>
+          <button className="vw-sheet-go" disabled>{booking.label.trim() || t('Book now')}</button>
         )}
-        {host && <p className="vw-sheet-fine vw-sheet-center">Continues on {host} to finish booking.</p>}
+        {host && <p className="vw-sheet-fine vw-sheet-center">{t('Continues on {host} to finish booking.', { host })}</p>}
       </div>
     </>
   );

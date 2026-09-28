@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { filesFromDataTransfer, filesFromFileList, uploadVariant } from '../lib/upload';
-import { createProperty, getScenes, saveScene } from '../lib/api';
+import { createProperty, getScenes, saveScene, setProjectInfo, setProjectTheme, uploadProjectLogo } from '../lib/api';
+import { BrandInfoFields, infoProblem } from './BrandInfoFields';
+import type { BrandFont, ProjectInfo } from '../@types/config.types';
 import { blankSceneDoc } from '../lib/sceneDoc';
 import { hydrateScenes } from '../lib/scenes';
 import { formatBytes, freeSceneId, slugify, ModelNote, PICK_ACCEPT, UpAxisSelect } from './Uploader';
@@ -10,6 +12,13 @@ import type { UpChoice } from '../lib/modelConvert';
 import type { StagedFile, UploadProgress, UploadResult } from '../@types/upload.types';
 
 const TITLE_MAX = 80;
+const DEFAULT_ACCENT = '#b08d57';
+const LOGO_MAX = 2 * 1024 * 1024;
+const FONTS: [BrandFont, string, string][] = [
+  ['serif', 'Serif', "Georgia, 'Times New Roman', serif"],
+  ['sans', 'Modern sans', "system-ui, 'Segoe UI', Roboto, sans-serif"],
+  ['classic', 'Classic', "'Palatino Linotype', 'Book Antiqua', Palatino, serif"]
+];
 type Source = 'lcc2' | 'model' | 'video360';
 
 /** "Bar_Restro" (a folder), "Bar_Restro.zip", "…/Bar_Restro.lcc2" or "Lobby.fbx" -> "Bar Restro". */
@@ -46,6 +55,25 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
   const [dragOver, setDragOver] = useState(false);
   const [up, setUp] = useState<UpChoice>('auto');
   const [stage, setStage] = useState('');
+  // The brand, set up with the project (saved once it exists; Branding changes it later).
+  const [brand, setBrand] = useState('');
+  const [accent, setAccent] = useState(DEFAULT_ACCENT);
+  const [accentSet, setAccentSet] = useState(false);
+  const [font, setFont] = useState<BrandFont>('serif');
+  const [logo, setLogo] = useState<File | null>(null);
+  const [logoUrl, setLogoUrl] = useState('');
+  const [info, setInfo] = useState<ProjectInfo>({});
+  const [createdId, setCreatedId] = useState('');
+  const logoRef = useRef<HTMLInputElement>(null);
+  useEffect(() => () => { if (logoUrl) URL.revokeObjectURL(logoUrl); }, [logoUrl]);
+  const pickLogo = (f: File | undefined) => {
+    if (!f) return;
+    if (!/^image\/(png|jpeg|webp)$/.test(f.type)) return setCreateError('Use a PNG, JPEG or WebP image for the logo.');
+    if (f.size > LOGO_MAX) return setCreateError('That logo is over 2 MB. Export it smaller.');
+    setCreateError('');
+    setLogo(f);
+    setLogoUrl(URL.createObjectURL(f));
+  };
   const folderRef = useRef<HTMLInputElement>(null);
   const zipRef = useRef<HTMLInputElement>(null);
   const uploading = status === 'uploading';
@@ -84,14 +112,30 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
     e.target.value = '';
   };
 
-  const canCreate = !!title.trim() && !uploading && !creating && (status !== 'done' || !!spaceName.trim());
+  const canCreate = !!createdId || (!!title.trim() && !uploading && !creating && (status !== 'done' || !!spaceName.trim()));
 
   const create = async () => {
+    if (createdId) { location.assign(`/studio/${createdId}`); return; }
+    const problem = infoProblem(info);
+    if (problem) { setCreateError(problem); return; }
     setCreating(true);
     setCreateError('');
     try {
       const p = await createProperty(title);
       if (!p) throw new Error('The server did not confirm the project. Try again.');
+      // Its brand. The project exists now either way: if this fails, say so and let them open it.
+      try {
+        const name = brand.trim();
+        await setProjectTheme(p.id, { ...(name ? { brand: name } : {}), ...(accentSet ? { accent } : {}), font });
+        if (logo) await uploadProjectLogo(p.id, logo);
+        const filled = Object.fromEntries(Object.entries(info).filter(([, v]) => v?.trim())) as ProjectInfo;
+        if (Object.keys(filled).length) await setProjectInfo(p.id, filled);
+      } catch (e) {
+        setCreatedId(p.id);
+        setCreating(false);
+        setCreateError(`The project was made, but its brand didn’t save (${e instanceof Error ? e.message : 'unknown error'}). Open it and set it in ⋯ → Branding.`);
+        return;
+      }
       if (result) {
         const name = spaceName.trim() || title.trim();
         const id = freeSceneId(`${p.id}-${slugify(name)}`);
@@ -271,10 +315,48 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
               <small>Named from the export; change it if you like.</small>
             </label>
 
+            <h3>Brand</h3>
+            <div className="np-brand-preview" style={{ '--acc': accent, '--face': FONTS.find(([f]) => f === font)![2] } as React.CSSProperties}>
+              {/* eslint-disable-next-line @next/next/no-img-element -- a local preview of the chosen file */}
+              {logoUrl ? <img src={logoUrl} alt="" /> : <span className="np-brand-mark">{(brand || title || 'B').trim()[0]}</span>}
+              <span className="np-brand-name">{brand || title || 'Your brand'}</span>
+              <span className="np-brand-pill">Start virtual tour</span>
+            </div>
+            <div className="np-brand-row">
+              <button type="button" className="np-link-btn" onClick={() => logoRef.current?.click()}>{logo ? 'Change logo…' : 'Upload logo…'}</button>
+              {logo && <button type="button" className="np-link-btn" onClick={() => { setLogo(null); setLogoUrl(''); }}>Remove</button>}
+            </div>
+            <input ref={logoRef} type="file" hidden accept="image/png,image/jpeg,image/webp"
+              onChange={(e) => { pickLogo(e.target.files?.[0]); e.target.value = ''; }} />
+            <label className="np-field">
+              <span>Brand name</span>
+              <input value={brand} maxLength={80} placeholder={title || 'Shown on tours and the website'} onChange={(e) => setBrand(e.target.value)} />
+            </label>
+            <div className="np-brand-row">
+              <label className="np-field np-field-colour">
+                <span>Brand colour</span>
+                <span className="np-colour">
+                  <input type="color" value={accent} onChange={(e) => { setAccent(e.target.value); setAccentSet(true); }} aria-label="Brand colour" />
+                  <code>{accent}</code>
+                </span>
+              </label>
+              <label className="np-field">
+                <span>Heading font</span>
+                <select className="np-select" value={font} onChange={(e) => setFont(e.target.value as BrandFont)}>
+                  {FONTS.map(([f, label]) => <option key={f} value={f}>{label}</option>)}
+                </select>
+              </label>
+            </div>
+            <details className="np-more">
+              <summary>Brand information <small>optional</small></summary>
+              <p className="np-note">Shown on the project’s website: how guests reach you, and a word about you.</p>
+              <BrandInfoFields value={info} onChange={setInfo} />
+            </details>
+
             {createError && <p className="np-err">{createError}</p>}
 
             <button className="np-create" disabled={!canCreate} onClick={create}>
-              {creating ? 'Creating…' : status === 'done' ? 'Create project' : 'Create empty project'}
+              {createdId ? 'Open the project' : creating ? 'Creating…' : status === 'done' ? 'Create project' : 'Create empty project'}
             </button>
             <p className="np-note">
               {uploading ? 'Waiting for the upload to finish.'

@@ -61,10 +61,6 @@
   70%, 100% { box-shadow: 0 0 0 8px transparent; }
 }
 
-@keyframes lp-rise {
-  from { opacity: 0; translate: 0 28px; }
-}
-
 /* ------------------------------------------------------------ pills */
 .lp .lp-pill {
   display: inline-flex;
@@ -142,9 +138,6 @@
   letter-spacing: -0.025em;
 }
 
-.lp-page-head > * { animation: lp-rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-.lp-page-head > :nth-child(2) { animation-delay: 0.08s; }
-.lp-page-head > :nth-child(3) { animation-delay: 0.16s; }
 
 /* ------------------------------------------------------------- hero */
 .lp-hero {
@@ -230,11 +223,9 @@
   gap: 16px;
 }
 
-.lp-hero > * { animation: lp-rise 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-.lp-hero > .lp-hero-media { animation: none; }
-.lp-hero > h1 { animation-delay: 0.08s; }
-.lp-hero > .lp-lede { animation-delay: 0.18s; }
-.lp-hero > .lp-cta { animation-delay: 0.26s; }
+/* SplitText wraps each letter of RCAAS: each carries the word's gradient
+ * (it runs top to bottom, so every letter looks as the whole word did). */
+.lp-hero-word div { background: inherit; -webkit-background-clip: text; background-clip: text; }
 
 /* ------------------------------------------------ pinned scan scene */
 .lp-scrub {
@@ -1186,24 +1177,17 @@ a.lp-way:hover { border-color: var(--accent-fill); }
   color: var(--dim);
 }
 
-/* ------------------------------------------------- scroll reveals */
-/* Cards rise in as they enter the view, driven by the scroll itself
- * (no JS). Browsers without scroll timelines just show them. */
-@supports (animation-timeline: view()) {
-  @media (prefers-reduced-motion: no-preference) {
-    .lp-win, .lp-spec, .lp-four li, .lp-sectors li, .lp-svc, .lp-entry, .lp-path li,
-    .lp-vs p, .lp-kit, .lp-tabs, .lp-bleed-body, .lp-contact,
-    .lp-band > .lp-head, .gallery-grid > li {
-      animation: lp-reveal linear both;
-      animation-timeline: view();
-      animation-range: entry 0% entry 60%;
-    }
-  }
+/* ------------------------------------------------- GSAP reveals */
+/* SiteGsap.tsx animates these in. The root layout's first script adds
+ * html.gs, so they start hidden instead of flashing up and then vanishing
+ * into their animation. If the scripts never run, they show after 3 s. */
+html.gs .lp-hero > :not(.lp-hero-media), html.gs .lp-page-head > *, html.gs .lp-band > .lp-head,
+html.gs :is(.lp-win, .lp-spec, .lp-four li, .lp-sectors li, .lp-svc, .lp-entry, .lp-path li,
+  .lp-vs p, .lp-kit, .lp-tabs, .lp-bleed-body, .lp-contact, .gallery-grid > li) {
+  visibility: hidden;
+  animation: gs-failsafe 0s 3s forwards;
 }
-
-@keyframes lp-reveal {
-  from { opacity: 0; translate: 0 48px; }
-}
+@keyframes gs-failsafe { to { visibility: visible; } }
 
 /* ------------------------------------------------------- responsive */
 @media (max-width: 960px) {
@@ -1244,7 +1228,7 @@ a.lp-way:hover { border-color: var(--accent-fill); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lp-hero > *, .lp-page-head > *, .lp-rec { animation: none; }
+  .lp-rec { animation: none; }
   .lp-fly-card { transform: translate(-50%, -50%); opacity: 0; transition: opacity 0.4s; }
   .lp-fly-card.is-on { opacity: 1; }
   .lp-fly-floor { background-position: 0 0; }

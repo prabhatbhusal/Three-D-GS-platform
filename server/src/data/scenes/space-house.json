@@ -43,7 +43,24 @@
     "mode": "viewpoint"
   },
   "viewpoints": [],
-  "hotspots": [],
+  "hotspots": [
+    {
+      "id": "hs-space-house-mujqnphu1",
+      "type": "table",
+      "position": [
+        7.007,
+        9.197,
+        6.919
+      ],
+      "radius": 0.4,
+      "label": "Table 1",
+      "payload": {
+        "tableId": "",
+        "text": ""
+      },
+      "occludedBy": "none"
+    }
+  ],
   "tracks": [
     {
       "id": "vp-space-house-mudyippq1",
@@ -327,5 +344,6 @@
   "embed": {
     "version": 1,
     "sites": []
-  }
+  },
+  "night": null
 }

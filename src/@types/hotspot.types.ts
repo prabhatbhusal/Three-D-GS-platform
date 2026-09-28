@@ -1,6 +1,6 @@
 /** 'audio' is a hotspot whose content IS the clip (+ its transcript); any
  *  other type can carry a clip too, in payload.audio. */
-export type HotspotType = 'image' | 'video' | 'text' | 'link' | 'portal' | 'audio';
+export type HotspotType = 'image' | 'video' | 'text' | 'link' | 'portal' | 'audio' | 'table';
 
 export interface HotspotPayload {
   url?: string;
@@ -16,6 +16,8 @@ export interface HotspotPayload {
    *  within NEAR_DISTANCE, so close-together labels never overlap. 'always':
    *  every time it's on screen, at any distance. */
   reveal?: 'near' | 'always';
+  /** 'table': which table on the website's floor plan this is (its booking lets visitors reserve it). */
+  tableId?: string;
 }
 
 export interface Hotspot {

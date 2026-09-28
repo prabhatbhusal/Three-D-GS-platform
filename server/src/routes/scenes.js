@@ -86,7 +86,7 @@ scenesRouter.post('/:id/property', requireEditorSession, sceneGuard, wrap(async 
     return res.status(400).json({ error: 'propertyId must be a property id or null.' });
   }
   const before = await getScene(req.params.id).catch(() => null);
-  const result = await setSceneProperty(req.params.id, propertyId);
+  const result = await setSceneProperty(req.params.id, propertyId, req.access?.sub ?? null);
   if (!result) return notFound(res, req.params.id);
   const title = before?.title || req.params.id;
   if ((before?.propertyId ?? null) !== propertyId) {
@@ -96,20 +96,22 @@ scenesRouter.post('/:id/property', requireEditorSession, sceneGuard, wrap(async 
   res.json(result);
 }));
 
-// Visitor-facing: the scene menu. No auth — this is public, embeddable data.
-// Signed in to the studio, you see only the spaces your projects allow.
-scenesRouter.get('/', async (req, res, next) => {
+// The studio's space list: only the spaces your projects allow. (Visitors
+// never needed it: the tour and gallery read published copies. It was public
+// until 2026-09-27, which listed everyone's drafts to anyone.)
+scenesRouter.get('/', requireEditorSession, async (req, res, next) => {
   try {
-    const all = await listScenes();
     const session = await optionalSession(req);
-    res.json(session ? await visibleScenes(session, all) : all);
+    if (!session) return res.status(401).json({ error: 'Your account no longer exists.' });
+    res.json(await visibleScenes(session, await listScenes()));
   } catch (err) {
     next(err);
   }
 });
 
-// Full scene document — splat pointer, spawn, hotspots, tracks, theme.
-scenesRouter.get('/:id', async (req, res, next) => {
+// Full draft document — splat pointer, spawn, hotspots, tracks, theme. The
+// studio's, so only for those who may work on the space (visitors: /published).
+scenesRouter.get('/:id', requireEditorSession, sceneGuard, async (req, res, next) => {
   try {
     const scene = await getScene(req.params.id);
     if (!scene) return res.status(404).json({ error: `Scene "${req.params.id}" not found.` });
@@ -127,7 +129,7 @@ scenesRouter.put('/:id', requireEditorSession, sceneGuard, async (req, res, next
       return res.status(400).json({ error: 'Request body must be a scene JSON document.' });
     }
     const existed = !!(await getScene(req.params.id).catch(() => null));
-    const saved = await saveScene(req.params.id, req.body);
+    const saved = await saveScene(req.params.id, req.body, { creator: req.access?.sub ?? null });
     await record(req, saved.propertyId ?? null, existed ? 'saved changes' : 'added a space', saved.title || saved.id);
     res.json(saved);
   } catch (err) {

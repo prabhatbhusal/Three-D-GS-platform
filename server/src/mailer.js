@@ -28,13 +28,20 @@ export function leadEmail(lead, projectTitle) {
   return { subject: `Enquiry: ${lead.name}${lead.sceneName ? ` — ${lead.sceneName}` : ''}`.slice(0, 180), text };
 }
 
+/** The project's own addresses plus LEADS_TO (always copied), without repeats. */
+export const teamRecipients = (recipients) =>
+  [...new Set([...recipients, ...(process.env.LEADS_TO ?? '').split(',')].map((s) => s.trim()).filter(Boolean))];
+
 /** { sent: true } or { sent: false, reason } — never throws. */
 export async function sendLeadEmail(lead, recipients, projectTitle) {
+  return sendMail({ to: teamRecipients(recipients), ...leadEmail(lead, projectTitle), replyTo: lead.email });
+}
+
+/** One plain-text email. { sent: true, to } or { sent: false, reason } — never throws. */
+export async function sendMail({ to, subject, text, replyTo }) {
   const key = process.env.RESEND_API_KEY;
-  const to = [...new Set([...recipients, ...(process.env.LEADS_TO ?? '').split(',')].map((s) => s.trim()).filter(Boolean))];
   if (!key) return { sent: false, reason: 'Email isn’t set up (RESEND_API_KEY)' };
   if (!to.length) return { sent: false, reason: 'No one to send it to: add an email in the project’s Enquiries settings' };
-  const { subject, text } = leadEmail(lead, projectTitle);
   try {
     const res = await fetch(API, {
       method: 'POST',
@@ -44,7 +51,7 @@ export async function sendLeadEmail(lead, recipients, projectTitle) {
         to,
         subject,
         text,
-        ...(lead.email ? { reply_to: lead.email } : {})
+        ...(replyTo ? { reply_to: replyTo } : {})
       }),
       signal: AbortSignal.timeout(15000)
     });

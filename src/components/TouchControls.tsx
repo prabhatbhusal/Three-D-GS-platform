@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { touch } from '../lib/mobileInput';
 import { walkerCfg } from '../lib/walkerConfig';
+import { useT } from '../lib/i18n';
 
 /**
  * Mobile controls. A floating thumb-stick in the bottom-left zone (it springs up
@@ -19,6 +20,7 @@ interface Knob { ox: number; oy: number; kx: number; ky: number; }
 
 export function TouchControls({ visible }: { visible: boolean }) {
   const zoneRef = useRef<HTMLDivElement>(null);
+  const t = useT();
   const originRef = useRef<{ x: number; y: number } | null>(null);
   const idRef = useRef<number | null>(null);
   const [knob, setKnob] = useState<Knob | null>(null);
@@ -74,7 +76,7 @@ export function TouchControls({ visible }: { visible: boolean }) {
             <span className="tc-knob" style={{ left: knob.ox + knob.kx, top: knob.oy + knob.ky }} />
           </>
         )}
-        {!knob && <span className="tc-hintdot">move</span>}
+        {!knob && <span className="tc-hintdot">{t('move')}</span>}
       </div>
 
       <div className="tc-btns">
@@ -82,13 +84,13 @@ export function TouchControls({ visible }: { visible: boolean }) {
           className={`tc-b ${run ? 'on' : ''}`}
           onPointerDown={(e) => { e.preventDefault(); setRun((v) => !v); }}
         >
-          {orbit ? 'Dolly' : 'Run'}
+          {orbit ? t('Dolly') : t('Run')}
         </button>
         <button
           className="tc-b tc-b-jump"
           onPointerDown={(e) => { e.preventDefault(); touch.jump = true; }}
         >
-          {orbit ? '＋' : 'Jump'}
+          {orbit ? '＋' : t('Jump')}
         </button>
       </div>
     </div>

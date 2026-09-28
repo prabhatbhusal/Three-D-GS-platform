@@ -35,7 +35,9 @@ export function siteOf(s) {
   const raw = String(s ?? '').trim().toLowerCase();
   if (!raw) return '';
   try {
-    return new URL(raw.includes('://') ? raw : `https://${raw}`).hostname.replace(/^www\./, '');
+    const url = new URL(raw.includes('://') ? raw : `https://${raw}`);
+    if (!['http:', 'https:'].includes(url.protocol)) return '';
+    return url.hostname.replace(/^www\./, '');
   } catch {
     return '';
   }
@@ -45,9 +47,11 @@ export function siteOf(s) {
  *  site or a subdomain of one. */
 export function siteAllowed(from, sites, own = []) {
   const host = siteOf(from);
-  if (!sites.length) return true;
-  if (!host) return false; // the page hid where it is: with a list set, that's a no
-  return [...sites, ...own].some((s) => host === s || host.endsWith(`.${s}`));
+  const allow = [...new Set((sites ?? []).map(siteOf).filter(Boolean))];
+  const ownHosts = [...new Set((own ?? []).map(siteOf).filter(Boolean))];
+  if (!allow.length) return true; // no allow-list: any website is allowed
+  if (!host) return false; // a hidden origin is rejected once a list exists
+  return [...allow, ...ownHosts].some((s) => host === s || host.endsWith(`.${s}`));
 }
 
 const ownSites = () => [siteOf(process.env.CLIENT_ORIGIN || 'http://localhost:3000')];

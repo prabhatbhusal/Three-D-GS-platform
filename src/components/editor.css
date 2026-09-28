@@ -932,11 +932,12 @@
   box-shadow: var(--ed-shadow);
 }
 .pl-menu-list { right: 0; top: calc(100% + 6px); }
-.pl-menu-list button {
+.pl-menu-list button, .pl-menu-list a {
   display: block; width: 100%; padding: 9px 10px; border: 0; border-radius: 8px; cursor: pointer;
   text-align: left; font: 500 12.5px var(--sans); color: var(--ed-text); background: transparent;
 }
-.pl-menu-list button:hover { background: var(--ed-raise); }
+.pl-menu-list button:hover, .pl-menu-list a:hover { background: var(--ed-raise); }
+.pl-menu-list a { box-sizing: border-box; text-decoration: none; }
 .pl-menu-list button.is-danger { color: var(--ed-danger); }
 
 /* ------------------- project switcher in the editor top bar ------------------- */
@@ -1156,3 +1157,44 @@ a.ed2-switch-item:hover { background: var(--ed-raise); }
 .pl-lead-top a { color: var(--ed-text); }
 .pl-lead-top time { margin-left: auto; }
 .pl-lead-msg { margin: 6px 0 0; white-space: pre-wrap; }
+
+/* A project from before accounts: a name to claim, not openable (studio/page.tsx). */
+.pl-card-unclaimed { border-style: dashed; background: transparent; }
+.pl-card-unclaimed .pl-card-title { color: var(--ed-text-dim); }
+
+/* ------------------------- New project: its brand (NewProjectDialog) ------------------------- */
+.np-side h3 { margin: 10px 0 0; }
+.np-brand-preview {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 18px;
+  border-radius: 12px; color: #fff; background: radial-gradient(120% 90% at 80% 10%, #2a2723, #0d0b09);
+}
+.np-brand-preview img { max-height: 36px; max-width: 150px; object-fit: contain; }
+.np-brand-mark {
+  display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px;
+  font: 700 16px var(--sans); color: #14110e; background: var(--acc);
+}
+.np-brand-name { font: 400 24px/1.1 var(--face); overflow-wrap: anywhere; }
+.np-brand-pill { margin-top: 6px; padding: 7px 12px; border-radius: 999px; font: 600 11px var(--sans); color: #14110e; background: var(--acc); }
+.np-brand-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.np-brand-row > .np-field { flex: 1 1 120px; }
+.np-link-btn {
+  padding: 8px 12px; border-radius: var(--ed-r-sm); cursor: pointer; font: 600 12px var(--sans);
+  color: var(--ed-text); background: var(--ed-panel); border: 1px solid var(--ed-line);
+}
+.np-link-btn:hover { border-color: var(--ed-line-lit); }
+.np-colour { display: flex; align-items: center; gap: 8px; }
+.np-colour input[type='color'] { width: 42px; height: 38px; padding: 2px; border-radius: var(--ed-r-sm); border: 1px solid var(--ed-line); background: var(--ed-panel); }
+.np-colour code { font: 500 12px ui-monospace, monospace; color: var(--ed-text-dim); }
+.np-select, .np-field textarea {
+  padding: 10px 12px; border-radius: var(--ed-r-sm); font: 500 13px var(--sans);
+  color: var(--ed-text); background: var(--ed-panel); border: 1px solid var(--ed-line); resize: vertical;
+}
+.np-more { border-top: 1px solid var(--ed-line); padding-top: 10px; }
+.np-more summary { cursor: pointer; font: 650 13px var(--sans); }
+.np-more summary small { font-weight: 500; color: var(--ed-text-dim); margin-left: 4px; }
+.np-more[open] summary { margin-bottom: 8px; }
+.brand-info { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+@media (max-width: 860px) { .np-body { grid-template-columns: 1fr; } }
+.pl-card-unclaimed .pl-card-txt { flex: 1; min-width: 0; }
+.pl-card-unclaimed .pl-card-meta { white-space: normal; }
+.pl-card-unclaimed > .pl-btn { flex: none; position: relative; z-index: 1; }

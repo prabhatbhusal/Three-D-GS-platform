@@ -38,7 +38,7 @@ function quatLookingAt(
 }
 
 interface FlightAnim {
-  curve: THREE.CatmullRomCurve3;
+  curve: THREE.Curve<THREE.Vector3>;
   quats: THREE.Quaternion[];
   fovs: [number, number] | null;
   seconds: number;
@@ -88,8 +88,15 @@ export function useCameraDirector({ onArrive }: { onArrive?: () => void } = {}) 
       const startPos = camera.position.clone();
       const startQuat = camera.quaternion.clone();
 
-      const pts = [startPos, ...viewpoint.path.map((w) => new THREE.Vector3(w.pos[0], w.pos[1], w.pos[2]))];
-      const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0.5);
+      // Repeated points (the same view picked twice: the camera is already on it)
+      // give the curve zero-length stretches, and a zero-length curve maps every
+      // t to NaN and throws each frame, so the flight never ends. Drop them; with
+      // nothing left to travel, stay put and only turn.
+      const raw = [startPos, ...viewpoint.path.map((w) => new THREE.Vector3(w.pos[0], w.pos[1], w.pos[2]))];
+      const pts = raw.filter((p, i) => i === 0 || p.distanceTo(raw[i - 1]) > 1e-4);
+      const curve = pts.length < 2
+        ? new THREE.LineCurve3(startPos, startPos.clone())
+        : new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0.5);
 
       const quats = [startQuat];
       for (const w of viewpoint.path) {

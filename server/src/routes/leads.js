@@ -17,7 +17,7 @@ import { sendLeadEmail } from '../mailer.js';
 
 export const leadsRouter = Router();
 
-const FIELD_LIMITS = { name: 100, phone: 30, email: 200, requirement: 100, dates: 100, message: 2000 };
+const FIELD_LIMITS = { name: 100, phone: 30, email: 200, requirement: 200, dates: 100, message: 2000, hotspotId: 100, hotspotLabel: 120 };
 const REQUIRED = ['name', 'phone'];
 const MIN_FILL_TIME_MS = 1200; // a bot fills the form instantly; a person doesn't
 
@@ -82,6 +82,9 @@ leadsRouter.post('/', async (req, res, next) => {
       requirement: clean(body.requirement),
       dates: clean(body.dates),
       message: clean(body.message),
+      // what they were looking at before asking (the tour's last hotspot)
+      hotspotId: clean(body.hotspotId),
+      hotspotLabel: clean(body.hotspotLabel),
       ip
     });
 

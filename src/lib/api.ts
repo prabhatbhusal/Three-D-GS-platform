@@ -7,7 +7,7 @@
  */
 import type { ApiScene, Property, SceneDoc } from '../@types/scene.types';
 import type { AudioUploadResult, UploadResult } from '../@types/upload.types';
-import type { BrandFont, ProjectTheme } from '../@types/config.types';
+import type { BrandFont, ProjectInfo, ProjectTheme } from '../@types/config.types';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000').replace(/\/$/, '');
 
@@ -63,6 +63,9 @@ export const createProperty = (title: string) =>
 export const renameProperty = (id: string, title: string) =>
   request<Property>(`/api/properties/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ title }) });
 /** Its spaces are kept and become unfiled; published tours are untouched. */
+/** Make a project from before accounts yours (then private to you). */
+export const claimProperty = (id: string) =>
+  request<Property>(`/api/properties/${encodeURIComponent(id)}/claim`, { method: 'POST' });
 export const deleteProperty = (id: string) =>
   request<{ id: string; released: number }>(`/api/properties/${encodeURIComponent(id)}`, { method: 'DELETE' });
 
@@ -79,6 +82,8 @@ export const getProjectTheme = (id: string) =>
 /** Owner or admin. `accent: null` goes back to the default. */
 export const setProjectTheme = (id: string, patch: { brand?: string; accent?: string | null; font?: BrandFont }) =>
   request<Property>(`/api/properties/${encodeURIComponent(id)}/theme`, { method: 'PUT', body: JSON.stringify(patch) });
+export const setProjectInfo = (id: string, info: ProjectInfo) =>
+  request<Property>(`/api/properties/${encodeURIComponent(id)}/info`, { method: 'PUT', body: JSON.stringify(info) });
 export const uploadProjectLogo = (id: string, file: File) =>
   request<Property>(`/api/properties/${encodeURIComponent(id)}/logo`, {
     method: 'PUT', body: file, headers: { 'Content-Type': 'application/octet-stream' }
@@ -98,6 +103,85 @@ export const getProjectLeads = (id: string) => request<ProjectLeads>(`/api/prope
 export const projectLeadsCsvUrl = (id: string) => `${API_BASE}/api/properties/${encodeURIComponent(id)}/leads.csv`;
 export const setProjectLeadEmails = (id: string, emails: string[]) =>
   request<{ emails: string[] }>(`/api/properties/${encodeURIComponent(id)}/lead-emails`, { method: 'PUT', body: JSON.stringify({ emails }) });
+
+/** One month of a project's tour traffic and enquiries (server/src/stats.js). */
+export interface ProjectReport {
+  project: { id: string; title: string; theme: ProjectTheme };
+  month: string; visits: number; seconds: number; days: Record<string, number>;
+  enquiries: number; fromProjectPage: number;
+  spaces: { id: string; title: string; visits: number; seconds: number; enquiries: number }[];
+}
+export const getProjectReport = (id: string, month: string) =>
+  request<ProjectReport>(`/api/properties/${encodeURIComponent(id)}/report?month=${month}`);
+
+/** A project's website (/s/<project>, server/src/routes/sites.js). Photos are asset paths. */
+export interface SiteRoom { title: string; body: string; features: string; image: string; space: string; view: string }
+export interface SiteMenuItem { name: string; desc: string; price: string; tag: string }
+export interface SiteDoc {
+  hero: { eyebrow: string; title: string; lede: string; space: string };
+  facts: { n: string; k: string }[];
+  story: { title: string; body: string };
+  rooms: SiteRoom[];
+  plan: boolean;
+  gallery: string[];
+  menu: { title: string; note: string; items: SiteMenuItem[] };
+  contact: { title: string; body: string };
+  booking: SiteBooking;
+}
+/** A table on the restaurant's floor plan; x and y are fractions of the plan. */
+export interface SiteTable {
+  id: string; label: string; seats: number; x: number; y: number;
+  shape: 'round' | 'square' | 'long'; area: string; view: string;
+}
+/** Table booking (server/src/reservations.js): the plan, its tables and the hours. */
+export interface SiteBooking {
+  on: boolean; plan: string; tables: SiteTable[];
+  first: string; last: string; slot: number; stay: number; days: number; maxParty: number;
+  closed: number[]; timezone: string; note: string;
+}
+export interface SiteSpace { id: string; title: string; published: boolean; views: { id: string; label: string }[] }
+export interface SiteDraft { draft: SiteDoc; publishedAt: string | null; spaces: SiteSpace[] }
+export interface PublicSite {
+  project: { id: string; title: string; theme: ProjectTheme; info?: ProjectInfo };
+  site: Omit<SiteDoc, 'booking'> & { booking: SiteBooking | null };
+  tour: { space: string; title: string; key: string } | null;
+  plan: string | null;
+  publishedAt: string;
+}
+const sitePath = (id: string) => `/api/sites/${encodeURIComponent(id)}`;
+export const getSiteDraft = (id: string) => request<SiteDraft>(`${sitePath(id)}/draft`);
+export const saveSiteDraft = (id: string, draft: SiteDoc) =>
+  request<{ draft: SiteDoc; publishedAt: string | null }>(`${sitePath(id)}/draft`, { method: 'PUT', body: JSON.stringify(draft) });
+export const publishSite = (id: string) => request<{ publishedAt: string }>(`${sitePath(id)}/publish`, { method: 'POST' });
+export const uploadSiteImage = (id: string, file: File) =>
+  request<{ path: string }>(`${sitePath(id)}/images`, { method: 'POST', body: file, headers: { 'Content-Type': 'application/octet-stream' } });
+
+/** What's free: the bookable days, and each start time on one of them with its free tables. */
+export interface Availability { today: string; dates: { date: string; closed: boolean }[]; date: string; slots: { time: string; free: string[] }[] }
+export const getSitePreview = (id: string) => request<PublicSite & { preview: true }>(`${sitePath(id)}/preview`);
+export const getPreviewAvailability = (id: string, date?: string) =>
+  request<Availability>(`${sitePath(id)}/preview/availability${date ? `?date=${date}` : ''}`);
+/** The published website's table booking, for the tour's Reserve a table (null when off). */
+export const getSiteBooking = (id: string) =>
+  request<PublicSite>(sitePath(id)).then((s) => s?.site.booking ?? null).catch(() => null);
+export const getAvailability = (id: string, date?: string) =>
+  request<Availability>(`${sitePath(id)}/availability${date ? `?date=${date}` : ''}`);
+export interface TableRequest {
+  table: string; date: string; time: string; party: number; name: string; phone: string; email?: string; notes?: string;
+  website?: string; formRenderedAt: number;
+}
+export const reserveTable = (id: string, r: TableRequest) =>
+  request<{ ok: true; id?: string; table?: string; tableLabel?: string }>(`${sitePath(id)}/reservations`, { method: 'POST', body: JSON.stringify(r) });
+export type ReservationStatus = 'requested' | 'confirmed' | 'declined' | 'cancelled';
+export interface Reservation {
+  id: string; status: ReservationStatus; table: string; tableLabel: string; date: string; time: string; party: number;
+  name: string; phone: string; email: string; notes: string; createdAt: string; updatedAt: string;
+  delivery?: { sent: boolean; reason?: string }; guestDelivery?: { sent: boolean; reason?: string };
+}
+export const getReservations = (id: string) =>
+  request<{ reservations: Reservation[]; booking: SiteBooking | null; today: string }>(`${sitePath(id)}/reservations`);
+export const setReservationStatus = (id: string, rid: string, status: ReservationStatus) =>
+  request<Reservation>(`${sitePath(id)}/reservations/${encodeURIComponent(rid)}`, { method: 'PATCH', body: JSON.stringify({ status }) });
 
 /** Who did what in a project, newest first (server/src/activity.js). */
 export interface ActivityEntry { at: string; who: { id: string | null; name: string }; action: string; target: string; detail?: string }
@@ -157,7 +241,12 @@ export interface GalleryItem {
   thumb: string | null;
   /** The project it's in (the hub page lists one project's). */
   propertyId?: string | null;
+  /** Its night version's id, if it has one. */
+  night?: string | null;
 }
+/** Lists show each space once: a night version is reached from its day space. */
+export const withoutNightVersions = (list: GalleryItem[]) =>
+  list.filter((s) => !list.some((d) => d.id !== s.id && d.night === s.id));
 
 export const getPublishState = (id: string) => request<PublishState>(`/api/scenes/${id}/publish`);
 

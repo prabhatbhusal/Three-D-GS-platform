@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ViewTransition } from 'react';
+import { SiteGsap } from './SiteGsap';
 
 /* The body of every marketing page under src/app/(site)/. The nav lives in
  * that group's layout and stays put; this part slides: out one way and in
@@ -13,6 +14,7 @@ export function SitePage({ children, contact = true }: { children: React.ReactNo
   return (
     <ViewTransition enter={SLIDE} exit={SLIDE} default="none">
       <div className="lp-page">
+        <SiteGsap />
         {children}
         {contact && <ContactBand />}
         <footer className="site-foot lp-foot">

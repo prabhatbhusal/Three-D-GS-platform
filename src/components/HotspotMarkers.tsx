@@ -8,9 +8,10 @@ import { cardBox, nearestIds, showsCard } from '../lib/hotspotLayout';
 import { resolveAsset, safeUrl } from '../lib/api';
 import { playClip, setMuted, stopClip, unlockAudio, useSound } from '../lib/audio';
 import type { Hotspot, HotspotType, ProjectedHotspot } from '../@types/hotspot.types';
+import { useT } from '../lib/i18n';
 import './hotspots.css';
 
-const ICON: Record<HotspotType, string> = { image: '▣', video: '▶', text: 'i', link: '↗', portal: '⤢', audio: '♪' };
+const ICON: Record<HotspotType, string> = { image: '▣', video: '▶', text: 'i', link: '↗', portal: '⤢', audio: '♪', table: '◎' };
 /** How many hotspots show their card at once; the rest are rings until hovered. */
 const CARDS_AT_ONCE = 4;
 
@@ -143,12 +144,15 @@ interface HotspotPanelProps {
   id: string;
   onClose: () => void;
   onPortal?: (sceneId: string) => void;
+  /** A table hotspot's Reserve this table; absent while the project takes no table bookings. */
+  onReserve?: (tableId: string) => void;
 }
 
-export function HotspotPanel({ sceneId, id, onClose, onPortal }: HotspotPanelProps) {
+export function HotspotPanel({ sceneId, id, onClose, onPortal, onReserve }: HotspotPanelProps) {
   const [, bump] = useReducer((n) => n + 1, 0);
   useEffect(() => subscribeDoc(bump), []);
   const sound = useSound();
+  const t = useT();
 
   const hs = hotspotsFor(sceneId).find((h) => h.id === id);
   const pl = hs?.payload ?? {};
@@ -184,16 +188,16 @@ export function HotspotPanel({ sceneId, id, onClose, onPortal }: HotspotPanelPro
     <>
       <div className="hs-scrim" onClick={onClose} />
       <div className="hs-panel" role="dialog" aria-label={hs.label}>
-        <button className="hs-panel-x" onClick={onClose} aria-label="Close">✕</button>
+        <button className="hs-panel-x" onClick={onClose} aria-label={t('Close')}>✕</button>
         <div className="hs-panel-title">{hs.label}</div>
 
         {audioUrl && (
           <div className="hs-audio">
             <button className={`hs-listen ${playing ? 'on' : ''}`} onClick={listen} aria-pressed={playing}>
               <Speaker />
-              <span>{loadingClip ? 'Loading…' : playing ? 'Stop' : 'Listen'}</span>
+              <span>{loadingClip ? t('Loading…') : playing ? t('Stop') : t('Listen')}</span>
             </button>
-            {sound.error && <span className="hs-audio-note">{sound.error}</span>}
+            {sound.error && <span className="hs-audio-note">{t(sound.error)}</span>}
           </div>
         )}
 
@@ -206,11 +210,11 @@ export function HotspotPanel({ sceneId, id, onClose, onPortal }: HotspotPanelPro
           <video className="hs-panel-img" src={media} controls playsInline />
         )}
 
-        {hs.type === 'text' && <p className="hs-panel-body">{pl.text || 'No text yet.'}</p>}
+        {hs.type === 'text' && <p className="hs-panel-body">{pl.text || t('No text yet.')}</p>}
 
         {hs.type === 'link' && link && (
           <a className="hs-panel-link" href={link} target="_blank" rel="noopener noreferrer">
-            {pl.text || 'Open'}
+            {pl.text || t('Open')}
           </a>
         )}
 
@@ -219,13 +223,24 @@ export function HotspotPanel({ sceneId, id, onClose, onPortal }: HotspotPanelPro
             className="hs-panel-link"
             onClick={() => { if (pl.sceneId) onPortal?.(pl.sceneId); onClose(); }}
           >
-            Go to {SCENE_BY_ID[pl.sceneId ?? '']?.name ?? 'the next space'}
+            {t('Go to {place}', { place: SCENE_BY_ID[pl.sceneId ?? '']?.name ?? t('the next space') })}
           </button>
+        )}
+
+        {hs.type === 'table' && (
+          <>
+            {pl.text && <p className="hs-panel-body">{pl.text}</p>}
+            {onReserve && pl.tableId ? (
+              <button className="hs-panel-link" onClick={() => onReserve(pl.tableId!)}>{t('Reserve this table')}</button>
+            ) : (
+              <p className="hs-panel-body">{t('Table booking opens here soon.')}</p>
+            )}
+          </>
         )}
 
         {(audioUrl || hs.type === 'audio') && pl.transcript && (
           <details className="hs-transcript" open={sound.muted || !audioUrl}>
-            <summary>Transcript</summary>
+            <summary>{t('Transcript')}</summary>
             <p>{pl.transcript}</p>
           </details>
         )}

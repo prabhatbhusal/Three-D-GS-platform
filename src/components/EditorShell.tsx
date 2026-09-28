@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { transformFor, setTransform, subscribeTransform, gizmo, setGizmoMode } from '../lib/transform';
-import { SCENE_BY_ID, renameScene, setSessionSpawn, visibleScenes } from '../lib/scenes';
+import { SCENE_BY_ID, renameScene, setNight, setSessionSpawn, visibleScenes } from '../lib/scenes';
 import { walkerCfg } from '../lib/walkerConfig';
 import { subscribeViewpoints } from '../lib/viewpoints';
 import {
@@ -15,7 +15,8 @@ import { playClip, setMuted, stopClip, useSound } from '../lib/audio';
 import { uiConfig, setUiConfig, useUiConfig } from '../lib/uiConfig';
 import {
   saveScene, getSession, logout, getPublishState, publishSceneNow, unpublishScene, revertScene, getVersions, restoreVersion,
-  resolveAsset, safeUrl, getProperties, assetUrl, buildFloorPlan, uploadFloorPlan, removeFloorPlan, getEmbed, setEmbed
+  resolveAsset, safeUrl, getProperties, assetUrl, buildFloorPlan, uploadFloorPlan, removeFloorPlan, getEmbed, setEmbed,
+  getSiteDraft, type SiteTable
 } from '../lib/api';
 import type { SessionUser, PublishState, EmbedSettings, SceneVersion } from '../lib/api';
 import { HotspotMarkers } from './HotspotMarkers';
@@ -27,8 +28,8 @@ import type { Property, Scene, SceneDoc } from '../@types/scene.types';
 import type { Viewpoint } from '../@types/viewpoint.types';
 import './editor.css';
 
-const HS_TYPES: HotspotType[] = ['text', 'image', 'video', 'audio', 'link', 'portal'];
-const HS_ICON: Record<HotspotType, string> = { image: '▣', video: '▶', text: 'i', link: '↗', portal: '⤢', audio: '♪' };
+const HS_TYPES: HotspotType[] = ['text', 'image', 'video', 'audio', 'link', 'portal', 'table'];
+const HS_ICON: Record<HotspotType, string> = { image: '▣', video: '▶', text: 'i', link: '↗', portal: '⤢', audio: '♪', table: '◎' };
 
 type Selection = { type: 'hotspot' | 'track'; id: string };
 interface Pose { x: number; y: number; z: number; yaw: number; }
@@ -787,6 +788,7 @@ function WorldInspector({ state, pose, onBump }: { state: ViewerState; pose: Pos
       </Section>
 
       <BookingSection sceneId={state.activeId} />
+      <NightSection sceneId={state.activeId} onBump={onBump} />
       <FloorPlanSection sceneId={state.activeId} />
 
       <Section title="Start view">
@@ -987,6 +989,10 @@ function HotspotInspector({ ed, hs, activeId, onDelete }: HotspotInspectorProps)
             ))}
           </select>
         )}
+        {hs.type === 'table' && (
+          <TablePicker sceneId={activeId} value={p.tableId || ''} text={p.text || ''}
+            onChange={(patch) => setPayload(patch)} />
+        )}
       </Section>}
 
       <AudioSection key={hs.id} hs={hs} setPayload={setPayload} />
@@ -1005,6 +1011,35 @@ function HotspotInspector({ ed, hs, activeId, onDelete }: HotspotInspectorProps)
  * Remove only unlinks it. The file stays in storage: a published snapshot
  * may still point at it, and deleting it would break that live tour (§3.6).
  */
+/** A table hotspot stands for one table on the website's floor plan
+ *  (Website → Table booking): visitors who open it can reserve that table. */
+function TablePicker({ sceneId, value, text, onChange }: {
+  sceneId: string; value: string; text: string; onChange: (patch: { tableId?: string; text?: string }) => void;
+}) {
+  const pid = SCENE_BY_ID[sceneId]?.propertyId;
+  const [tables, setTables] = useState<SiteTable[] | null>(null);
+  useEffect(() => {
+    if (!pid) return;
+    getSiteDraft(pid).then((d) => setTables(d?.draft.booking.tables ?? [])).catch(() => setTables([]));
+  }, [pid]);
+  if (!pid) return <p className="ed2-muted ed2-fine">Put this space in a project first: tables belong to a project’s website.</p>;
+  if (!tables) return <p className="ed2-muted ed2-fine">Loading the tables…</p>;
+  if (!tables.length) {
+    return <p className="ed2-muted ed2-fine">No tables yet. Add the floor plan and tables in the project’s Website → Table booking, then pick one here.</p>;
+  }
+  return (
+    <>
+      <select className="ed2-name" value={value} onChange={(e) => onChange({ tableId: e.target.value })}>
+        <option value="">— pick a table —</option>
+        {tables.map((t) => <option key={t.id} value={t.id}>{t.label || t.id} · seats {t.seats}{t.area ? ` · ${t.area}` : ''}</option>)}
+      </select>
+      <input className="ed2-name" style={{ marginTop: 6 }} placeholder="A line about it, e.g. Best sunset view"
+        value={text} maxLength={120} onChange={(e) => onChange({ text: e.target.value })} />
+      <p className="ed2-muted ed2-fine">Visitors who open it can reserve this table, once table booking is published on the website.</p>
+    </>
+  );
+}
+
 function AudioSection({ hs, setPayload }: { hs: Hotspot; setPayload: (patch: Hotspot['payload']) => void }) {
   const p = hs.payload || {};
   const [upload, setUpload] = useState<{ sent: number; total: number } | null>(null);
@@ -1166,6 +1201,14 @@ function FloorPlanSection({ sceneId }: { sceneId: string }) {
             onError={() => { if (view !== 'mine') setStatus('none'); }} />
         </a>
       )}
+      {showing && (view === 'mine' || status === 'ready') && (
+        // the client deliverable: a title sheet around the plan shown above, saved from the print dialog
+        <button className="ed2-export" onClick={() => window.open(
+          `/studio/${encodeURIComponent(SCENE_BY_ID[sceneId]?.propertyId ?? 'unfiled')}/plan/${encodeURIComponent(sceneId)}` +
+          `?img=${encodeURIComponent(view === 'mine' && mine ? mine : `floorplan/${view}.svg`)}`, '_blank', 'noopener')}>
+          Download as PDF…
+        </button>
+      )}
       {status === 'none' && !mine && <p className="ed2-muted ed2-fine">No plan yet for this space.</p>}
       {error && <p className="ed2-muted ed2-fine" role="alert">{error}</p>}
       <button className="ed2-export" onClick={build} disabled={status === 'building'}>
@@ -1233,6 +1276,27 @@ function BookingSection({ sceneId }: { sceneId: string }) {
       <p className="ed2-muted ed2-fine">
         Opens a card in the tour; its button continues on the hotel&apos;s own booking page. The price is
         what you type here: there is no live availability. Set per space.
+      </p>
+    </Section>
+  );
+}
+
+/** Day and night: another space in this project, scanned after dark from the
+ *  same spot, as this one's night version. */
+function NightSection({ sceneId, onBump }: { sceneId: string; onBump: () => void }) {
+  const others = visibleScenes().filter((s) => s.id !== sceneId);
+  if (!others.length) return null;
+  return (
+    <Section title="Night version">
+      <select className="ed2-name" aria-label="Night version" value={SCENE_BY_ID[sceneId]?.night ?? ''}
+        onChange={(e) => { setNight(sceneId, e.target.value || null); onBump(); }}>
+        <option value="">None</option>
+        {others.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+      </select>
+      <p className="ed2-muted ed2-fine">
+        Upload the night scan as its own space, then pick it here. Visitors get a day/night switch that keeps
+        them where they stand, and the night space leaves the tour&apos;s list. Publish both. Scans started from
+        the same spot usually line up; if the switch jumps, nudge the night one with Placement.
       </p>
     </Section>
   );

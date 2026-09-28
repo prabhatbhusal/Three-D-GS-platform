@@ -20,18 +20,22 @@ export async function freshSession(session) {
   return user ? { sub: session.sub, role: user.role } : null;
 }
 
-async function projectAllows(session, propertyId) {
-  if (!propertyId) return true;
-  const p = await getProperty(propertyId);
-  return !p || propertyIsVisible(p, session); // a deleted project leaves its spaces unfiled
+/** A space in a project is for whoever can see the project. One in no project
+ *  (or whose project was deleted) is its owner's alone (2026-09-27; before,
+ *  every account saw them). The legacy shared-password session sees all. */
+async function spaceAllows(session, propertyId, ownerId) {
+  if (!session?.sub) return true;
+  const p = propertyId ? await getProperty(propertyId) : null;
+  if (p) return propertyIsVisible(p, session);
+  return ownerId === session.sub;
 }
 
 /** Can this session work on this space? A space that doesn't exist yet is
- *  judged by the project it would be saved into, if any. */
+ *  judged by the project it would be saved into, if any (in none, it's theirs). */
 export async function mayWorkOnScene(session, sceneId, intoPropertyId) {
   const scene = await getScene(sceneId).catch(() => null);
-  if (scene && !(await projectAllows(session, scene.propertyId))) return false;
-  if (intoPropertyId !== undefined && !(await projectAllows(session, intoPropertyId))) return false;
+  if (scene && !(await spaceAllows(session, scene.propertyId, scene.ownerId ?? null))) return false;
+  if (intoPropertyId !== undefined && !(await spaceAllows(session, intoPropertyId, session?.sub))) return false;
   return true;
 }
 
@@ -41,7 +45,7 @@ export async function mayWorkOnScene(session, sceneId, intoPropertyId) {
 export async function mayWorkOnAsset(session, assetId) {
   for (const { id } of await listScenes()) {
     const doc = await getScene(id).catch(() => null);
-    if (doc && JSON.stringify(doc).includes(assetId) && !(await projectAllows(session, doc.propertyId))) return false;
+    if (doc && JSON.stringify(doc).includes(assetId) && !(await spaceAllows(session, doc.propertyId, doc.ownerId ?? null))) return false;
   }
   return true;
 }
@@ -49,11 +53,11 @@ export async function mayWorkOnAsset(session, assetId) {
 /** The spaces a session may see in the studio's lists. */
 export async function visibleScenes(session, scenes) {
   const out = [];
-  for (const s of scenes) if (await projectAllows(session, s.propertyId)) out.push(s);
+  for (const s of scenes) if (await spaceAllows(session, s.propertyId, s.ownerId ?? null)) out.push(s);
   return out;
 }
 
-const FORBIDDEN = { error: 'That space belongs to a project you haven’t been added to. Ask its owner or an admin.' };
+const FORBIDDEN = { error: 'That space belongs to a project you haven’t been added to. Ask its owner to share it with you.' };
 
 /** Express guard for `:id` space routes; run after requireEditorSession. */
 export const sceneGuard = (req, res, next) => {

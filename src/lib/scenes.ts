@@ -186,5 +186,35 @@ export function hydrateScenes(apiScenes: ApiScene[] | null | undefined) {
     if (s.format) existing.format = s.format;
     if (Array.isArray(s.neighbours)) existing.neighbours = s.neighbours;
     if (s.propertyId !== undefined) existing.propertyId = s.propertyId;
+    if (s.night !== undefined) existing.night = s.night;
   }
+}
+
+/* --- day and night: a space may name another in its project as its night version --- */
+
+/** The day and night versions this space belongs to, if both are open to this visitor. */
+export function dayNightPair(id: string): { day: string; night: string } | null {
+  const vis = visibleScenes();
+  const own = SCENE_BY_ID[id]?.night;
+  if (own && own !== id && vis.some((s) => s.id === own)) return { day: id, night: own };
+  const day = vis.find((s) => s.night === id && s.id !== id);
+  return day ? { day: day.id, night: id } : null;
+}
+
+/** The tour's space list: night versions sit behind their day space's switch. */
+export const tourSpaces = () => {
+  const vis = visibleScenes();
+  return vis.filter((s) => !vis.some((d) => d.id !== s.id && d.night === s.id));
+};
+
+/** Where picking `to` from the list goes: its night version if it's night where you are. */
+export function sameTimeOfDay(from: string, to: string): string {
+  const atNight = dayNightPair(from)?.night === from;
+  return (atNight && dayNightPair(to)?.night) || to;
+}
+
+/** Studio: link (or unlink) a night version. Saved with the space, like its title. */
+export function setNight(sceneId: string, night: string | null) {
+  const s = SCENE_BY_ID[sceneId];
+  if (s) s.night = night && night !== sceneId ? night : null;
 }

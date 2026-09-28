@@ -1,0 +1,106 @@
+/* The website editor (/studio/<project>/site): the studio's own tokens
+ * (editor.css, .ed2), as one scrolling form of cards. */
+.ed2.se { pointer-events: auto; overflow-y: auto; background: var(--ed-bg); font-size: 13px; }
+
+.se-bar {
+  position: sticky; top: 0; z-index: 2;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 20px; background: var(--ed-panel); border-bottom: 1px solid var(--ed-line);
+}
+.se-back, .se-open { color: var(--ed-text-dim); text-decoration: none; }
+.se-back:hover, .se-open:hover { color: var(--ed-text); }
+.se-title { display: flex; gap: 8px; align-items: baseline; margin-right: auto; }
+.se-title b { font-size: 15px; }
+.se-title span { color: var(--ed-text-dim); }
+.se-state { color: var(--ed-text-dim); }
+.se-err, .se-warn { color: var(--ed-danger); }
+.se button, .se-open {
+  padding: 7px 14px; border-radius: var(--ed-r-sm); border: 1px solid var(--ed-line);
+  background: var(--ed-raise); color: var(--ed-text); font: inherit; cursor: pointer;
+}
+.se button:hover:not(:disabled) { border-color: var(--ed-line-lit); }
+.se button:disabled { opacity: 0.5; cursor: default; }
+.se .se-main { background: var(--ed-signal); color: var(--ed-signal-ink); border-color: var(--ed-signal); font-weight: 600; }
+
+.se-body { max-width: 880px; margin: 0 auto; padding: 24px 16px 80px; display: grid; gap: 16px; }
+.se-warn { margin: 0; padding: 12px 14px; border: 1px solid var(--ed-danger); border-radius: var(--ed-r-sm); }
+.se-card { padding: 20px; background: var(--ed-panel); border: 1px solid var(--ed-line); border-radius: 12px; }
+.se-card h2 { margin: 0; font-size: 16px; }
+.se-hint { margin: 4px 0 16px; color: var(--ed-text-dim); }
+
+.se-field { display: grid; gap: 6px; margin-bottom: 12px; flex: 1; min-width: 0; }
+.se-field > span { color: var(--ed-text-dim); }
+.se input, .se textarea, .se select {
+  width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: var(--ed-r-sm);
+  border: 1px solid var(--ed-line); background: var(--ed-well); color: var(--ed-text); font: inherit;
+}
+.se textarea { resize: vertical; line-height: 1.5; }
+.se input:focus, .se textarea:focus, .se select:focus { outline: 2px solid var(--ed-signal-soft); border-color: var(--ed-line-lit); }
+
+.se-row { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 8px; }
+.se-row > input { flex: 1; min-width: 0; }
+.se-menu > input:nth-child(2) { flex: 2; }
+.se-tools { display: flex; gap: 4px; flex: none; }
+.se .se-tools button { padding: 6px 9px; }
+.se .se-add { width: 100%; border-style: dashed; background: transparent; color: var(--ed-text-dim); }
+.se-check { display: flex; gap: 8px; align-items: center; }
+.se-check input { width: auto; }
+
+.se-item { padding: 14px; margin-bottom: 12px; border: 1px solid var(--ed-line); border-radius: 10px; background: var(--ed-raise); }
+.se-item-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.se-split { display: grid; grid-template-columns: 220px 1fr; gap: 16px; }
+.se-photo { display: flex; flex-direction: column; gap: 8px; }
+.se-photo img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; }
+
+.se-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; align-items: start; }
+.se-gallery figure { position: relative; margin: 0; }
+.se-gallery figure img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; display: block; }
+.se .se-gallery figure button { position: absolute; top: 6px; right: 6px; padding: 2px 7px; }
+
+@media (max-width: 640px) {
+  .se-split { grid-template-columns: 1fr; }
+  .se-row { flex-wrap: wrap; }
+  .se-menu > input { flex: 1 1 45%; }
+}
+
+/* Table booking: the plan and its tables (placed by click, moved by drag). */
+.se-plan { position: relative; margin-top: 4px; border-radius: 10px; overflow: hidden; background: #fff; cursor: crosshair; touch-action: none; user-select: none; }
+.se-plan img { display: block; width: 100%; pointer-events: auto; }
+.se .se-table {
+  position: absolute; translate: -50% -50%; display: grid; place-items: center; min-width: 34px; height: 34px; padding: 0 6px;
+  border-radius: 999px; border: 2px solid #1c1a17; background: rgba(255, 255, 255, 0.92); color: #1c1a17;
+  font: 700 11px/1 var(--sans); cursor: grab; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+.se .se-table small { font-weight: 500; opacity: 0.6; font-size: 10px; }
+.se .se-table.shape-square { border-radius: 6px; }
+.se .se-table.shape-long { min-width: 58px; border-radius: 6px; }
+.se .se-table.is-on { background: #1c1a17; color: #fff; outline: 3px solid rgba(255, 255, 255, 0.9); }
+.se-table-fields { flex-wrap: wrap; align-items: flex-end; margin-top: 12px; }
+.se-table-fields .se-field { flex: 1 1 120px; }
+.se .se-remove { color: var(--ed-danger); margin-bottom: 12px; }
+.se-days { display: flex; gap: 6px; flex-wrap: wrap; }
+.se .se-days button.is-on { background: var(--ed-danger); border-color: var(--ed-danger); color: #fff; }
+
+/* Reservations (studio/[property]/reservations) */
+.rs-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.se .rs-tabs button.is-on { background: var(--ed-signal); color: var(--ed-signal-ink); border-color: var(--ed-signal); }
+.rs-item {
+  display: grid; grid-template-columns: 90px 1fr auto; gap: 16px; align-items: start;
+  padding: 14px 0; border-top: 1px solid var(--ed-line);
+}
+.rs-item.is-declined, .rs-item.is-cancelled { opacity: 0.55; }
+.rs-when b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+.rs-when span, .rs-contact, .rs-table { color: var(--ed-text-dim); }
+.rs-who b { font-size: 14px; }
+.rs-table { margin-left: 6px; padding: 2px 8px; border: 1px solid var(--ed-line); border-radius: 999px; font-size: 12px; }
+.rs-contact { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 4px; }
+.rs-contact a { color: inherit; }
+.rs-notes { margin: 6px 0 0; font-style: italic; }
+.rs-act { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.rs-status { padding: 3px 10px; border-radius: 999px; font-size: 12px; border: 1px solid var(--ed-line); }
+.rs-status.is-requested { border-color: #d9a441; color: #d9a441; }
+.rs-status.is-confirmed { border-color: #4caf7a; color: #4caf7a; }
+@media (max-width: 640px) {
+  .rs-item { grid-template-columns: 70px 1fr; }
+  .rs-act { grid-column: 1 / -1; justify-content: flex-start; }
+}

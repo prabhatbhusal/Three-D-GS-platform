@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { cardBox, nearestIds, showsCard, NEAR_DISTANCE, CARD_W, CARD_H } from '../src/lib/hotspotLayout.ts';
 import { safeUrl, resolveAsset, assetUrl } from '../src/lib/api.ts';
 import { bookingHref, stayProblem, nightsBetween, isoDay } from '../src/lib/booking.ts';
+import { resolveInitialTier } from '../src/lib/deviceTier.ts';
 
 test('booking link carries the visitor\'s dates and guests', () => {
   const t = 'https://basera.com/book?arrive={checkin}&depart={checkout}&adults={guests}&n={nights}';
@@ -103,6 +104,47 @@ test('asset:// references resolve through the asset route', () => {
   assert.equal(resolveAsset('asset://../etc/passwd'), null, 'no traversal through the id');
   assert.equal(resolveAsset('javascript:alert(1)'), null);
   assert.equal(resolveAsset(undefined), null);
+});
+
+test('manual and URL quality overrides are ignored; auto detection decides the tier', () => {
+  const prevDocument = globalThis.document;
+  const prevNavigator = globalThis.navigator;
+  const prevMatchMedia = globalThis.matchMedia;
+  const prevLocalStorage = globalThis.localStorage;
+
+  try {
+    Object.defineProperty(globalThis, 'document', { configurable: true, value: {
+      createElement: (tag) => tag === 'canvas' ? {
+        getContext: () => ({
+          getExtension: () => null,
+          getParameter: () => 'fake-renderer'
+        })
+      } : {}
+    }});
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: {
+      userAgent: 'test-agent',
+      hardwareConcurrency: 4,
+      deviceMemory: 4,
+      connection: { saveData: false }
+    }});
+    Object.defineProperty(globalThis, 'matchMedia', { configurable: true, value: () => ({ matches: true }) });
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
+      store: { 'splatspace.tier.manual': JSON.stringify('high') },
+      getItem: (k) => (k in globalThis.localStorage.store ? globalThis.localStorage.store[k] : null),
+      setItem: (k, v) => { globalThis.localStorage.store[k] = String(v); },
+      removeItem: (k) => { delete globalThis.localStorage.store[k]; }
+    }});
+
+    const resolved = resolveInitialTier();
+    assert.equal(resolved.tier, 'low');
+    assert.notEqual(resolved.source, 'manual');
+    assert.notEqual(resolved.source, 'url');
+  } finally {
+    if (prevDocument === undefined) delete globalThis.document; else Object.defineProperty(globalThis, 'document', { configurable: true, value: prevDocument });
+    if (prevNavigator === undefined) delete globalThis.navigator; else Object.defineProperty(globalThis, 'navigator', { configurable: true, value: prevNavigator });
+    if (prevMatchMedia === undefined) delete globalThis.matchMedia; else Object.defineProperty(globalThis, 'matchMedia', { configurable: true, value: prevMatchMedia });
+    if (prevLocalStorage === undefined) delete globalThis.localStorage; else Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: prevLocalStorage });
+  }
 });
 
 /* ---- 3D-model spaces: the model handle must answer like the SDK's ---- */
@@ -205,4 +247,50 @@ test('a point cloud gets a floor to stand on, and walls it can\'t walk through',
   assert.ok(Math.abs(middle.min) < 1e-6 && Math.abs(middle.max) < 1e-6, `open floor at y = 0 in the middle: ${JSON.stringify(middle)}`);
   assert.ok(heights(2.8, 3.3).max >= 2.19, 'the wall cells are 2.2 m blocks');
   assert.equal(pointCloudFloor([]).length, 0);
+});
+
+test('every tour string has a Nepali and a Chinese translation', async () => {
+  const { DICT, translate } = await import('../src/lib/i18n.ts');
+  const { readFileSync } = await import('node:fs');
+  const files = ['Viewer', 'EnquiryPanel', 'FloorMap', 'BookingCard', 'TouchControls', 'HotspotMarkers', 'TableCard']
+    .map((f) => readFileSync(new URL(`../src/components/${f}.tsx`, import.meta.url), 'utf8'));
+  const keys = new Set(files.flatMap((src) => [...src.matchAll(/\bt[r]?\('([^']+)'/g)].map((m) => m[1])));
+  // passed to t() through a variable
+  for (const k of ['Viewpoints', 'Walk', 'Fly', 'Orbit', 'Glide between the best spots', 'Move freely, as if you’re there',
+    'Soar anywhere with W A S D', 'Circle the room at eye level', 'Look around', 'Fly to that view', 'Open what’s there',
+    'Walk faster', 'Stop a flythrough', 'Name', 'Phone', 'What are you looking for?', 'Room booking',
+    'Add your name so the team can reach you.', 'Add your phone so the team can reach you.',
+    stayProblem({ checkin: '', checkout: '', guests: 1 }), stayProblem({ checkin: '2000-01-01', checkout: '2000-01-02', guests: 1 })]) keys.add(k);
+  assert.ok(keys.size > 80, `found ${keys.size} strings`);
+  for (const k of keys) {
+    assert.ok(DICT.ne[k], `no Nepali for: ${k}`);
+    assert.ok(DICT.zh[k], `no Chinese for: ${k}`);
+  }
+  assert.equal(translate('zh', 'Go to {place}', { place: 'Lobby' }), '前往Lobby');
+  assert.equal(translate('ne', 'Not in the dictionary'), 'Not in the dictionary', 'unknown text stays English');
+  assert.equal(translate('en', '{n} nights', { n: 3 }), '3 nights');
+});
+
+test('a night version is reached from its day space, not listed on its own', async () => {
+  // scenes.ts imports './api' the bundler way (no extension); let Node find the .ts
+  const { register } = await import('node:module');
+  register('data:text/javascript,' + encodeURIComponent(
+    'export async function resolve(s, c, next) { try { return await next(s, c); } catch (e) {' +
+    ' if (s.startsWith(".") && !s.split("/").pop().includes(".")) return next(s + ".ts", c); throw e; } }'));
+  const { hydrateScenes, limitTour, tourSpaces, dayNightPair, sameTimeOfDay } = await import('../src/lib/scenes.ts');
+  hydrateScenes([
+    { id: 'dn-a', title: 'A', night: 'dn-an' }, { id: 'dn-an', title: 'A at night' },
+    { id: 'dn-b', title: 'B', night: 'dn-bn' }, { id: 'dn-bn', title: 'B at night' },
+    { id: 'dn-c', title: 'C' }
+  ]);
+  limitTour(['dn-a', 'dn-an', 'dn-b', 'dn-bn', 'dn-c'], 'dn-a');
+  assert.deepEqual(tourSpaces().map((s) => s.id), ['dn-a', 'dn-b', 'dn-c']);
+  assert.deepEqual(dayNightPair('dn-an'), { day: 'dn-a', night: 'dn-an' });
+  assert.deepEqual(dayNightPair('dn-a'), { day: 'dn-a', night: 'dn-an' });
+  assert.equal(dayNightPair('dn-c'), null);
+  assert.equal(sameTimeOfDay('dn-an', 'dn-b'), 'dn-bn', 'at night, the next space opens at night too');
+  assert.equal(sameTimeOfDay('dn-an', 'dn-c'), 'dn-c', 'unless it has no night version');
+  assert.equal(sameTimeOfDay('dn-a', 'dn-b'), 'dn-b');
+  limitTour(['dn-a', 'dn-b', 'dn-bn'], 'dn-a'); // A's night version isn't published
+  assert.equal(dayNightPair('dn-a'), null);
 });

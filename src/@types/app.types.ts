@@ -49,6 +49,8 @@ export interface ViewerState {
   flying: boolean;
   viewpoints: Viewpoint[];
   select: (sceneId: string) => void;
+  /** Open the day or night version of this space, staying where you stand. */
+  selectKeepingView: (sceneId: string) => void;
   playViewport: (vp: Viewpoint) => void;
   stopFly: () => void;
   /** Fly mode: re-frame the aerial view on the middle of the space. */
