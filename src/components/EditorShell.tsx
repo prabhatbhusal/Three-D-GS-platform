@@ -946,7 +946,8 @@ function CopyToSpaces({ sceneId, propertyId, onClose }: { sceneId: string; prope
         </div>
       </div>
     </div>,
-    document.body
+    // inside the editor, whose colours the dialog uses
+    document.querySelector('.ed2') ?? document.body
   );
 }
 

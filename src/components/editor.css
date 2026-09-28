@@ -1267,4 +1267,9 @@ a.ed2-switch-item:hover { background: var(--ed-raise); }
 .pl-invite { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; padding: 12px; border-radius: 10px; border: 1px solid var(--ed-signal); }
 .pl-invite p { flex: 1 1 100%; margin: 0; font: 500 13px var(--sans); }
 .pl-invite input { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--ed-line); background: var(--ed-well); color: var(--ed-text); font: 500 12px var(--sans); }
-.pl-share-form input + input { flex: 0 1 160px; }
+
+/* The share dialog: the staff tag stays a tag; with a name box, the form wraps to two rows. */
+.pl-share-list .pl-tag { align-self: flex-start; }
+.pl-share-form { flex-wrap: wrap; }
+.pl-share-form input[type=email] { flex: 1 1 220px; }
+.pl-share-form input + input { flex: 1 1 140px; }
