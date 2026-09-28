@@ -4,5 +4,8 @@
   "id": "demo-project",
   "version": 1,
   "title": "Demo project",
-  "createdAt": "2026-09-21T05:58:21.077Z"
+  "createdAt": "2026-09-21T05:58:21.077Z",
+  "theme": {
+    "font": "serif"
+  }
 }
