@@ -12,9 +12,19 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
 import { siteAllowed, siteOf } from '../src/routes/embed.js';
+import { startFakeS3 } from './fakeS3.js';
 
-const PORT = 4900 + Math.floor(Math.random() * 90);
-const BASE = `http://127.0.0.1:${PORT}`;
+// api-s3.test.js runs this whole suite again with uploads stored in a (fake) S3 bucket.
+const USE_S3 = process.env.API_TEST_STORAGE === 's3';
+const S3 = { bucket: 'test-bucket', accessKeyId: 'test-key', secretAccessKey: 'test-s3-secret' };
+let s3 = null;
+// A port the OS says is free: two suites run side by side, and the server stops
+// a copy of itself it finds on its port (index.js), so they must never share one.
+const freePort = () => new Promise((resolve) => {
+  const probe = http.createServer().listen(0, '127.0.0.1', () => { const { port } = probe.address(); probe.close(() => resolve(port)); });
+});
+let PORT;
+let BASE;
 const DATA = mkdtempSync(path.join(tmpdir(), 'tv-api-'));
 let server;
 let cookie = '';
@@ -33,6 +43,9 @@ const mailServer = http.createServer((req, res) => {
 
 before(async () => {
   await new Promise((r) => mailServer.listen(0, '127.0.0.1', r));
+  PORT = await freePort();
+  BASE = `http://127.0.0.1:${PORT}`;
+  if (USE_S3) s3 = await startFakeS3(S3);
   server = spawn(process.execPath, ['src/index.js'], {
     cwd: path.resolve(import.meta.dirname, '..'),
     env: {
@@ -50,7 +63,11 @@ before(async () => {
       RESEND_API_KEY: 'test-mail-key',
       RESEND_API_URL: `http://127.0.0.1:${mailServer.address().port}/emails`,
       LEADS_TO: '',
-      CLIENT_ORIGIN: 'http://localhost:3000'
+      CLIENT_ORIGIN: 'http://localhost:3000',
+      ...(s3 ? {
+        ASSET_DRIVER: 's3', S3_ENDPOINT: s3.url, S3_BUCKET: S3.bucket, S3_REGION: 'auto',
+        S3_ACCESS_KEY_ID: S3.accessKeyId, S3_SECRET_ACCESS_KEY: S3.secretAccessKey
+      } : {})
     },
     stdio: ['ignore', 'pipe', 'pipe']
   });
@@ -69,6 +86,7 @@ before(async () => {
 
 after(() => {
   mailServer.close();
+  s3?.close();
   server?.kill();
   rmSync(DATA, { recursive: true, force: true });
 });
@@ -973,9 +991,11 @@ test('table booking: availability, one table per time, any table, the studio con
   const saved = await api('PUT', `/api/sites/${pid}/draft`, { booking });
   assert.deepEqual(saved.json.draft.booking.tables.map((t) => t.id), ['t2', 't4', 't6']);
   assert.equal((await api('GET', `/api/sites/${pid}/availability`)).status, 404, 'nothing until published');
+  assert.deepEqual((await api('GET', `/api/sites/${pid}/booking`)).json, { booking: null }, 'the tour just hears "no"');
   await api('POST', `/api/sites/${pid}/publish`);
 
   cookie = ''; // everything a guest does is public
+  assert.equal((await api('GET', `/api/sites/${pid}/booking`)).json.booking.tables.length, 3, 'published: the tour gets the setup');
   const avail = (date) => api('GET', `/api/sites/${pid}/availability?date=${date}`).then((r) => r.json);
   const a = await avail(tomorrow);
   assert.deepEqual(a.slots.map((s) => s.time), ['18:00', '18:30', '19:00', '19:30', '20:00']);
@@ -1082,4 +1102,12 @@ test('a project carries its brand information, checked, and its website shows it
   assert.equal((await api('GET', `/api/sites/${pid}`)).json.project.info.phone, '+977 1 5550000');
   cookie = other.cookie;
   assert.equal((await api('PUT', `/api/properties/${pid}/info`, { phone: '1' })).status, 404, 'not someone else’s');
+});
+
+test('with the cloud driver, uploads really live in the bucket, not on this PC', { skip: !USE_S3 && 'runs in api-s3.test.js' }, () => {
+  assert.equal(s3.stats.badSignatures, 0, 'every request was signed correctly');
+  const keys = [...s3.objects.keys()];
+  assert.ok(keys.length > 10, `the bucket holds the suite's uploads (${keys.length} files)`);
+  assert.ok(keys.every((k) => k.startsWith('assets/')), 'all under the assets/ prefix');
+  assert.ok(!existsSync(path.join(DATA, 'assets')), 'nothing written to the local asset folder');
 });

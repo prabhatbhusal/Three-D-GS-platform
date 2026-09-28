@@ -9,6 +9,7 @@ import { useStudioSession } from '../../lib/useStudioSession';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { NewProjectDialog } from '../../components/NewProjectDialog';
 import { BrandInfoFields, infoProblem } from '../../components/BrandInfoFields';
+import { inkOn, paletteFromImage } from '../../lib/brandColor';
 import { TeamDialog } from '../../components/TeamDialog';
 import type { ApiScene, Property } from '../../@types/scene.types';
 import type { BrandFont, ProjectInfo, ProjectTheme } from '../../@types/config.types';
@@ -71,6 +72,7 @@ export default function StudioPage() {
       <main className="pl">
         <header className="pl-top">
           <span className="pl-brand">
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- the studio’s 3D renderer is a page singleton: leave with a full page load */}
             <a href="/" className="ed2-home" aria-label="Home" title="Home">
               <svg viewBox="0 0 24 24" aria-hidden><path d="M3 11 12 4l9 7" /><path d="M5 10v10h5v-6h4v6h5V10" /><rect className="ed2-home-door" x="10.6" y="14.6" width="2.8" height="5" rx="0.6" /></svg>
             </a>
@@ -343,12 +345,33 @@ function BrandingDialog({ project, onClose }: { project: Property; onClose: () =
   const [info, setInfo] = useState<ProjectInfo>(project.info ?? {});
   const [savedInfo, setSavedInfo] = useState<ProjectInfo>(project.info ?? {});
   const [infoNote, setInfoNote] = useState('');
+  // The logo's colours, as swatches. Just after a new logo, if the colour is
+  // still the default, its main colour becomes the brand colour.
+  const [logoColours, setLogoColours] = useState<string[]>([]);
+  const [colourNote, setColourNote] = useState('');
+  const newLogo = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const fileRef = useRef<HTMLInputElement | null>(null);
   const accent = theme.accent ?? '#b08d57';
   const font = theme.font ?? 'serif';
   const logoUrl = theme.logo ? `${API_BASE_URL}/api/assets/${theme.logo}` : null;
+  useEffect(() => {
+    if (!logoUrl) { setLogoColours([]); return; }
+    let live = true;
+    fetch(logoUrl).then((r) => r.blob()).then(paletteFromImage).then((p) => {
+      if (!live) return;
+      setLogoColours(p.colours);
+      const fresh = newLogo.current;
+      newLogo.current = false;
+      if (!p.accent) setColourNote(fresh ? 'Your logo is black and white: pick a brand colour.' : '');
+      else if (fresh && !theme.accent) {
+        setColourNote('Brand colour taken from your logo.');
+        run(() => setProjectTheme(project.id, { accent: p.accent! }));
+      }
+    }).catch(() => { if (live) setLogoColours([]); });
+    return () => { live = false; };
+  }, [logoUrl]); // eslint-disable-line react-hooks/exhaustive-deps -- once per logo
 
   const run = async (fn: () => Promise<Property | null>) => {
     setBusy(true);
@@ -373,7 +396,7 @@ function BrandingDialog({ project, onClose }: { project: Property; onClose: () =
         <div className="pl-dialog-body">
           <p className="pl-sub">How “{project.title}” looks on its tours. Changes go live on every published tour at once.</p>
 
-          <div className="pl-brand-preview" style={{ '--acc': accent, '--face': FONT_FACES[font][1] } as React.CSSProperties}>
+          <div className="pl-brand-preview" style={{ '--acc': accent, '--acc-ink': inkOn(accent), '--face': FONT_FACES[font][1] } as React.CSSProperties}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {logoUrl && <img src={logoUrl} alt="" />}
             <span className="pl-brand-name">{brand || project.title}</span>
@@ -404,11 +427,22 @@ function BrandingDialog({ project, onClose }: { project: Property; onClose: () =
               </select>
             </label>
           </div>
+          {logoColours.length > 0 && (
+            <div className="np-swatches" role="group" aria-label="Colours in your logo">
+              <small>From your logo</small>
+              {logoColours.map((c) => (
+                <button key={c} type="button" className={`np-swatch${c === accent ? ' is-on' : ''}`} style={{ background: c }}
+                  disabled={busy} aria-label={`Use ${c}`} aria-pressed={c === accent} title={c}
+                  onClick={() => { setColourNote(''); run(() => setProjectTheme(project.id, { accent: c })); }} />
+              ))}
+            </div>
+          )}
+          {colourNote && <p className="pl-sub">{colourNote}</p>}
 
           <div className="pl-field">
             <span>Logo</span>
             <input ref={fileRef} type="file" hidden accept="image/png,image/jpeg,image/webp"
-              onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) run(() => uploadProjectLogo(project.id, f)); }} />
+              onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) { newLogo.current = true; run(() => uploadProjectLogo(project.id, f)); } }} />
             <span className="pl-share-form">
               <button className="pl-btn" disabled={busy} onClick={() => fileRef.current?.click()}>{logoUrl ? 'Replace logo…' : 'Upload logo…'}</button>
               {logoUrl && <button className="pl-btn pl-btn-danger" disabled={busy} onClick={() => run(() => removeProjectLogo(project.id))}>Remove</button>}

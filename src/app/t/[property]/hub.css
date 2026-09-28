@@ -43,7 +43,7 @@
   border-radius: 999px;
   font: 600 14px system-ui, sans-serif;
   text-decoration: none;
-  color: #14110e !important;
+  color: var(--gold-ink, #14110e) !important;
   background: var(--gold);
   box-shadow: 0 6px 18px color-mix(in srgb, var(--gold) 35%, transparent);
   transition: transform 0.15s, box-shadow 0.15s;

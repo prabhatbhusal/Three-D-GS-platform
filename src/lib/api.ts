@@ -163,7 +163,7 @@ export const getPreviewAvailability = (id: string, date?: string) =>
   request<Availability>(`${sitePath(id)}/preview/availability${date ? `?date=${date}` : ''}`);
 /** The published website's table booking, for the tour's Reserve a table (null when off). */
 export const getSiteBooking = (id: string) =>
-  request<PublicSite>(sitePath(id)).then((s) => s?.site.booking ?? null).catch(() => null);
+  request<{ booking: SiteBooking | null }>(`${sitePath(id)}/booking`).then((r) => r?.booking ?? null).catch(() => null);
 export const getAvailability = (id: string, date?: string) =>
   request<Availability>(`${sitePath(id)}/availability${date ? `?date=${date}` : ''}`);
 export interface TableRequest {

@@ -5,6 +5,7 @@
  * project's bookings, and confirming or declining them (the guest is emailed
  * either way, if they left an address).
  *
+ *   GET   /api/sites/:id/booking                        public: the live setup, or null (the tour asks)
  *   GET   /api/sites/:id/availability?date=YYYY-MM-DD   public
  *   POST  /api/sites/:id/reservations                   public: { table | 'any', date, time, party, name, phone, email?, notes? }
  *   GET   /api/sites/:id/reservations                   studio
@@ -32,6 +33,12 @@ async function bookingOf(pid) {
   const cfg = p ? liveBooking((await readSite(p.id))?.published) : null;
   return cfg ? { p, cfg } : null;
 }
+
+// Every tour asks whether its project takes table bookings, so "no" is an
+// ordinary answer here, not a 404 that each visitor's browser logs as an error.
+reservationsRouter.get('/:id/booking', wrap(async (req, res) => {
+  res.json({ booking: (await bookingOf(req.params.id))?.cfg ?? null });
+}));
 
 reservationsRouter.get('/:id/availability', wrap(async (req, res) => {
   await sendAvailability(req, res, await bookingOf(req.params.id));

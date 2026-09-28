@@ -48,16 +48,22 @@ Instead of a passive image gallery, the platform creates a live spatial experien
 
 | Feature | Description |
 | --- | --- |
-| 🧭 Virtual tours | Interactive browser-based walkthroughs with 3D spatial navigation |
-| 🏢 Project management | Group spaces under client projects and properties |
-| 🧑‍💼 Studio editor | Author, preview, and organize scenes in a private workspace |
-| 📦 Asset handling | Upload models, scene data, and media assets through the API |
-| 📸 Gallery publishing | Showcase live spaces in a polished public gallery |
-| 💬 Lead capture | Collect visitor enquiries directly from inside the tour |
-| 🔐 Session auth | Protect studio and editing workflows with secure access |
-| 📱 Mobile-first UX | Designed to work beautifully on phones and tablets |
+| 🧭 Virtual tours | Gaussian-splat tours in the browser: Viewpoints, Walk, Fly and Orbit, camera tracks, floor map with "you are here" |
+| 📍 Hotspots | Text, image, video, audio, link, portal and table hotspots, shown always or when the visitor comes near |
+| 🌗 Day / night | A night version of a space, switched in one tap without losing the view |
+| 🌐 Languages | English, नेपाली and 中文 (picker or `?lang=`) |
+| 🍽️ Table booking | Guests pick a table on the restaurant's own floor plan (GSAP animated); the studio confirms or declines in a reservations inbox |
+| 🛎️ Book now & enquiries | A booking card per space and an enquiry panel inside the tour |
+| 🖥️ Client websites | A full website per client at `/s/<project>`: live tour, rooms, menu, floor plan, booking, contact; draft, preview, publish |
+| 🎨 Branding | Logo, brand colour suggested from the logo, heading font and brand info per project |
+| 🧑‍💼 Studio | Scene editor, publish/unpublish/revert, version history, activity log, team roles |
+| 📊 Reports & plans | Monthly visitor report and floor-plan sheets, printable as PDF; enquiries export as CSV |
+| 🔐 Privacy | Projects are private to their owner and invited members |
+| ☁️ Cloud storage | Scans can live in an S3-compatible bucket (Cloudflare R2) so every PC shows the same splats |
 
 </div>
+
+**Full feature book (PDF):** [docs/RCAAS-Feature-Book.pdf](docs/RCAAS-Feature-Book.pdf)
 
 ## 🧩 Product workflow
 
@@ -103,9 +109,12 @@ Built around Three.js and React Three Fiber for real-time spatial rendering and 
 
 ```text
 .
+├── docs/                      # Feature book (PDF)
 ├── public/                     # Static media, sample assets, and site files
+├── scripts/dev.mjs            # `npm run dev`: starts the site and the API together
 ├── server/                    # Express API and file-backed storage layer
-│   ├── src/
+│   ├── src/                   # routes/, storage.js (local) and storage-s3.js (S3/R2)
+│   ├── scripts/               # push-assets.js (`npm run assets:push`)
 │   ├── test/
 │   └── package.json
 ├── src/
@@ -127,9 +136,12 @@ Built around Three.js and React Three Fiber for real-time spatial rendering and 
 - `/` — public landing page
 - `/gallery` — published 3D tours and projects
 - `/tour` — public tour entry
+- `/t/<project>` and `/t/<project>/<space>` — a client's tour hub and short links to each space
+- `/s/<project>` — the client's website
 - `/studio` — studio dashboard for project management
+- `/studio/<project>/site`, `/reservations`, `/report` — website editor, reservations inbox, monthly report
 - `/login` — studio authentication flow
-- `/contact` — lead capture and service enquiry pages
+- `/contact` — how to book a capture
 
 ## 🔌 API highlights
 
@@ -143,6 +155,9 @@ The backend exposes key routes such as:
 - `/api/leads` — enquiries and lead storage
 - `/api/assets` — uploads and asset resources
 - `/api/embed` — embedded experience support
+- `/api/sites` — client websites, table availability and reservations
+- `/api/team` — accounts and roles
+- `/api/stats` — tour visit stats
 
 ## 🛠️ Tech stack
 
@@ -165,20 +180,41 @@ npm install
 cd server && npm install
 ```
 
+### Configure
+
+```bash
+cp server/.env.example server/.env
+```
+
+Fill in the values in `server/.env` (it is gitignored; never commit it). Set `RESEND_API_KEY` to send enquiry and reservation emails.
+
 ### Start the app
 
-Run the frontend and server in separate terminals:
+One command starts the site and the API together:
 
 ```bash
-# root project
 npm run dev
 ```
 
+It stops servers left over from an earlier session (for example after VS Code closed) and picks free ports if 3000/4000 are taken. To run only one side: `npm run dev:web` for the site, `cd server && npm run dev` for the API.
+
+### Share scans across PCs (optional)
+
+By default uploads are stored on the PC that made them. To keep them in a Cloudflare R2 (or any S3-compatible) bucket instead, set `ASSET_DRIVER=s3` and the `S3_*` values in `server/.env` (see `server/.env.example`), then copy existing uploads up once from each PC that has them:
+
 ```bash
-# server
 cd server
-npm run dev
+npm run assets:push -- --dry-run   # list what would be sent
+npm run assets:push
 ```
+
+### Tests
+
+```bash
+npm test
+```
+
+Runs the frontend tests and the API tests (the API suite runs twice: local disk and a simulated bucket).
 
 ### Production build
 

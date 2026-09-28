@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { filesFromDataTransfer, filesFromFileList, uploadVariant } from '../lib/upload';
 import { createProperty, getScenes, saveScene, setProjectInfo, setProjectTheme, uploadProjectLogo } from '../lib/api';
 import { BrandInfoFields, infoProblem } from './BrandInfoFields';
+import { inkOn, paletteFromImage } from '../lib/brandColor';
 import type { BrandFont, ProjectInfo } from '../@types/config.types';
 import { blankSceneDoc } from '../lib/sceneDoc';
 import { hydrateScenes } from '../lib/scenes';
@@ -59,6 +60,10 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
   const [brand, setBrand] = useState('');
   const [accent, setAccent] = useState(DEFAULT_ACCENT);
   const [accentSet, setAccentSet] = useState(false);
+  // The logo's own colours, and whether the brand colour was picked by hand (then a new logo won't change it).
+  const [logoColours, setLogoColours] = useState<string[]>([]);
+  const [logoNote, setLogoNote] = useState('');
+  const [byHand, setByHand] = useState(false);
   const [font, setFont] = useState<BrandFont>('serif');
   const [logo, setLogo] = useState<File | null>(null);
   const [logoUrl, setLogoUrl] = useState('');
@@ -73,7 +78,13 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
     setCreateError('');
     setLogo(f);
     setLogoUrl(URL.createObjectURL(f));
+    paletteFromImage(f).then((p) => {
+      setLogoColours(p.colours);
+      setLogoNote(p.accent ? (byHand ? '' : 'Brand colour taken from your logo. Pick another any time.') : 'Your logo is black and white: pick a brand colour.');
+      if (p.accent && !byHand) { setAccent(p.accent); setAccentSet(true); }
+    }).catch(() => { setLogoColours([]); setLogoNote(''); });
   };
+  const chooseColour = (c: string) => { setAccent(c); setAccentSet(true); setByHand(true); setLogoNote(''); };
   const folderRef = useRef<HTMLInputElement>(null);
   const zipRef = useRef<HTMLInputElement>(null);
   const uploading = status === 'uploading';
@@ -316,7 +327,7 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
             </label>
 
             <h3>Brand</h3>
-            <div className="np-brand-preview" style={{ '--acc': accent, '--face': FONTS.find(([f]) => f === font)![2] } as React.CSSProperties}>
+            <div className="np-brand-preview" style={{ '--acc': accent, '--acc-ink': inkOn(accent), '--face': FONTS.find(([f]) => f === font)![2] } as React.CSSProperties}>
               {/* eslint-disable-next-line @next/next/no-img-element -- a local preview of the chosen file */}
               {logoUrl ? <img src={logoUrl} alt="" /> : <span className="np-brand-mark">{(brand || title || 'B').trim()[0]}</span>}
               <span className="np-brand-name">{brand || title || 'Your brand'}</span>
@@ -324,7 +335,7 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
             </div>
             <div className="np-brand-row">
               <button type="button" className="np-link-btn" onClick={() => logoRef.current?.click()}>{logo ? 'Change logo…' : 'Upload logo…'}</button>
-              {logo && <button type="button" className="np-link-btn" onClick={() => { setLogo(null); setLogoUrl(''); }}>Remove</button>}
+              {logo && <button type="button" className="np-link-btn" onClick={() => { setLogo(null); setLogoUrl(''); setLogoColours([]); setLogoNote(''); }}>Remove</button>}
             </div>
             <input ref={logoRef} type="file" hidden accept="image/png,image/jpeg,image/webp"
               onChange={(e) => { pickLogo(e.target.files?.[0]); e.target.value = ''; }} />
@@ -336,7 +347,7 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
               <label className="np-field np-field-colour">
                 <span>Brand colour</span>
                 <span className="np-colour">
-                  <input type="color" value={accent} onChange={(e) => { setAccent(e.target.value); setAccentSet(true); }} aria-label="Brand colour" />
+                  <input type="color" value={accent} onChange={(e) => chooseColour(e.target.value)} aria-label="Brand colour" />
                   <code>{accent}</code>
                 </span>
               </label>
@@ -347,6 +358,16 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
                 </select>
               </label>
             </div>
+            {logoColours.length > 0 && (
+              <div className="np-swatches" role="group" aria-label="Colours in your logo">
+                <small>From your logo</small>
+                {logoColours.map((c) => (
+                  <button key={c} type="button" className={`np-swatch${c === accent ? ' is-on' : ''}`} style={{ background: c }}
+                    aria-label={`Use ${c}`} aria-pressed={c === accent} title={c} onClick={() => chooseColour(c)} />
+                ))}
+              </div>
+            )}
+            {logoNote && <small className="np-note">{logoNote}</small>}
             <details className="np-more">
               <summary>Brand information <small>optional</small></summary>
               <p className="np-note">Shown on the project’s website: how guests reach you, and a word about you.</p>

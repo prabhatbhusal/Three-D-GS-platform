@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import type { BrandFont, ProjectTheme, UiConfig } from '../@types/config.types';
 import { API_BASE_URL } from './api';
+import { inkOn } from './brandColor';
 
 /**
  * Visitor-facing presentation settings, driven by the editor's Customize tab.
@@ -33,6 +34,8 @@ export function setUiConfig(patch: Partial<UiConfig>) {
   snap = { ...uiConfig };
   if (typeof patch.accent === 'string') {
     document.documentElement.style.setProperty('--gold', patch.accent);
+    // text on it: black or white, whichever reads (a navy brand gets white)
+    document.documentElement.style.setProperty('--gold-ink', inkOn(patch.accent));
   }
   if (patch.font) document.documentElement.style.setProperty('--serif', FONTS[patch.font]);
   listeners.forEach((fn) => fn());

@@ -124,10 +124,10 @@
 .ws-contact { width: var(--text); margin: 16vh auto 0; padding-bottom: 12vh; text-align: center; }
 .ws-btn {
   margin-top: 18px; min-height: 50px; padding: 0 30px; border: 0; border-radius: 999px; cursor: pointer;
-  font: 600 16px/1 inherit; color: #fff; background: var(--ws-accent);
+  font: 600 16px/1 inherit; color: var(--ws-on-accent, #fff); background: var(--ws-accent);
 }
 .ws-btn:hover { filter: brightness(1.08); }
-.ws-hero-cta { display: inline-flex; align-items: center; margin-top: 30px; text-decoration: none; color: #fff !important; }
+.ws-hero-cta { display: inline-flex; align-items: center; margin-top: 30px; text-decoration: none; color: var(--ws-on-accent, #fff) !important; }
 .ws-foot {
   display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
   padding: 26px max(16px, calc((100% - 1240px) / 2)); border-top: 1px solid var(--line);

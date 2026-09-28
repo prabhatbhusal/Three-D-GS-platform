@@ -132,7 +132,7 @@
 .vw-book {
   display: inline-flex; align-items: center; height: 40px; padding: 0 20px; margin-left: 4px;
   border-radius: 999px; text-decoration: none; white-space: nowrap;
-  font: 700 13px/1 var(--sans); color: #14110e; background: var(--gold);
+  font: 700 13px/1 var(--sans); color: var(--gold-ink, #14110e); background: var(--gold);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3); transition: filter 0.15s;
 }
 .vw-book:hover { filter: brightness(1.08); }
@@ -366,7 +366,7 @@
 .vw-space:disabled { opacity: 0.5; cursor: default; }
 .vw-space-tile {
   width: 40px; height: 40px; flex: 0 0 auto; border-radius: 8px; display: grid; place-items: center;
-  font: 400 20px/1 var(--serif); color: #14110e; background: var(--gold);
+  font: 400 20px/1 var(--serif); color: var(--gold-ink, #14110e); background: var(--gold);
 }
 .vw-space-txt { display: flex; flex-direction: column; min-width: 0; }
 .vw-space-nm { font: 600 13.5px/1.3 var(--sans); }
@@ -451,7 +451,7 @@
   border: 1px solid rgba(246, 241, 231, 0.16);
   touch-action: none; user-select: none;
 }
-.tc-b.on { color: #14110e; background: var(--gold); border-color: var(--gold); box-shadow: 0 0 22px rgba(176, 141, 87, 0.5); }
+.tc-b.on { color: var(--gold-ink, #14110e); background: var(--gold); border-color: var(--gold); box-shadow: 0 0 22px rgba(176, 141, 87, 0.5); }
 .tc-b-jump { background: rgba(176, 141, 87, 0.26); }
 
 /* ---- fallback screen (no WebGL2 — CLAUDE.md §3 constraint 5) ------- */
@@ -469,7 +469,7 @@
   display: flex; align-items: center; gap: 10px;
   appearance: none; cursor: pointer; padding: 13px 20px 13px 16px; border: 0; border-radius: 999px;
   font: 700 13px/1 var(--sans);
-  color: #14110e; background: var(--gold);
+  color: var(--gold-ink, #14110e); background: var(--gold);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3);
   animation: vw-fade 0.5s ease 0.25s both;
   transition: transform 0.16s, filter 0.16s;
@@ -560,7 +560,7 @@ button.vw-book { border: 0; cursor: pointer; }
 .vw-sheet-done h2 { margin: 12px 0 6px; }
 .vw-sheet-tick {
   display: inline-grid; place-items: center; width: 48px; height: 48px; border-radius: 50%;
-  font: 700 22px var(--sans); color: #14110e; background: var(--gold);
+  font: 700 22px var(--sans); color: var(--gold-ink, #14110e); background: var(--gold);
 }
 
 /* ---- compass widget --------------------------------- */
@@ -718,11 +718,11 @@ button.vw-book { border: 0; cursor: pointer; }
 /* Reserve a table, over the tour: the website's floor-plan booking (TableBooking,
  * table-booking.css), on paper-light colours of its own; the accent is the project's. */
 .vw-book-alt { color: #fff; background: rgba(16, 13, 11, 0.58); border: 1px solid var(--gold); }
-.vw-book-alt.on, .vw-book-alt:hover { color: #14110e; background: var(--gold); }
+.vw-book-alt.on, .vw-book-alt:hover { color: var(--gold-ink, #14110e); background: var(--gold); }
 .vw-reserve-scrim { position: fixed; inset: 0; z-index: 20; background: rgba(6, 5, 4, 0.5); animation: vw-fade 0.2s ease; }
 .tb-host {
   --ink: #1c1a17; --dim: #6f675d; --paper: #f5f1ea; --card: #fffdf9; --line: rgba(28, 26, 23, 0.12);
-  --ws-accent: var(--gold, #b08d57); --ws-serif: var(--serif, Georgia, serif);
+  --ws-accent: var(--gold, #b08d57); --ws-on-accent: var(--gold-ink, #14110e); --ws-serif: var(--serif, Georgia, serif);
   color: var(--ink); font: 400 16px/1.55 system-ui, 'Segoe UI', Roboto, sans-serif;
 }
 .vw-reserve {

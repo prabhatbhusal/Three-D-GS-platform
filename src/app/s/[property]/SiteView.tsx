@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { API_BASE_URL, type PublicSite } from '../../../lib/api';
 import type { BrandFont } from '../../../@types/config.types';
+import { inkOn } from '../../../lib/brandColor';
 import { SiteEnquire, SiteReveal, SiteTour, ViewIn3D } from './SiteParts';
 import { TableBooking } from '../../../components/TableBooking';
 import '../../../components/viewer.css';
@@ -38,8 +39,10 @@ export function SiteView({ data, preview = false }: { data: PublicSite; preview?
   ].filter(Boolean) as { label: string; text: string; href: string }[];
   const name = project.theme.brand || project.title;
   const logo = project.theme.logo ? asset(project.theme.logo) : null;
+  const accent = project.theme.accent || '#9a7b4f';
   const style = {
-    '--ws-accent': project.theme.accent || '#9a7b4f',
+    '--ws-accent': accent,
+    '--ws-on-accent': inkOn(accent),
     '--ws-serif': FACES[project.theme.font ?? 'serif']
   } as React.CSSProperties;
   const tourSrc = tour ? `/tour?space=${encodeURIComponent(tour.space)}&embed=1&key=${encodeURIComponent(tour.key)}` : null;

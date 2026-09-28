@@ -19,7 +19,7 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import yauzl from 'yauzl';
 import zlib from 'zlib';
-import { Readable } from 'stream';
+import { Readable, pipeline } from 'stream';
 import { requireEditorSession } from '../middleware/auth.js';
 import { assetGuard } from '../access.js';
 import { recordAsset } from '../activity.js';
@@ -442,6 +442,12 @@ assetsRouter.post('/:assetId/finalize', requireEditorSession, assetGuard, async 
 /* Read — public, range-capable (the SDK streams tiles with 206s)        */
 /* -------------------------------------------------------------------- */
 
+/** Stream a stored file to the response. With the cloud driver a read can
+ *  fail half way; pipeline ends the response instead of leaving it hanging. */
+const send = (src, res) => pipeline(src, res, (err) => {
+  if (err && err.code !== 'ERR_STREAM_PREMATURE_CLOSE') console.warn('[assets] read:', err.message);
+});
+
 assetsRouter.get('/:assetId/*', async (req, res, next) => {
   try {
     const relPath = safeRelPath(req.params[0]);
@@ -460,7 +466,7 @@ assetsRouter.get('/:assetId/*', async (req, res, next) => {
       if (gz) {
         res.setHeader('Content-Encoding', 'gzip');
         res.setHeader('Content-Length', gz.bytes);
-        return storage.get(req.params.assetId, `${relPath}.gz`).pipe(res);
+        return send(storage.get(req.params.assetId, `${relPath}.gz`), res);
       }
     }
 
@@ -475,10 +481,10 @@ assetsRouter.get('/:assetId/*', async (req, res, next) => {
       res.status(206);
       res.setHeader('Content-Range', `bytes ${start}-${end}/${bytes}`);
       res.setHeader('Content-Length', end - start + 1);
-      storage.get(req.params.assetId, relPath, { range: { start, end } }).pipe(res);
+      send(storage.get(req.params.assetId, relPath, { range: { start, end } }), res);
     } else {
       res.setHeader('Content-Length', bytes);
-      storage.get(req.params.assetId, relPath).pipe(res);
+      send(storage.get(req.params.assetId, relPath), res);
     }
   } catch (err) {
     if (err.code === 'ENOENT') return res.status(404).json({ error: 'Asset not found.' });
@@ -524,10 +530,7 @@ assetsRouter.put(
   express.raw({ type: () => true, limit: PLAN_MAX }),
   async (req, res, next) => {
     try {
-      // ponytail: local driver — an S3 driver needs its own "does this asset exist"
-      try { await fs.stat(path.join(storage.ASSET_DIR, req.params.assetId)); } catch {
-        return res.status(404).json({ error: 'Asset not found.' });
-      }
+      if (!(await storage.exists(req.params.assetId))) return res.status(404).json({ error: 'Asset not found.' });
       const body = req.body;
       if (!Buffer.isBuffer(body) || !body.length) return res.status(400).json({ error: 'Choose an image of the floor plan to upload.' });
       const kind = imageKind(body);

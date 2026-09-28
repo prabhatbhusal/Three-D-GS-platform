@@ -5,6 +5,7 @@ import { connection } from 'next/server';
 import { API_BASE_URL, withoutNightVersions, type GalleryItem } from '../../../lib/api';
 import { EnquiryPanel } from '../../../components/EnquiryPanel';
 import type { BrandFont, ProjectTheme } from '../../../@types/config.types';
+import { inkOn } from '../../../lib/brandColor';
 import '../../../components/viewer.css';
 import './hub.css';
 
@@ -75,7 +76,7 @@ export default async function HubPage({ params }: { params: Promise<{ property: 
   const walk = (id: string) => `/t/${encodeURIComponent(property)}/${encodeURIComponent(id)}`;
 
   return (
-    <div className="hub" style={{ '--gold': accent, '--serif': FACES[hub.theme.font || 'serif'] } as React.CSSProperties}>
+    <div className="hub" style={{ '--gold': accent, '--gold-ink': inkOn(accent), '--serif': FACES[hub.theme.font || 'serif'] } as React.CSSProperties}>
       <header className="hub-top">
         <span className="hub-brand">
           {/* eslint-disable-next-line @next/next/no-img-element */}

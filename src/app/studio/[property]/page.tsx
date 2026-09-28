@@ -54,6 +54,7 @@ export default function PropertyStudioPage({ params }: { params: Promise<{ prope
       <main className="pl">
         <header className="pl-top">
           <nav className="ed2-crumb" aria-label="Breadcrumb">
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- the studio’s 3D renderer is a page singleton: leave with a full page load */}
             <a href="/studio">Projects</a>
             {gate.kind === 'empty' && <><span aria-hidden>/</span><span className="ed2-crumb-here">{gate.property.title}</span></>}
           </nav>
@@ -63,6 +64,7 @@ export default function PropertyStudioPage({ params }: { params: Promise<{ prope
             <div className="pl-empty">
               <h1>That project doesn&apos;t exist</h1>
               <p>It may have been deleted, or the link is wrong. Pick one from the list.</p>
+              {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- the studio’s 3D renderer is a page singleton: leave with a full page load */}
               <a className="pl-btn" href="/studio">All projects</a>
             </div>
           )}

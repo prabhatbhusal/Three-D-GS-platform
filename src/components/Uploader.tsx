@@ -308,7 +308,7 @@ function VariantSlot({ tier, state, onFiles, off = false }: {
               Drop folder here or browse
             </button>
             <button type="button" className="up-browse-zip" onClick={() => zipInputRef.current?.click()}>
-              or pick files (.zip, or a model's files)
+              or pick files (.zip, or a model&apos;s files)
             </button>
           </div>
         </>

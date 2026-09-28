@@ -17,9 +17,7 @@
  * Writes floorplan/plan.svg (2D), floorplan/3d.svg (walls raised, seen from
  * above at an angle) and floorplan/plan.json (walls, path, numbers) into the
  * asset. Runs on upload (routes/assets.js) and on demand from the studio.
- * ponytail: reads the local asset folder directly; an S3 driver needs a get-to-temp step first. */
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
+ * Reads the export through storage.js, so it works with either driver. */
 import { Readable } from 'node:stream';
 import * as storage from './storage.js';
 
@@ -815,24 +813,17 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 /** Build and store the plan for an uploaded Lixel export. Null when the
  *  export has no collision mesh (a 3D-model space, or an old export). */
 export async function buildFloorPlan(assetId, title = 'Floor plan') {
-  const base = path.join(storage.ASSET_DIR, assetId);
-  const meshDirs = [];
-  const walk = async (dir) => {
-    for (const e of await fs.readdir(dir, { withFileTypes: true })) {
-      const full = path.join(dir, e.name);
-      if (e.isDirectory() && e.name !== 'floorplan') await walk(full);
-      else if (e.name.toLowerCase().endsWith('.ply') && path.basename(dir) === 'mesh') meshDirs.push(full);
-    }
-  };
-  try { await walk(base); } catch (e) { if (e.code === 'ENOENT') return null; throw e; }
-  if (!meshDirs.length) return null;
+  // Through the storage seam, so it works whether the export is on this PC or in the bucket.
+  const meshes = (await storage.list(assetId))
+    .filter((rel) => !rel.startsWith('floorplan/') && rel.toLowerCase().endsWith('.ply') && rel.split('/').at(-2) === 'mesh');
+  if (!meshes.length) return null;
 
   const tris = [];
-  for (const f of meshDirs) for (const n of readPly(await fs.readFile(f))) tris.push(n);
+  for (const rel of meshes) for (const n of readPly(await storage.readAll(assetId, rel))) tris.push(n);
 
   let path3 = [];
-  const poses = meshDirs[0].replace(/[\\/]data[\\/]mesh[\\/][^\\/]+$/, `${path.sep}info${path.sep}poses.json`);
-  try { path3 = JSON.parse(await fs.readFile(poses, 'utf8')).poses.map((q) => q.T); } catch { /* no path in this export */ }
+  const poses = meshes[0].replace(/(^|\/)data\/mesh\/[^/]+$/, '$1info/poses.json');
+  try { path3 = JSON.parse((await storage.readAll(assetId, poses)).toString('utf8')).poses.map((q) => q.T); } catch { /* no path in this export */ }
 
   const plan = planFrom(tris, path3);
   if (!plan) return null;

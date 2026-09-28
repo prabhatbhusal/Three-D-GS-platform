@@ -162,12 +162,14 @@ function TopBar({ onPreview, sceneId, property }: { onPreview: () => void; scene
        *  down (LCCRender is a page singleton), which only a full load does. */}
       {property && (
         <nav className="ed2-crumb" aria-label="Breadcrumb">
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- the studio’s 3D renderer is a page singleton: leave with a full page load */}
           <a href="/studio">Projects</a>
           <span aria-hidden>/</span>
           <ProjectSwitcher property={property} />
         </nav>
       )}
       <div className="ed2-brand">
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- the studio’s 3D renderer is a page singleton: leave with a full page load */}
         <a href="/" className="ed2-home" aria-label="Home" title="Home">
           <svg viewBox="0 0 24 24" aria-hidden><path d="M3 11 12 4l9 7" /><path d="M5 10v10h5v-6h4v6h5V10" /><rect className="ed2-home-door" x="10.6" y="14.6" width="2.8" height="5" rx="0.6" /></svg>
         </a>
@@ -253,6 +255,7 @@ function ProjectSwitcher({ property }: { property: Property }) {
               <span className="ed2-switch-n">{spaces(p.spaceCount)}</span>
             </a>
           )))}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- the studio’s 3D renderer is a page singleton: leave with a full page load */}
           <a className="ed2-switch-all" href="/studio" role="menuitem">All projects</a>
         </div>
       )}

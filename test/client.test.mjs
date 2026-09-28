@@ -294,3 +294,29 @@ test('a night version is reached from its day space, not listed on its own', asy
   limitTour(['dn-a', 'dn-b', 'dn-bn'], 'dn-a'); // A's night version isn't published
   assert.equal(dayNightPair('dn-a'), null);
 });
+
+test('a logo’s colours: the brand colour, not its background, outline or edges', async () => {
+  const { paletteFromPixels, inkOn } = await import('../src/lib/brandColor.ts');
+  const px = (list) => list.flatMap(([hex, n, a = 255]) => {
+    const v = parseInt(hex.slice(1), 16);
+    return Array.from({ length: n }, () => [(v >> 16) & 255, (v >> 8) & 255, v & 255, a]).flat();
+  });
+  // a red logo with a navy word, on white, with a few pink anti-aliased edge pixels
+  const logo = paletteFromPixels(px([['#ffffff', 600], ['#d62828', 300], ['#1d3557', 80], ['#f4b6b6', 5], ['#d82a2a', 15]]));
+  assert.equal(logo.accent, '#d62828', 'the red, grouped with its near-twin');
+  assert.ok(logo.colours.includes('#1d3557'), 'the navy is offered too');
+  assert.ok(!logo.colours.includes('#ffffff'), 'the white background is not a brand colour');
+  assert.ok(!logo.colours.some((c) => c === '#f4b6b6'), 'nor are edge pixels');
+  // a transparent background is ignored; small but vivid beats big and dull
+  const onClear = paletteFromPixels(px([['#000000', 900, 0], ['#333333', 70], ['#2a9d8f', 30]]));
+  assert.equal(onClear.accent, '#2a9d8f');
+  // black and white: nothing to suggest, but the black is listed
+  const mono = paletteFromPixels(px([['#ffffff', 700], ['#111111', 300]]));
+  assert.equal(mono.accent, null);
+  assert.deepEqual(mono.colours, ['#111111']);
+  assert.deepEqual(paletteFromPixels([]), { accent: null, colours: [] });
+  // readable text on a brand-coloured button
+  assert.equal(inkOn('#1d3557'), '#ffffff', 'navy: white text');
+  assert.equal(inkOn('#ffd166'), '#14110e', 'yellow: dark text');
+  assert.equal(inkOn('#b08d57'), '#14110e', 'the default gold keeps its dark text');
+});

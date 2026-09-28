@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
-    "test": "node --test"
+    "test": "node --test",
+    "assets:push": "node scripts/push-assets.js"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",
