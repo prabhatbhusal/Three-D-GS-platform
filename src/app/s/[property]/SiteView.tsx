@@ -2,8 +2,9 @@ import Link from 'next/link';
 import { API_BASE_URL, type PublicSite } from '../../../lib/api';
 import type { BrandFont } from '../../../@types/config.types';
 import { inkOn } from '../../../lib/brandColor';
-import { SiteEnquire, SiteReveal, SiteTour, ViewIn3D } from './SiteParts';
+import { BookThisRoom, SiteEnquire, SiteReveal, SiteTour, ViewIn3D } from './SiteParts';
 import { TableBooking } from '../../../components/TableBooking';
+import { RoomBooking } from '../../../components/RoomBooking';
 import '../../../components/viewer.css';
 import './website.css';
 
@@ -23,7 +24,11 @@ const paragraphs = (t: string) => t.split(/\n\s*\n/).map((p) => p.trim()).filter
  * Preview the saved draft. In preview nothing reaches anyone: the enquiry
  * button and booking requests wait for Publish.
  */
-export function SiteView({ data, preview = false }: { data: PublicSite; preview?: boolean }) {
+export function SiteView({ data, preview = false, review = false }: {
+  data: PublicSite; preview?: boolean;
+  /** The client's review link (/s/<project>/review): a draft, without the studio's banner. */
+  review?: boolean;
+}) {
   const { project, site, tour, plan } = data;
   const info = project.info ?? {};
   // The brand's own words fill in what the site leaves empty.
@@ -47,17 +52,20 @@ export function SiteView({ data, preview = false }: { data: PublicSite; preview?
   } as React.CSSProperties;
   const tourSrc = tour ? `/tour?space=${encodeURIComponent(tour.space)}&embed=1&key=${encodeURIComponent(tour.key)}` : null;
   const menu = site.menu.items.length ? site.menu : null;
+  // A chapter whose 3D space is also a room the hotel lets online offers it for booking.
+  const bookable = (space: string) => (space ? site.stays?.rooms.find((r) => r.space === space) : undefined);
   const nav = [
     site.rooms.length && ['#spaces', 'Spaces'],
     plan && ['#plan', 'Floor plan'],
     menu && ['#menu', menu.title || 'Menu'],
+    site.stays && ['#stay', 'Book a room'],
     site.booking && ['#reserve', 'Book a table'],
     ['#contact', 'Enquire']
   ].filter(Boolean) as [string, string][];
 
   return (
     <div className="ws" style={style}>
-      {preview && (
+      {preview && !review && (
         <p className="ws-preview" role="status">
           <b>Preview</b> of your saved draft. Visitors see it after you publish.
           {/* plain <a>: the studio wants a full page load */}
@@ -79,7 +87,8 @@ export function SiteView({ data, preview = false }: { data: PublicSite; preview?
         {eyebrow && <p className="ws-eyebrow">{eyebrow}</p>}
         <h1>{site.hero.title || name}</h1>
         {site.hero.lede && <p className="ws-lede">{site.hero.lede}</p>}
-        {site.booking && <a className="ws-btn ws-hero-cta" href="#reserve">Book a table</a>}
+        {site.stays ? <a className="ws-btn ws-hero-cta" href="#stay">Book a room</a>
+          : site.booking && <a className="ws-btn ws-hero-cta" href="#reserve">Book a table</a>}
       </section>
 
       {tour && tourSrc && (
@@ -122,6 +131,7 @@ export function SiteView({ data, preview = false }: { data: PublicSite; preview?
                   </ul>
                 )}
                 {tour && r.space && <ViewIn3D space={r.space} view={r.view} />}
+                {bookable(r.space) && <BookThisRoom room={bookable(r.space)!.id} />}
               </div>
             </article>
           ))}
@@ -155,6 +165,14 @@ export function SiteView({ data, preview = false }: { data: PublicSite; preview?
               </li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {site.stays && (
+        <section id="stay" className="ws-book">
+          <h2>Book a room</h2>
+          <p className="ws-dim">Choose your dates and how many of you, then pick your room.</p>
+          <RoomBooking project={project.id} stays={site.stays} tour={!!tour} preview={preview} />
         </section>
       )}
 

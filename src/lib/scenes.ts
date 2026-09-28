@@ -109,12 +109,16 @@ export function renameScene(sceneId: string, name: string): boolean {
 
 /* --- session spawn overrides, set from the editor panel --- */
 const sessionSpawn: Record<string, SpawnState> = {};
+const spawnListeners = new Set<() => void>();
+/** A start view was set (undo in the editor records it, history.ts). */
+export const subscribeSpawn = (fn: () => void) => { spawnListeners.add(fn); return () => { spawnListeners.delete(fn); }; };
 
 export function setSessionSpawn(sceneId: string, spawn: [number, number, number], yaw = 0): SpawnState {
   sessionSpawn[sceneId] = {
     spawn: spawn.map((n) => Math.round(n * 100) / 100) as [number, number, number],
     yaw: Math.round(yaw * 100) / 100
   };
+  spawnListeners.forEach((f) => f());
   console.log(
     `%c[scene] spawn for "${sceneId}" — paste into scenes.ts:`,
     'color:#2f6f4f;font-weight:bold',
@@ -187,8 +191,49 @@ export function hydrateScenes(apiScenes: ApiScene[] | null | undefined) {
     if (Array.isArray(s.neighbours)) existing.neighbours = s.neighbours;
     if (s.propertyId !== undefined) existing.propertyId = s.propertyId;
     if (s.night !== undefined) existing.night = s.night;
+    if (typeof s.building === 'string') existing.building = s.building;
+    if (typeof s.floor === 'string') existing.floor = s.floor;
   }
 }
+
+/* --- buildings and floors: a large site's spaces, by where they are --- */
+
+/** Studio: which building and floor this space is on. Saved with the space, like its title. */
+export function setPlace(sceneId: string, patch: { building?: string; floor?: string }) {
+  const s = SCENE_BY_ID[sceneId];
+  if (!s) return;
+  if (patch.building !== undefined) s.building = patch.building.slice(0, 60);
+  if (patch.floor !== undefined) s.floor = patch.floor.slice(0, 60);
+}
+
+/** A floor's place in the building, from how it's named: basement below ground, "2nd" above "1st". */
+export function floorRank(label: string): number {
+  const n = /-?\d+/.exec(label);
+  if (n) return Number(n[0]);
+  const words: [RegExp, number][] = [
+    [/basement|underground|lower ground|cellar/i, -1], [/ground|lobby|entrance|reception/i, 0], [/first|1st/i, 1], [/second|2nd/i, 2],
+    [/third|3rd/i, 3], [/fourth|4th/i, 4], [/fifth|5th/i, 5], [/sixth|6th/i, 6], [/roof|terrace|top/i, 99]
+  ];
+  return words.find(([re]) => re.test(label))?.[1] ?? 50;
+}
+
+export interface PlaceFloor { name: string; spaces: Scene[] }
+export interface PlaceBuilding { name: string; floors: PlaceFloor[] }
+
+/** The tour's spaces by building, then floor (lowest first), in list order within each. */
+export function placesMap(): PlaceBuilding[] {
+  const out: PlaceBuilding[] = [];
+  for (const s of tourSpaces()) {
+    const b = out.find((x) => x.name === (s.building ?? '')) ?? (out[out.length] = { name: s.building ?? '', floors: [] });
+    const f = b.floors.find((x) => x.name === (s.floor ?? '')) ?? (b.floors[b.floors.length] = { name: s.floor ?? '', spaces: [] });
+    f.spaces.push(s);
+  }
+  for (const b of out) b.floors.sort((x, y) => floorRank(x.name) - floorRank(y.name) || x.name.localeCompare(y.name));
+  return out;
+}
+
+/** Does this tour have buildings or floors to pick between? */
+export const hasPlaces = () => placesMap().some((b, _, all) => all.length > 1 || b.floors.length > 1);
 
 /* --- day and night: a space may name another in its project as its night version --- */
 

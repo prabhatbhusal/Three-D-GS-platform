@@ -22,13 +22,15 @@ export interface SoundState {
   /** URL of the clip being fetched/decoded. */
   loading: string | null;
   error: string | null;
+  /** The words of a narration while it plays, shown as a caption (sound on or off). */
+  caption: string | null;
 }
 
 const readMuted = () => {
   try { return localStorage.getItem(MUTE_KEY) !== '0'; } catch { return true; }
 };
 
-let state: SoundState = { muted: readMuted(), playing: null, loading: null, error: null };
+let state: SoundState = { muted: readMuted(), playing: null, loading: null, error: null, caption: null };
 const listeners = new Set<() => void>();
 const set = (patch: Partial<SoundState>) => {
   state = { ...state, ...patch };
@@ -79,12 +81,13 @@ export function stopClip() {
     source.disconnect();
     source = null;
   }
-  if (state.playing || state.loading) set({ playing: null, loading: null });
+  if (state.playing || state.loading || state.caption) set({ playing: null, loading: null, caption: null });
 }
 
 /** Plays one clip, stopping whatever was playing. Decoded clips are cached,
- *  so reopening a hotspot doesn't fetch it again. */
-export async function playClip(url: string) {
+ *  so reopening a hotspot doesn't fetch it again. A `caption` (a narration's
+ *  transcript) shows while it plays. */
+export async function playClip(url: string, caption: string | null = null) {
   unlockAudio(); // first, while we're still inside the tap
   stopClip();
   if (!ctx || !out) {
@@ -113,11 +116,11 @@ export async function playClip(url: string) {
     src.onended = () => {
       if (source !== src) return;
       source = null;
-      set({ playing: null });
+      set({ playing: null, caption: null });
     };
     source = src;
     src.start();
-    set({ playing: url, loading: null });
+    set({ playing: url, loading: null, caption });
   } catch {
     if (state.loading === url) set({ loading: null, error: 'The audio didn’t load. Check your connection and try again.' });
   }

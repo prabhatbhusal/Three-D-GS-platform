@@ -10,6 +10,7 @@
  * for a table when no live booking on it starts within `stay` minutes either
  * side. Stored as data/reservations/<project>.json; every write goes through
  * one queue per project, so two guests can't both get the last table.
+ * Room bookings (stays.js) live in the same file, marked kind: 'stay'.
  */
 import fs from 'fs/promises';
 import path from 'path';
@@ -39,6 +40,15 @@ export function withReservations(pid, change) {
   return run;
 }
 
+/** Read one project's bookings in its turn, between writes: a read that lands
+ *  while the file is being rewritten would see it half-written, and an empty
+ *  list would make every table look free. */
+export function readReservations(pid) {
+  const run = (queues.get(pid) ?? Promise.resolve()).then(() => listReservations(pid));
+  queues.set(pid, run.catch(() => {}));
+  return run;
+}
+
 export const removeReservations = (pid) => fs.rm(fileOf(pid), { force: true });
 
 /* ------------------------------------------------------------ the clock */
@@ -54,7 +64,7 @@ export function nowIn(timezone, at = new Date()) {
   return { date: `${p.year}-${p.month}-${p.day}`, min: Number(p.hour) * 60 + Number(p.minute) };
 }
 
-const addDays = (date, n) => new Date(Date.parse(`${date}T12:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+export const addDays = (date, n) =>new Date(Date.parse(`${date}T12:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 const weekday = (date) => new Date(`${date}T12:00:00Z`).getUTCDay();
 
 /** The days a guest may pick: today to `days` ahead, closed weekdays marked. */

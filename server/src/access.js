@@ -59,12 +59,22 @@ export async function visibleScenes(session, scenes) {
 
 const FORBIDDEN = { error: 'That space belongs to a project you haven’t been added to. Ask its owner to share it with you.' };
 
+/** A client's staff account (usersStore.createStaffAccount) answers its projects' guests and
+ *  does nothing else: no spaces, no uploads, no projects of its own, no claiming. */
+export const STAFF_ONLY = { error: 'This is a staff account: it can answer its project’s enquiries and bookings, and nothing else.' };
+export async function refuseStaff(req, res) {
+  if ((await freshSession(req.session))?.role !== 'staff') return false;
+  res.status(403).json(STAFF_ONLY);
+  return true;
+}
+
 /** Express guard for `:id` space routes; run after requireEditorSession. */
 export const sceneGuard = (req, res, next) => {
   (async () => {
     const session = await freshSession(req.session);
     if (!session) return res.status(401).json({ error: 'Your account no longer exists.' });
     req.access = session;
+    if (session.role === 'staff') return res.status(403).json(STAFF_ONLY);
     // a save or a move names the project it goes into: that must allow it too
     const into = req.body && typeof req.body === 'object' && 'propertyId' in req.body ? req.body.propertyId ?? null : undefined;
     if (!(await mayWorkOnScene(session, req.params.id, into))) return res.status(403).json(FORBIDDEN);
@@ -78,6 +88,7 @@ export const assetGuard = (req, res, next) => {
     const session = await freshSession(req.session);
     if (!session) return res.status(401).json({ error: 'Your account no longer exists.' });
     req.access = session;
+    if (session.role === 'staff') return res.status(403).json(STAFF_ONLY);
     if (!(await mayWorkOnAsset(session, req.params.assetId))) return res.status(403).json(FORBIDDEN);
     next();
   })().catch(next);

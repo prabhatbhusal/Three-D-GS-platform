@@ -70,8 +70,10 @@ export const deleteProperty = (id: string) =>
   request<{ id: string; released: number }>(`/api/properties/${encodeURIComponent(id)}`, { method: 'DELETE' });
 
 /** Share a project with a teammate by the email they sign in with. Owner or admin only. */
-export const addPropertyMember = (id: string, email: string) =>
-  request<Property>(`/api/properties/${encodeURIComponent(id)}/members`, { method: 'POST', body: JSON.stringify({ email }) });
+/** As a member (full access), or as the client's staff (enquiries, reservations, report). Staff
+ *  new to the studio get an account and `invite`: a one-time link to set their password. */
+export const addPropertyMember = (id: string, email: string, as: 'member' | 'staff' = 'member', name = '') =>
+  request<Property & { invite?: { path: string; expires: string } }>(`/api/properties/${encodeURIComponent(id)}/members`, { method: 'POST', body: JSON.stringify({ email, as, name }) });
 
 export const removePropertyMember = (id: string, userId: string) =>
   request<Property>(`/api/properties/${encodeURIComponent(id)}/members/${encodeURIComponent(userId)}`, { method: 'DELETE' });
@@ -110,6 +112,13 @@ export interface ProjectReport {
   month: string; visits: number; seconds: number; days: Record<string, number>;
   enquiries: number; fromProjectPage: number;
   spaces: { id: string; title: string; visits: number; seconds: number; enquiries: number }[];
+  /** The path to a booking: tour counts (space visits, those that opened a hotspot or a card), then what was saved. */
+  funnel: {
+    visits: number; engaged: number; intent: Partial<Record<'enquire' | 'book' | 'table' | 'room', number>>; intents: number;
+    enquiries: number; requests: { tables: number; rooms: number }; confirmed: { tables: number; rooms: number };
+  };
+  /** The most-opened hotspots, with the enquiries sent after looking at each. */
+  hotspots: { space: string; spaceTitle: string; id: string; label: string; opens: number; enquiries: number }[];
 }
 export const getProjectReport = (id: string, month: string) =>
   request<ProjectReport>(`/api/properties/${encodeURIComponent(id)}/report?month=${month}`);
@@ -127,6 +136,7 @@ export interface SiteDoc {
   menu: { title: string; note: string; items: SiteMenuItem[] };
   contact: { title: string; body: string };
   booking: SiteBooking;
+  stays: SiteStays;
 }
 /** A table on the restaurant's floor plan; x and y are fractions of the plan. */
 export interface SiteTable {
@@ -139,28 +149,64 @@ export interface SiteBooking {
   first: string; last: string; slot: number; stay: number; days: number; maxParty: number;
   closed: number[]; timezone: string; note: string;
 }
+/** A room type the hotel lets online (or one villa: `units` 1). With `pin`, it sits on the site plan at x, y. */
+export interface StayRoom {
+  id: string; label: string; units: number; sleeps: number; price: string; per: string; features: string;
+  image: string; area: string; pin: boolean; x: number; y: number; space: string; view: string;
+}
+/** Room booking (server/src/stays.js): the rooms, an optional site plan, check-in and check-out, stay lengths. */
+export interface SiteStays {
+  on: boolean; plan: string; rooms: StayRoom[]; checkin: string; checkout: string;
+  days: number; minNights: number; maxNights: number; maxGuests: number; timezone: string; note: string;
+}
 export interface SiteSpace { id: string; title: string; published: boolean; views: { id: string; label: string }[] }
-export interface SiteDraft { draft: SiteDoc; publishedAt: string | null; spaces: SiteSpace[] }
+export interface SiteDraft { draft: SiteDoc; publishedAt: string | null; scheduledAt: string | null; spaces: SiteSpace[] }
 export interface PublicSite {
   project: { id: string; title: string; theme: ProjectTheme; info?: ProjectInfo };
-  site: Omit<SiteDoc, 'booking'> & { booking: SiteBooking | null };
+  site: Omit<SiteDoc, 'booking' | 'stays'> & { booking: SiteBooking | null; stays: SiteStays | null };
   tour: { space: string; title: string; key: string } | null;
   plan: string | null;
   publishedAt: string;
 }
 const sitePath = (id: string) => `/api/sites/${encodeURIComponent(id)}`;
 export const getSiteDraft = (id: string) => request<SiteDraft>(`${sitePath(id)}/draft`);
-export const saveSiteDraft = (id: string, draft: SiteDoc) =>
+/** The whole draft from the editor, or part of one (a starter template); the server fills in the rest. */
+export const saveSiteDraft = (id: string, draft: Partial<SiteDoc>) =>
   request<{ draft: SiteDoc; publishedAt: string | null }>(`${sitePath(id)}/draft`, { method: 'PUT', body: JSON.stringify(draft) });
 export const publishSite = (id: string) => request<{ publishedAt: string }>(`${sitePath(id)}/publish`, { method: 'POST' });
+/* Client review (server/src/routes/sites.js): a private link to the draft; comments pinned on it; an approval. */
+/** A comment pinned on the draft: in the page's section `sec` (its heading `where`), at x across the page and y down the section. */
+export interface ReviewComment { id: string; name: string; text: string; where: string; sec: number; x: number; y: number; at: string; resolved: boolean }
+export interface ReviewApproval { name: string; at: string; draft: string }
+export interface ReviewFeedback { key: string | null; comments: ReviewComment[]; approval: ReviewApproval | null; approvedThisDraft: boolean }
+export const shareSiteForReview = (id: string) => request<{ key: string }>(`${sitePath(id)}/review`, { method: 'POST' });
+export const stopSiteReview = (id: string) => request<{ key: null }>(`${sitePath(id)}/review`, { method: 'DELETE' });
+export const getReviewFeedback = (id: string) => request<ReviewFeedback>(`${sitePath(id)}/review/feedback`);
+export const resolveReviewComment = (id: string, cid: string, resolved: boolean) =>
+  request<ReviewComment>(`${sitePath(id)}/review/comments/${encodeURIComponent(cid)}`, { method: 'PATCH', body: JSON.stringify({ resolved }) });
+export const getSiteReview = (id: string, key: string) =>
+  request<PublicSite & { preview: true; review: Omit<ReviewFeedback, 'key'> }>(`${sitePath(id)}/review?key=${encodeURIComponent(key)}`);
+export const postReviewComment = (id: string, key: string, c: Pick<ReviewComment, 'name' | 'text' | 'where' | 'sec' | 'x' | 'y'>) =>
+  request<ReviewComment>(`${sitePath(id)}/review/comments?key=${encodeURIComponent(key)}`, { method: 'POST', body: JSON.stringify(c) });
+export const approveSiteReview = (id: string, key: string, name: string) =>
+  request<ReviewApproval>(`${sitePath(id)}/review/approve?key=${encodeURIComponent(key)}`, { method: 'POST', body: JSON.stringify({ name }) });
+
+/** Put the saved draft, as it is now, live at `at` (an ISO time); or cancel that. */
+export const scheduleSite = (id: string, at: string) =>
+  request<{ scheduledAt: string }>(`${sitePath(id)}/schedule`, { method: 'POST', body: JSON.stringify({ at }) });
+export const cancelSiteSchedule = (id: string) => request<{ scheduledAt: null }>(`${sitePath(id)}/schedule`, { method: 'DELETE' });
 export const uploadSiteImage = (id: string, file: File) =>
   request<{ path: string }>(`${sitePath(id)}/images`, { method: 'POST', body: file, headers: { 'Content-Type': 'application/octet-stream' } });
 
 /** What's free: the bookable days, and each start time on one of them with its free tables. */
 export interface Availability { today: string; dates: { date: string; closed: boolean }[]; date: string; slots: { time: string; free: string[] }[] }
 export const getSitePreview = (id: string) => request<PublicSite & { preview: true }>(`${sitePath(id)}/preview`);
+/** On a client's review page (s/[property]/review), the draft's booking is read with the link's key. */
+let reviewKey = '';
+export const setReviewKey = (key: string) => { reviewKey = key; };
+const withKey = (q: URLSearchParams) => { if (reviewKey) q.set('key', reviewKey); const s = q.toString(); return s ? `?${s}` : ''; };
 export const getPreviewAvailability = (id: string, date?: string) =>
-  request<Availability>(`${sitePath(id)}/preview/availability${date ? `?date=${date}` : ''}`);
+  request<Availability>(`${sitePath(id)}/preview/availability${withKey(new URLSearchParams(date ? { date } : {}))}`);
 /** The published website's table booking, for the tour's Reserve a table (null when off). */
 export const getSiteBooking = (id: string) =>
   request<{ booking: SiteBooking | null }>(`${sitePath(id)}/booking`).then((r) => r?.booking ?? null).catch(() => null);
@@ -172,16 +218,49 @@ export interface TableRequest {
 }
 export const reserveTable = (id: string, r: TableRequest) =>
   request<{ ok: true; id?: string; table?: string; tableLabel?: string }>(`${sitePath(id)}/reservations`, { method: 'POST', body: JSON.stringify(r) });
-export type ReservationStatus = 'requested' | 'confirmed' | 'declined' | 'cancelled';
+
+/** Rooms left: `free[room][i]` of that room are free on the night of `dates[i]` (consecutive, from today). */
+export interface StayCalendar { today: string; lastCheckin: string; dates: string[]; free: Record<string, number[]> }
+/** The published website's room booking, for the tour's Book a room (null when off). */
+export const getSiteStays = (id: string) =>
+  request<{ stays: SiteStays | null }>(`${sitePath(id)}/stays`).then((r) => r?.stays ?? null).catch(() => null);
+export const getStayCalendar = (id: string) => request<StayCalendar>(`${sitePath(id)}/stays/availability`);
+export const getPreviewStayCalendar = (id: string) => request<StayCalendar>(`${sitePath(id)}/preview/stays/availability${withKey(new URLSearchParams())}`);
+export interface StayRequest {
+  room: string; checkin: string; checkout: string; guests: number; name: string; phone: string; email?: string; notes?: string;
+  website?: string; formRenderedAt: number;
+}
+export const requestStay = (id: string, r: StayRequest) =>
+  request<{ ok: true; id?: string; roomLabel?: string; rooms?: number; nights?: number }>(`${sitePath(id)}/stays`, { method: 'POST', body: JSON.stringify(r) });
+
+/** A full day (tables) or full dates (rooms): the guest waits, and is told if a place is let go. */
+export type WaitFor = ({ of: 'table'; date: string; time?: string } | { of: 'room'; checkin: string; checkout: string; room?: string }) & { party: number };
+export type WaitRequest = WaitFor & { name: string; phone: string; email?: string; website?: string; formRenderedAt: number };
+export const joinWaitlist = (id: string, w: WaitRequest) =>
+  request<{ ok: true; id?: string }>(`${sitePath(id)}/waitlist`, { method: 'POST', body: JSON.stringify(w) });
+
+/** The AI concierge (server/src/routes/concierge.js): is it on for this project, and a question. */
+export interface ConciergeShow { space: string; view?: string; hotspot?: string }
+export const conciergeOn = (id: string) =>
+  request<{ on: boolean }>(`/api/concierge/${encodeURIComponent(id)}`).then((r) => !!r?.on).catch(() => false);
+export const askConcierge = (id: string, q: { question: string; history: { role: 'user' | 'assistant'; text: string }[]; space: string; lang: string }) =>
+  request<{ answer: string; show: ConciergeShow | null }>(`/api/concierge/${encodeURIComponent(id)}`, { method: 'POST', body: JSON.stringify(q) });
+
+/** A booking's statuses; a waitlist entry's are 'waiting', 'notified' (told a place may be free) and 'removed'. */
+export type ReservationStatus = 'requested' | 'confirmed' | 'declined' | 'cancelled' | 'waiting' | 'notified' | 'removed';
+/** A table booking, or with kind 'stay' a room booking (its `date` is the check-in, its `party` the guests). */
 export interface Reservation {
   id: string; status: ReservationStatus; table: string; tableLabel: string; date: string; time: string; party: number;
   name: string; phone: string; email: string; notes: string; createdAt: string; updatedAt: string;
   delivery?: { sent: boolean; reason?: string }; guestDelivery?: { sent: boolean; reason?: string };
+  kind?: 'stay' | 'wait'; room?: string; roomLabel?: string; rooms?: number; checkin?: string; checkout?: string; nights?: number;
+  /** A waitlist entry's: what they wait for, and when they were told. */
+  of?: 'table' | 'room'; notifiedAt?: string;
 }
 export const getReservations = (id: string) =>
-  request<{ reservations: Reservation[]; booking: SiteBooking | null; today: string }>(`${sitePath(id)}/reservations`);
+  request<{ reservations: Reservation[]; booking: SiteBooking | null; stays: SiteStays | null; today: string }>(`${sitePath(id)}/reservations`);
 export const setReservationStatus = (id: string, rid: string, status: ReservationStatus) =>
-  request<Reservation>(`${sitePath(id)}/reservations/${encodeURIComponent(rid)}`, { method: 'PATCH', body: JSON.stringify({ status }) });
+  request<Reservation & { waitlistTold?: number }>(`${sitePath(id)}/reservations/${encodeURIComponent(rid)}`, { method: 'PATCH', body: JSON.stringify({ status }) });
 
 /** Who did what in a project, newest first (server/src/activity.js). */
 export interface ActivityEntry { at: string; who: { id: string | null; name: string }; action: string; target: string; detail?: string }
@@ -284,7 +363,8 @@ export const removeFloorPlan = (assetId: string) =>
 /** For server components, which have no browser cookies or CORS to worry about. */
 export const API_BASE_URL = API_BASE;
 
-export interface SessionUser { id: string; name: string; email: string; role: 'admin' | 'editor' }
+/** 'staff': a client's staff account, invited to answer a project's guests (no studio editing). */
+export interface SessionUser { id: string; name: string; email: string; role: 'admin' | 'editor' | 'staff' }
 interface SessionReply { authenticated: boolean; user: SessionUser | null }
 
 /** `email` omitted = the legacy shared editor password (server/.env

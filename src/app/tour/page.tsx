@@ -34,6 +34,8 @@ const toApiScene = (d: SceneDoc & { tagline?: string; outdoor?: boolean }): ApiS
   format: d.splat?.format,
   neighbours: d.neighbours,
   night: d.night ?? null,
+  building: d.building ?? '',
+  floor: d.floor ?? '',
   propertyId: d.propertyId ?? null // the tour's Reserve a table finds the project's booking by it
 });
 

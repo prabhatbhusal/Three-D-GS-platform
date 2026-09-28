@@ -13,7 +13,7 @@
 import { Router } from 'express';
 import {
   listProperties, getProperty, createProperty, renameProperty, deleteProperty, listScenes,
-  addPropertyMember, removePropertyMember, propertyIsVisible, propertyIsManageable, propertyIsClaimable, claimProperty, setPropertyTheme, setPropertyInfo, setLeadEmails
+  addPropertyMember, removePropertyMember, propertyIsVisible, propertyStaffSees, propertyIsManageable, propertyIsClaimable, claimProperty, setPropertyTheme, setPropertyInfo, setLeadEmails
 } from '../store.js';
 import { listLeads, leadsCsv } from '../leadsStore.js';
 import { monthStats, monthOf } from '../stats.js';
@@ -24,9 +24,11 @@ import * as storage from '../storage.js';
 import { imageKind } from './assets.js';
 import { requireEditorSession } from '../middleware/auth.js';
 import { getUserById, getUserByEmail } from '../usersStore.js';
-import { freshSession as fresh } from '../access.js';
+import { freshSession as fresh, refuseStaff } from '../access.js';
+import { createStaffAccount } from '../usersStore.js';
 import { record, recent } from '../activity.js';
 import { removeSite } from './sites.js';
+import { readReservations } from '../reservations.js';
 
 export const propertiesRouter = Router();
 
@@ -60,19 +62,29 @@ export async function visibleProject(req, res) {
   if (!p || !propertyIsVisible(p, session)) { res.status(404).json(NOT_FOUND); return null; }
   return p;
 }
+/** Anyone who can see the project, or is on its client's staff: for the
+ *  routes that answer guests (enquiries, reservations, the report). */
+export async function staffProject(req, res) {
+  const session = await freshSession(req);
+  const p = await getProperty(req.params.id);
+  if (!p || !propertyStaffSees(p, session)) { res.status(404).json(NOT_FOUND); return null; }
+  return p;
+}
 const projectLeads = async (id) => (await listLeads()).filter((l) => l.propertyId === id);
 
 propertiesRouter.get('/:id/leads', requireEditorSession, wrap(async (req, res) => {
-  const p = await visibleProject(req, res);
+  const p = await staffProject(req, res);
   if (!p) return;
   res.json({ leads: await projectLeads(p.id), emails: p.leadEmails ?? [], emailOn: !!process.env.RESEND_API_KEY });
 }));
 
 /** The monthly client report (studio/report/[property]): visits and time per
- *  space from stats.js, enquiries per space from the leads. ?month=YYYY-MM,
- *  this month by default. */
+ *  space from stats.js, enquiries per space from the leads; the path to a
+ *  booking (visits, hotspots opened, cards opened, enquiries, booking
+ *  requests, confirmed) and the hotspots that got attention, with the
+ *  enquiries sent after each. ?month=YYYY-MM, this month by default. */
 propertiesRouter.get('/:id/report', requireEditorSession, wrap(async (req, res) => {
-  const p = await visibleProject(req, res);
+  const p = await staffProject(req, res);
   if (!p) return;
   const month = typeof req.query.month === 'string' ? req.query.month : monthOf();
   const stats = await monthStats(p.id, month);
@@ -87,6 +99,17 @@ propertiesRouter.get('/:id/report', requireEditorSession, wrap(async (req, res) 
     spaces.push({ id, title: doc?.title || id, visits: st.visits, seconds: st.seconds, enquiries: leads.filter((l) => l.sceneId === id).length });
   }
   spaces.sort((a, b) => b.visits - a.visits || b.enquiries - a.enquiries);
+
+  // Booking requests made this month, and how many of them were confirmed.
+  const made = (await readReservations(p.id)).filter((r) => r.createdAt?.startsWith(month));
+  const rooms = made.filter((r) => r.kind === 'stay'), tables = made.filter((r) => r.kind !== 'stay');
+  const confirmed = (list) => list.filter((r) => r.status === 'confirmed').length;
+  const titleOf = new Map(spaces.map((s) => [s.id, s.title]));
+  const hotspots = Object.entries(stats.hotspots).flatMap(([space, byId]) => Object.entries(byId).map(([hid, h]) => ({
+    space, spaceTitle: titleOf.get(space) ?? space, id: hid, label: h.label, opens: h.opens,
+    enquiries: leads.filter((l) => l.sceneId === space && l.hotspotId === hid).length
+  }))).sort((a, b) => b.opens - a.opens || b.enquiries - a.enquiries).slice(0, 15);
+  const intents = Object.values(stats.intent).reduce((a, n) => a + n, 0);
   res.json({
     project: { id: p.id, title: p.title, theme: p.theme ?? {} },
     month,
@@ -95,13 +118,20 @@ propertiesRouter.get('/:id/report', requireEditorSession, wrap(async (req, res) 
     days: stats.days,
     enquiries: leads.length,
     fromProjectPage: leads.filter((l) => l.sceneId === 'hub').length,
-    spaces
+    spaces,
+    funnel: {
+      visits: stats.visits, engaged: stats.engaged, intent: stats.intent, intents,
+      enquiries: leads.length,
+      requests: { tables: tables.length, rooms: rooms.length },
+      confirmed: { tables: confirmed(tables), rooms: confirmed(rooms) }
+    },
+    hotspots
   });
 }));
 
 /** The same, for Excel. */
 propertiesRouter.get('/:id/leads.csv', requireEditorSession, wrap(async (req, res) => {
-  const p = await visibleProject(req, res);
+  const p = await staffProject(req, res);
   if (!p) return;
   const day = new Date().toISOString().slice(0, 10);
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -185,15 +215,18 @@ propertiesRouter.get('/', requireEditorSession, wrap(async (req, res) => {
   const session = await freshSession(req);
   const [properties, scenes] = await Promise.all([listProperties(), listScenes()]);
   const count = (id) => scenes.filter((s) => s.propertyId === id).length;
-  const mine = properties.filter((p) => propertyIsVisible(p, session)).map((p) => ({ ...p, spaceCount: count(p.id) }));
-  const unclaimed = properties.filter((p) => !propertyIsVisible(p, session) && propertyIsClaimable(p, session))
+  const mine = properties.filter((p) => propertyIsVisible(p, session))
+    .map((p) => ({ ...p, access: propertyIsManageable(p, session) ? 'owner' : 'member', spaceCount: count(p.id) }));
+  const staffed = properties.filter((p) => !propertyIsVisible(p, session) && propertyStaffSees(p, session)).map(staffView);
+  const unclaimed = properties.filter((p) => session.role !== 'staff' && !propertyIsVisible(p, session) && !propertyStaffSees(p, session) && propertyIsClaimable(p, session))
     .map((p) => ({ id: p.id, title: p.title, ownerId: null, members: [], claimable: true, spaceCount: count(p.id) }));
-  res.json([...mine, ...unclaimed]);
+  res.json([...mine, ...staffed, ...unclaimed]);
 }));
 
 /** Make a project from before accounts yours: from then on only you (and whoever
  *  you share it with) can see it. */
 propertiesRouter.post('/:id/claim', requireEditorSession, wrap(async (req, res) => {
+  if (await refuseStaff(req, res)) return;
   const session = await freshSession(req);
   const p = await getProperty(req.params.id);
   if (!p) return res.status(404).json(NOT_FOUND);
@@ -209,20 +242,29 @@ propertiesRouter.post('/:id/claim', requireEditorSession, wrap(async (req, res) 
 propertiesRouter.get('/:id', requireEditorSession, wrap(async (req, res) => {
   const session = await freshSession(req);
   const p = await getProperty(req.params.id);
-  if (!p || !propertyIsVisible(p, session)) return res.status(404).json(NOT_FOUND);
+  if (!p || !propertyStaffSees(p, session)) return res.status(404).json(NOT_FOUND);
+  if (!propertyIsVisible(p, session)) return res.json(staffView(p));
   // Resolve names for the share panel — cheap at this team size (usersStore).
-  const [ownerUser, memberUsers] = await Promise.all([
+  const [ownerUser, memberUsers, staffUsers] = await Promise.all([
     p.ownerId ? getUserById(p.ownerId) : null,
-    Promise.all(p.members.map(getUserById))
+    Promise.all(p.members.map(getUserById)),
+    Promise.all(p.staff.map(getUserById))
   ]);
+  const who = (list) => list.filter(Boolean).map((u) => ({ id: u.id, name: u.name, email: u.email }));
   res.json({
     ...p,
+    access: propertyIsManageable(p, session) ? 'owner' : 'member',
     ownerName: ownerUser?.name ?? null,
-    memberDetails: memberUsers.filter(Boolean).map((u) => ({ id: u.id, name: u.name, email: u.email }))
+    memberDetails: who(memberUsers),
+    staffDetails: who(staffUsers)
   });
 }));
 
+/** What the client's staff see of a project: its name and brand, no one's details. */
+const staffView = (p) => ({ id: p.id, title: p.title, theme: p.theme ?? {}, ownerId: p.ownerId, members: [], staff: [], access: 'staff', spaceCount: 0 });
+
 propertiesRouter.post('/', requireEditorSession, wrap(async (req, res) => {
+  if (await refuseStaff(req, res)) return;
   const p = await createProperty(req.body?.title, req.session.sub ?? null);
   await record(req, p.id, 'created the project', p.title);
   res.status(201).json(p);
@@ -260,7 +302,8 @@ propertiesRouter.delete('/:id', requireEditorSession, wrap(async (req, res) => {
   res.json(gone);
 }));
 
-/** Share the project with a teammate, by email. Owner or admin. */
+/** Share the project with a teammate, by email: as a member (full access), or
+ *  with `as: 'staff'` as the client's staff. Owner only. */
 propertiesRouter.post('/:id/members', requireEditorSession, wrap(async (req, res) => {
   const session = await freshSession(req);
   const existing = await getProperty(req.params.id);
@@ -268,10 +311,22 @@ propertiesRouter.post('/:id/members', requireEditorSession, wrap(async (req, res
   if (!propertyIsManageable(existing, session)) return res.status(403).json({ error: 'Only the project’s owner can share it.' });
   const email = String(req.body?.email ?? '').trim();
   if (!email) return res.status(400).json({ error: 'Enter an email address.' });
-  const user = await getUserByEmail(email);
-  if (!user) return res.status(404).json({ error: 'No account with that email. They need to sign up first.' });
-  const shared = await addPropertyMember(req.params.id, user.id);
-  await record(req, existing.id, 'shared the project', existing.title, `with ${user.name}`);
+  const as = req.body?.as === 'staff' ? 'staff' : 'member';
+  let user = await getUserByEmail(email);
+  let invite = null;
+  // The client's staff don't sign up with the team's code: the owner invites them. A new
+  // email gets a staff account and a one-time link to set its password, for the owner to send.
+  if (!user && as === 'staff') {
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'That email address doesn’t look right.' });
+    const name = String(req.body?.name ?? '').trim().slice(0, 80) || email.split('@')[0];
+    const made = await createStaffAccount({ name, email });
+    if (made) { user = made.user; invite = { path: `/login?reset=${made.token}`, expires: made.expires }; }
+  }
+  if (!user) return res.status(404).json({ error: 'No account with that email. They need to sign up first, or add them as client staff to invite them.' });
+  if (user.role === 'staff' && as === 'member') return res.status(400).json({ error: 'That’s a client staff account: it can only be added as client staff.' });
+  const shared = await addPropertyMember(req.params.id, user.id, as);
+  await record(req, existing.id, as === 'staff' ? (invite ? 'invited client staff' : 'added client staff') : 'shared the project', existing.title, `${user.name}`);
+  if (invite) return res.json({ ...shared, invite });
   res.json(shared);
 }));
 

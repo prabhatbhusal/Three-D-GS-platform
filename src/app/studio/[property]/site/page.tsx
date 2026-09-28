@@ -2,8 +2,9 @@
 
 import { use, useEffect, useRef, useState } from 'react';
 import {
-  API_BASE_URL, getProperty, getSiteDraft, publishSite, saveSiteDraft, uploadSiteImage,
-  type SiteBooking, type SiteDoc, type SiteSpace, type SiteTable
+  API_BASE_URL, cancelSiteSchedule, getProperty, getReviewFeedback, getSiteDraft, publishSite, resolveReviewComment, saveSiteDraft,
+  scheduleSite, shareSiteForReview, stopSiteReview, uploadSiteImage, type ReviewFeedback,
+  type SiteBooking, type SiteDoc, type SiteSpace, type SiteStays, type SiteTable, type StayRoom
 } from '../../../../lib/api';
 import { useStudioSession } from '../../../../lib/useStudioSession';
 import '../../../../components/editor.css';
@@ -31,6 +32,10 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
   const [doc, setDoc] = useState<SiteDoc | null>(null);
   const [spaces, setSpaces] = useState<SiteSpace[]>([]);
   const [publishedAt, setPublishedAt] = useState<string | null>(null);
+  const [scheduledAt, setScheduledAt] = useState<string | null>(null);
+  const [scheduling, setScheduling] = useState(false); // the date-and-time row is open
+  const [when, setWhen] = useState('');
+  const [reviewing, setReviewing] = useState(false); // the client review row is open
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState<'' | 'saving' | 'publishing'>('');
   const [note, setNote] = useState('');
@@ -45,6 +50,7 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
         setDoc(d.draft);
         setSpaces(d.spaces);
         setPublishedAt(d.publishedAt);
+        setScheduledAt(d.scheduledAt);
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Couldn’t load the website.'));
   }, [ok, id]);
@@ -89,6 +95,24 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
       setNote('Published.');
     } catch (e) { setError((e as Error).message); } finally { setBusy(''); }
   };
+  // Scheduling saves first: what goes live is the draft as it is at this moment.
+  const schedule = async () => {
+    const at = new Date(when);
+    if (!when || !(at.getTime() > Date.now())) return setError('Pick a time in the future.');
+    setBusy('publishing'); setError('');
+    try {
+      const r = await saveSiteDraft(id, doc);
+      if (r) setDoc(r.draft);
+      setDirty(false);
+      const s = await scheduleSite(id, at.toISOString());
+      if (s) setScheduledAt(s.scheduledAt);
+      setScheduling(false);
+      setNote('');
+    } catch (e) { setError((e as Error).message); } finally { setBusy(''); }
+  };
+  const unschedule = async () => {
+    try { await cancelSiteSchedule(id); setScheduledAt(null); } catch (e) { setError((e as Error).message); }
+  };
   const published = spaces.filter((s) => s.published);
 
   return (
@@ -107,10 +131,36 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
         </span>
         <button onClick={save} disabled={!!busy || !dirty}>{busy === 'saving' ? 'Saving…' : 'Save'}</button>
         <button className="se-main" onClick={publish} disabled={!!busy}>{busy === 'publishing' ? 'Publishing…' : 'Publish'}</button>
+        <button onClick={() => { setScheduling(!scheduling); setError(''); }} disabled={!!busy} aria-expanded={scheduling}>Schedule…</button>
+        <button onClick={() => setReviewing(!reviewing)} aria-expanded={reviewing}>Client review…</button>
         <button onClick={preview} disabled={!!busy}>Preview ↗</button>
         {publishedAt && <a className="se-open" href={`/s/${encodeURIComponent(id)}`} target="_blank" rel="noopener">Open site ↗</a>}
         <a className="se-open" href={`/studio/${encodeURIComponent(id)}/reservations`}>Reservations</a>
       </header>
+
+      {(scheduling || scheduledAt) && (
+        <div className="se-schedule" role="region" aria-label="Scheduled publishing">
+          {scheduledAt && !scheduling ? (
+            <>
+              <span>This draft goes live <b>{new Date(scheduledAt).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</b>. Changes after that wait for the next publish.</span>
+              <button onClick={() => setScheduling(true)}>Change time</button>
+              <button onClick={unschedule}>Cancel it</button>
+            </>
+          ) : (
+            <>
+              <label>Put this draft live at
+                <input type="datetime-local" value={when} min={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
+                  onChange={(e) => setWhen(e.target.value)} />
+              </label>
+              <button className="se-main" onClick={schedule} disabled={!!busy || !when}>Schedule</button>
+              <button onClick={() => setScheduling(false)}>Close</button>
+              <span className="se-hint">It saves first. What goes live is the draft as it is now, e.g. a new menu at midnight.</span>
+            </>
+          )}
+        </div>
+      )}
+
+      {reviewing && <ReviewPanel id={id} dirty={dirty} onSave={save} onError={setError} />}
 
       <main className="se-body">
         {!published.length && (
@@ -263,6 +313,21 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
           )}
         </Card>
 
+        <Card title="Room booking" hint="Guests pick their dates and a room, and send a request; you confirm it in Reservations. While it’s on, the tour’s Book now buttons are replaced by Book a room, so requests come here. Publish to put changes live.">
+          <label className="se-check">
+            <input type="checkbox" checked={doc.stays.on} onChange={(e) => change({ stays: { ...doc.stays, on: e.target.checked } })} />
+            Take room bookings on the website
+          </label>
+          <RoomsEditor project={id} stays={doc.stays} spaces={published} onError={setError} onChange={(stays) => change({ stays })} />
+          <SitePlan project={id} stays={doc.stays} onError={setError} onChange={(stays) => change({ stays })} />
+          <StayRules stays={doc.stays} onChange={(stays) => change({ stays })} />
+          <Text label="A note under the booking form" value={doc.stays.note} max={300} placeholder="Breakfast included. Children under 6 stay free."
+            onChange={(note) => change({ stays: { ...doc.stays, note } })} />
+          {doc.stays.on && !doc.stays.rooms.length && (
+            <p className="se-warn">Room booking stays hidden on the website until there is at least one room.</p>
+          )}
+        </Card>
+
         <Card title="Enquiries" hint="The closing section. Its button opens the enquiry form; enquiries arrive with this project’s others.">
           <Text label="Heading" value={doc.contact.title} max={120} placeholder={`Visit ${title}`} onChange={(v) => change({ contact: { ...doc.contact, title: v } })} />
           <Text label="Text" value={doc.contact.body} max={400} long onChange={(v) => change({ contact: { ...doc.contact, body: v } })} />
@@ -359,6 +424,233 @@ function PlanEditor({ project, booking, views, onChange, onError }: {
         <Photo project={project} value="" label="Replace the floor plan…" onChange={(plan) => onChange({ ...booking, plan })} onError={onError} />
       </div>
     </div>
+  );
+}
+
+/**
+ * Client review: a private link to the saved draft for the client, who pins
+ * comments on it and approves it (s/[property]/review). Their comments land
+ * here, to resolve as they're done; the approval shows whether it was this
+ * draft or an earlier one.
+ */
+function ReviewPanel({ id, dirty, onSave, onError }: { id: string; dirty: boolean; onSave: () => Promise<void>; onError: (m: string) => void }) {
+  const [fb, setFb] = useState<ReviewFeedback | null>(null);
+  const [copied, setCopied] = useState(false);
+  const load = () => getReviewFeedback(id).then(setFb).catch((e: Error) => onError(e.message));
+  useEffect(() => { load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps -- once per project
+  const link = fb?.key ? `${location.origin}/s/${encodeURIComponent(id)}/review?key=${fb.key}` : '';
+  const share = async () => {
+    if (dirty) await onSave();
+    try { await shareSiteForReview(id); load(); } catch (e) { onError((e as Error).message); }
+  };
+  const stop = async () => {
+    if (!window.confirm('Stop the review link? Whoever has it can no longer open the draft. Their comments stay here.')) return;
+    try { await stopSiteReview(id); load(); } catch (e) { onError((e as Error).message); }
+  };
+  const resolve = async (cid: string, resolved: boolean) => {
+    try { await resolveReviewComment(id, cid, resolved); load(); } catch (e) { onError((e as Error).message); }
+  };
+  if (!fb) return <div className="se-schedule">Loading the review…</div>;
+  const open = fb.comments.filter((c) => !c.resolved);
+  return (
+    <div className="se-schedule se-review" role="region" aria-label="Client review">
+      {fb.key ? (
+        <div className="se-review-link">
+          <span>Your client’s link to the saved draft (no account needed):</span>
+          <input readOnly value={link} onFocus={(e) => e.target.select()} aria-label="Review link" />
+          <button onClick={() => { navigator.clipboard?.writeText(link).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }); }}>{copied ? 'Copied' : 'Copy'}</button>
+          <a className="se-open" href={link} target="_blank" rel="noopener">Open ↗</a>
+          <button onClick={stop}>Stop the link</button>
+        </div>
+      ) : (
+        <div className="se-review-link">
+          <span>Share the saved draft with your client: they pin comments on the page and approve it, before anything goes live.</span>
+          <button className="se-main" onClick={share}>Make a review link</button>
+        </div>
+      )}
+      {fb.approval && (
+        <p className={fb.approvedThisDraft ? 'se-review-ok' : 'se-hint'}>
+          {fb.approvedThisDraft ? '✓ ' : ''}Approved by <b>{fb.approval.name}</b>, {new Date(fb.approval.at).toLocaleString()}
+          {fb.approvedThisDraft ? ': this draft.' : '. The draft has changed since; share it again for a new approval.'}
+        </p>
+      )}
+      {fb.comments.length > 0 && (
+        <ol className="se-review-list">
+          {[...open, ...fb.comments.filter((c) => c.resolved)].map((c) => (
+            <li key={c.id} className={c.resolved ? 'is-resolved' : ''}>
+              <label>
+                <input type="checkbox" checked={c.resolved} onChange={(e) => resolve(c.id, e.target.checked)} aria-label="Resolved" />
+                <span><b>{c.name}</b>{c.where && <> on “{c.where}”</>}: {c.text} <small>{new Date(c.at).toLocaleString()}</small></span>
+              </label>
+            </li>
+          ))}
+        </ol>
+      )}
+      {fb.key && !fb.comments.length && <p className="se-hint">No comments yet.</p>}
+    </div>
+  );
+}
+
+const num = (v: string, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(Number(v)) || lo));
+
+/**
+ * The rooms the hotel lets online: a room type ("Deluxe Room", 12 of them)
+ * or one of a kind ("Pool Villa", 1). How many a room sleeps decides how
+ * many rooms a bigger party takes. A room can show its space in 3D.
+ */
+function RoomsEditor({ project, stays, spaces, onChange, onError }: {
+  project: string; stays: SiteStays; spaces: SiteSpace[];
+  onChange: (s: SiteStays) => void; onError: (m: string) => void;
+}) {
+  const setRooms = (rooms: StayRoom[]) => onChange({ ...stays, rooms });
+  const edit = (rid: string, patch: Partial<StayRoom>) => setRooms(stays.rooms.map((r) => (r.id === rid ? { ...r, ...patch } : r)));
+  const add = () => setRooms([...stays.rooms, {
+    id: `r${Date.now().toString(36)}`, label: `Room ${stays.rooms.length + 1}`, units: 1, sleeps: 2, price: '', per: '/ night',
+    features: '', image: '', area: '', pin: false, x: 0.5, y: 0.5, space: '', view: ''
+  }]);
+  return (
+    <>
+      {stays.rooms.map((r, i) => {
+        const views = spaces.find((s) => s.id === r.space)?.views ?? [];
+        return (
+          <div key={r.id} className="se-item">
+            <div className="se-item-head">
+              <b>{r.label || 'Untitled room'}</b>
+              <Tools onUp={() => setRooms(move(stays.rooms, i, -1))} onDown={() => setRooms(move(stays.rooms, i, 1))}
+                onRemove={() => setRooms(stays.rooms.filter((x) => x.id !== r.id))} />
+            </div>
+            <div className="se-split">
+              <Photo project={project} value={r.image} onChange={(image) => edit(r.id, { image })} onError={onError} />
+              <div>
+                <div className="se-row">
+                  <Text label="Name" value={r.label} max={60} placeholder="Deluxe Room, Pool Villa…" onChange={(label) => edit(r.id, { label })} />
+                  <label className="se-field"><span>How many</span>
+                    <input type="number" min={1} max={200} value={r.units} onChange={(e) => edit(r.id, { units: num(e.target.value, 1, 200) })} /></label>
+                  <label className="se-field"><span>Sleeps</span>
+                    <input type="number" min={1} max={20} value={r.sleeps} onChange={(e) => edit(r.id, { sleeps: num(e.target.value, 1, 20) })} /></label>
+                </div>
+                <div className="se-row">
+                  <Text label="Price" value={r.price} max={30} placeholder="Rs 9,500" onChange={(price) => edit(r.id, { price })} />
+                  <Text label="Per" value={r.per} max={20} placeholder="/ night" onChange={(per) => edit(r.id, { per })} />
+                  <Text label="Where" value={r.area} max={40} placeholder="Garden wing" onChange={(area) => edit(r.id, { area })} />
+                </div>
+                <Text label="Features, separated by commas" value={r.features} max={200} placeholder="King bed, River view, 32 m²"
+                  onChange={(features) => edit(r.id, { features })} />
+                <div className="se-row">
+                  <label className="se-field">
+                    <span>Its space in 3D</span>
+                    <select value={r.space} onChange={(e) => edit(r.id, { space: e.target.value, view: '' })}>
+                      <option value="">None</option>
+                      {spaces.map((s) => <option key={s.id} value={s.id}>{s.title}</option>)}
+                    </select>
+                  </label>
+                  <label className="se-field">
+                    <span>Viewpoint</span>
+                    <select value={r.view} disabled={!r.space} onChange={(e) => edit(r.id, { view: e.target.value })}>
+                      <option value="">Where the space starts</option>
+                      {views.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
+                    </select>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+      {stays.rooms.length < 40 && <button className="se-add" onClick={add}>＋ Add a room</button>}
+    </>
+  );
+}
+
+/** An optional site plan (a resort layout, or a floor's plan) with the rooms placed on it, to pick them by sight. */
+function SitePlan({ project, stays, onChange, onError }: {
+  project: string; stays: SiteStays; onChange: (s: SiteStays) => void; onError: (m: string) => void;
+}) {
+  const box = useRef<HTMLDivElement>(null);
+  const [sel, setSel] = useState('');
+  const drag = useRef<string | null>(null);
+  const at = (e: React.PointerEvent) => {
+    const r = box.current!.getBoundingClientRect();
+    const f = (v: number) => Math.min(1, Math.max(0, Math.round(v * 10000) / 10000));
+    return { x: f((e.clientX - r.left) / r.width), y: f((e.clientY - r.top) / r.height) };
+  };
+  const edit = (rid: string, patch: Partial<StayRoom>) => onChange({ ...stays, rooms: stays.rooms.map((r) => (r.id === rid ? { ...r, ...patch } : r)) });
+  const current = stays.rooms.find((r) => r.id === sel);
+
+  if (!stays.plan) {
+    return (
+      <div className="se-field">
+        <span>A site plan, optional: your resort’s layout or a floor plan, so guests can pick a room on it (PNG, JPEG or WebP)</span>
+        <Photo project={project} value="" label="Upload a site plan…" onChange={(plan) => onChange({ ...stays, plan })} onError={onError} />
+      </div>
+    );
+  }
+  return (
+    <div className="se-field">
+      <span>Pick a room, then click the plan to put it there; drag a marker to move it. {stays.rooms.filter((r) => r.pin).length} of {stays.rooms.length} on the plan.</span>
+      <div className="se-row">
+        <label className="se-field">
+          <span>Room to place</span>
+          <select value={sel} onChange={(e) => setSel(e.target.value)}>
+            <option value="">Choose a room…</option>
+            {stays.rooms.map((r) => <option key={r.id} value={r.id}>{r.label || 'Untitled room'}{r.pin ? ' · on the plan' : ''}</option>)}
+          </select>
+        </label>
+      </div>
+      <div className="se-plan" ref={box}
+        onPointerDown={(e) => {
+          if (e.target !== e.currentTarget && !(e.target as HTMLElement).matches('img')) return;
+          if (!current) return onError('Choose the room to place first.');
+          edit(current.id, { pin: true, ...at(e) });
+        }}
+        onPointerMove={(e) => { if (drag.current) edit(drag.current, at(e)); }}
+        onPointerUp={() => { drag.current = null; }}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- the uploaded plan */}
+        <img src={asset(stays.plan)} alt="" draggable={false} />
+        {stays.rooms.filter((r) => r.pin).map((r) => (
+          <button key={r.id} type="button" className={`se-table se-pin${r.id === sel ? ' is-on' : ''}`}
+            style={{ left: `${r.x * 100}%`, top: `${r.y * 100}%` }} title={r.label}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              try { e.currentTarget.parentElement?.setPointerCapture(e.pointerId); } catch { /* no pointer to follow: still selects */ }
+              drag.current = r.id;
+              setSel(r.id);
+            }}>
+            {r.label || '·'}
+          </button>
+        ))}
+      </div>
+      <div className="se-row">
+        {current?.pin && <button className="se-remove" onClick={() => edit(current.id, { pin: false })}>Take {current.label || 'it'} off the plan</button>}
+        <Photo project={project} value="" label="Replace the site plan…" onChange={(plan) => onChange({ ...stays, plan })} onError={onError} />
+        <button className="se-remove" onClick={() => onChange({ ...stays, plan: '' })}>Remove the site plan</button>
+      </div>
+    </div>
+  );
+}
+
+/** When and how long: check-in and check-out times, the shortest and longest stay, how far ahead. */
+function StayRules({ stays, onChange }: { stays: SiteStays; onChange: (s: SiteStays) => void }) {
+  const set = (patch: Partial<SiteStays>) => onChange({ ...stays, ...patch });
+  return (
+    <>
+      <div className="se-row">
+        <label className="se-field"><span>Check-in from</span><input type="time" value={stays.checkin} onChange={(e) => set({ checkin: e.target.value })} /></label>
+        <label className="se-field"><span>Check-out by</span><input type="time" value={stays.checkout} onChange={(e) => set({ checkout: e.target.value })} /></label>
+        <label className="se-field"><span>Shortest stay (nights)</span>
+          <input type="number" min={1} max={30} value={stays.minNights} onChange={(e) => set({ minNights: num(e.target.value, 1, 30) })} /></label>
+        <label className="se-field"><span>Longest stay online (nights)</span>
+          <input type="number" min={1} max={60} value={stays.maxNights} onChange={(e) => set({ maxNights: num(e.target.value, 1, 60) })} /></label>
+      </div>
+      <div className="se-row">
+        <label className="se-field"><span>Book up to (days ahead)</span>
+          <input type="number" min={1} max={365} value={stays.days} onChange={(e) => set({ days: num(e.target.value, 1, 365) })} /></label>
+        <label className="se-field"><span>Largest party online</span>
+          <input type="number" min={1} max={40} value={stays.maxGuests} onChange={(e) => set({ maxGuests: num(e.target.value, 1, 40) })} /></label>
+        <label className="se-field"><span>Time zone</span>
+          <input value={stays.timezone} onChange={(e) => set({ timezone: e.target.value })} /></label>
+      </div>
+    </>
   );
 }
 

@@ -6,11 +6,13 @@
  * script can't inflate a client's numbers much.
  *
  *   POST /api/stats   { space, visit?: true, seconds?: number }
+ *                     { space, hotspot: id, first?: true }   a hotspot opened (the first of the visit: first)
+ *                     { space, intent: 'enquire' | 'book' | 'table' | 'room' }   a card opened, once per visit
  */
 import { Router } from 'express';
 import express from 'express';
 import { getPublishedScene } from '../store.js';
-import { count } from '../stats.js';
+import { count, INTENTS } from '../stats.js';
 
 export const statsRouter = Router();
 
@@ -36,6 +38,13 @@ statsRouter.post('/', express.text({ type: () => true, limit: '2kb' }), async (r
     if (!space) return;
     const snap = await getPublishedScene(space).catch(() => null);
     if (!snap?.propertyId) return;
+    // A hotspot must be one this published space has; its name comes from there, not the beacon.
+    if (typeof body.hotspot === 'string') {
+      const h = (snap.hotspots ?? []).find((x) => x.id === body.hotspot);
+      if (h) await count(snap.propertyId, space, { hotspot: { id: h.id, label: String(h.label ?? '').slice(0, 80) || h.id }, first: body.first === true });
+      return;
+    }
+    if (INTENTS.includes(body.intent)) return void (await count(snap.propertyId, space, { intent: body.intent }));
     const seconds = Math.max(0, Math.min(1800, Math.round(Number(body.seconds) || 0))); // at most 30 min per beacon
     if (body.visit !== true && !seconds) return;
     await count(snap.propertyId, space, { visit: body.visit === true, seconds });

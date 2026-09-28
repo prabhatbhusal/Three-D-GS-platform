@@ -67,11 +67,14 @@ export function TeamDialog({ onClose }: { onClose: () => void }) {
                     <span className="pl-team-who">
                       {u.name}{self && ' (you)'} <span className="pl-sub">{u.email}</span>
                     </span>
-                    <span className={`pl-role-tag is-${u.role}`}>{u.role}</span>
+                    <span className={`pl-role-tag is-${u.role}`}>{u.role === 'staff' ? 'client staff' : u.role}</span>
                     <span className="pl-team-acts">
-                      <button type="button" className="pl-btn" disabled={busy === u.id || self} onClick={() => toggle(u)}>
-                        {u.role === 'admin' ? 'Make editor' : 'Make admin'}
-                      </button>
+                      {/* a client's staff account stays staff: it was invited to one project's guests */}
+                      {u.role !== 'staff' && (
+                        <button type="button" className="pl-btn" disabled={busy === u.id || self} onClick={() => toggle(u)}>
+                          {u.role === 'admin' ? 'Make editor' : 'Make admin'}
+                        </button>
+                      )}
                       <button type="button" className="pl-btn" disabled={busy === u.id} onClick={() => reset(u)}>Reset password</button>
                       {!self && <button type="button" className="pl-btn pl-btn-danger" disabled={busy === u.id} onClick={() => remove(u)}>Remove</button>}
                     </span>

@@ -243,7 +243,9 @@ export function loadTracks(sceneId: string, tracks: Track[], { replace = false }
       pos: k.position as [number, number, number],
       look: k.target as [number, number, number]
     })),
-    thumb: t.thumb ?? undefined
+    thumb: t.thumb ?? undefined,
+    ...(t.audio ? { audio: t.audio } : {}),
+    ...(t.transcript ? { transcript: t.transcript } : {})
   }));
   const ids = new Set(loaded.map((v) => v.id));
   const localOnly = replace ? [] : (sessionVPs[sceneId] ?? []).filter((v) => !ids.has(v.id));

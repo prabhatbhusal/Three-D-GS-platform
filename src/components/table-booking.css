@@ -1,4 +1,4 @@
-/* Table booking (TableBooking.tsx): on a project's website and inside the tour.
+/* Table and room booking (TableBooking.tsx, RoomBooking.tsx): on a project’s website and inside the tour.
  * Its colours come from the page around it: the website's .ws, or .tb-host in
  * the tour (viewer.css), which sets the same names. */
 
@@ -153,3 +153,90 @@
   .tb-row { grid-template-columns: 1fr; }
 }
 
+
+/* ---- Room booking (RoomBooking.tsx): the same parts, plus a calendar and room cards. ---- */
+.rb-side { grid-area: map; min-width: 0; }
+.rb-cal { padding: 14px; border: 1px solid var(--line); border-radius: 18px; background: var(--card); }
+.rb-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.rb-cal-head b { font: 400 20px/1.2 var(--ws-serif); }
+.rb-cal-head button { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); background: transparent; font-size: 20px; line-height: 1; }
+.rb-cal-head button:hover:not(:disabled) { border-color: var(--ws-accent); }
+.rb-cal-head button:disabled { opacity: 0.3; }
+.rb-week, .rb-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+.rb-week span { padding: 4px 0; text-align: center; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); }
+.rb-day {
+  aspect-ratio: 1; padding: 0; border: 0; border-radius: 10px; background: transparent;
+  font-variant-numeric: tabular-nums; font-size: 15px; transition: background 0.2s, color 0.2s;
+}
+.rb-day:hover:not(:disabled) { background: color-mix(in srgb, var(--ws-accent) 14%, transparent); }
+.rb-day:disabled { opacity: 0.28; }
+.rb-day.is-today { box-shadow: inset 0 0 0 1px var(--line); }
+.rb-day.is-full { text-decoration: line-through; color: var(--dim); }
+.rb-day.is-range { background: color-mix(in srgb, var(--ws-accent) 18%, transparent); border-radius: 4px; }
+.rb-day.is-preview { background: color-mix(in srgb, var(--ws-accent) 9%, transparent); border-radius: 4px; }
+.rb-day.is-in, .rb-day.is-out { background: var(--ws-accent); color: var(--ws-on-accent, #fff); opacity: 1; font-weight: 600; }
+.rb-day.is-in { border-radius: 10px 4px 4px 10px; }
+.rb-day.is-out { border-radius: 4px 10px 10px 4px; }
+.rb-cal-foot { margin: 10px 2px 0; font-size: 14px; }
+.rb-cal-foot b { color: var(--ink); }
+
+.rb-tabs { display: inline-flex; gap: 4px; padding: 4px; margin-bottom: 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); }
+.rb-tabs button { padding: 7px 16px; border: 0; border-radius: 999px; background: transparent; font-size: 14px; }
+.rb-tabs button.is-on { background: var(--ws-accent); color: var(--ws-on-accent, #fff) !important; }
+
+.rb-rooms { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+.rb-room { position: relative; display: grid; border: 1px solid var(--line); border-radius: 18px; background: var(--card); overflow: hidden; transition: border-color 0.3s, box-shadow 0.3s, opacity 0.3s, filter 0.3s; }
+.rb-room-pick { display: grid; align-content: start; padding: 0; border: 0; background: none; text-align: left; }
+.rb-room img, .rb-room-ph { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+.rb-room-ph { background: linear-gradient(135deg, color-mix(in srgb, var(--ws-accent) 25%, var(--card)), var(--card)); }
+.rb-room-txt { display: grid; gap: 4px; padding: 14px 16px 16px; }
+.rb-room-txt > b { font: 400 22px/1.2 var(--ws-serif); }
+.rb-room-txt .tb-dim { font-size: 14px; }
+.rb-price { font-size: 14px; color: var(--dim); }
+.rb-price b { color: var(--ink); font-weight: 600; }
+.rb-feats { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
+.rb-feats em { font-style: normal; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); }
+.rb-left { margin-top: 6px; font-size: 13px; font-weight: 600; color: var(--ws-accent); }
+.rb-left.is-full, .rb-left.is-small { color: var(--dim); font-weight: 500; }
+.rb-3d { margin: -6px 16px 14px; font-size: 14px; }
+.rb-check {
+  position: absolute; top: 12px; right: 12px; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--ws-accent); color: var(--ws-on-accent, #fff); font-weight: 700; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+.rb-room.is-free:hover { border-color: color-mix(in srgb, var(--ws-accent) 60%, var(--line)); }
+.rb-room.is-on { border-color: var(--ws-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ws-accent) 25%, transparent); }
+.rb-room.is-full, .rb-room.is-small { opacity: 0.55; filter: grayscale(0.7); }
+
+/* A room on the site plan: a marker with its name, like a table on the floor plan. */
+.rb-map { position: static; }
+.rb-pin { position: absolute; width: 0; height: 0; padding: 0; border: 0; background: none; }
+.rb-pin i {
+  position: absolute; left: 0; top: 0; width: calc(3.4 * var(--u)); height: calc(3.4 * var(--u)); translate: -50% -50%;
+  border-radius: 50% 50% 50% 0; rotate: -45deg; background: color-mix(in srgb, var(--ws-accent) 30%, #fff);
+  border: calc(0.4 * var(--u)) solid var(--ws-accent); box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2); transition: background 0.3s, scale 0.25s;
+}
+.rb-pin span {
+  position: absolute; left: 0; top: calc(2.6 * var(--u)); translate: -50% 0; white-space: nowrap; padding: 1px 8px; border-radius: 999px;
+  font: 600 calc(1.5 * var(--u))/1.5 system-ui, sans-serif; color: #1c1a17; background: rgba(255, 255, 255, 0.9);
+}
+.rb-pin.is-free:hover i, .rb-pin:focus-visible i { scale: 1.15; }
+.rb-pin:focus-visible { outline: none; }
+.rb-pin.is-on { z-index: 2; }
+.rb-pin.is-on i { background: var(--ws-accent); }
+.rb-pin.is-on span { background: var(--ws-accent); color: var(--ws-on-accent, #fff); }
+.rb-pin.is-full i { background: repeating-linear-gradient(45deg, #e4e0da 0 3px, #cfc9c1 3px 6px); border-color: #9a948c; }
+.rb-pin.is-full span { color: #8a837a; text-decoration: line-through; }
+.rb-pin.is-small { opacity: 0.4; }
+
+@media (max-width: 860px) {
+  .rb-rooms { grid-template-columns: 1fr; }
+}
+
+/* The waitlist (WaitlistForm.tsx): when everything wanted is taken. */
+.tb-wait { display: grid; gap: 10px; justify-items: start; margin-top: 6px; }
+.tb-wait.tb-details { justify-items: stretch; }
+.tb-wait p { margin: 0; }
+.tb-wait-done {
+  margin: 6px 0 0; padding: 14px 16px; border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--ws-accent) 50%, transparent); background: color-mix(in srgb, var(--ws-accent) 8%, var(--card));
+}

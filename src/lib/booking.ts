@@ -38,6 +38,23 @@ export function stayProblem(s: Stay, today = isoDay(0)): string | null {
   return null;
 }
 
+/* ---- Room booking on the website (server/src/stays.js has the same rules) ---- */
+
+/** Rooms of a type a party needs, when each sleeps `sleeps`. */
+export const roomsNeeded = (guests: number, sleeps: number) => Math.max(1, Math.ceil(guests / sleeps));
+
+/**
+ * Rooms of one type free on every night of a stay, from the server's
+ * calendar: `free[i]` rooms on the night of `dates[i]` (consecutive days).
+ * 0 when any night is full, or the stay runs outside the calendar.
+ */
+export function freeForStay(dates: string[], free: number[] | undefined, checkin: string, checkout: string): number {
+  const from = dates.indexOf(checkin);
+  const nights = nightsBetween(checkin, checkout);
+  if (!free || from < 0 || !(nights >= 1) || from + nights > dates.length) return 0;
+  return Math.min(...free.slice(from, from + nights));
+}
+
 /** The hotel's link with the stay filled in. With no stay (dates not asked),
  *  any placeholders are left empty rather than sent as literal "{checkin}". */
 export function bookingHref(template: string, stay: Stay | null): string {

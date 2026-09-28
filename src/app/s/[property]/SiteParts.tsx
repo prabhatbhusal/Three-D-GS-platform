@@ -31,6 +31,15 @@ export function ViewIn3D({ space, view }: { space: string; view: string }) {
   );
 }
 
+/** Down to the room booking (#stay) with this room picked (RoomBooking listens). */
+export function BookThisRoom({ room }: { room: string }) {
+  return (
+    <a className="ws-link" href="#stay" onClick={() => window.dispatchEvent(new CustomEvent('rcaas:stay', { detail: room }))}>
+      Book this room <span aria-hidden>→</span>
+    </a>
+  );
+}
+
 /** The contact section's button and the enquiry sheet (the tour's own form). */
 export function SiteEnquire({ project, name, preview = false }: { project: string; name: string; preview?: boolean }) {
   const [open, setOpen] = useState(false);

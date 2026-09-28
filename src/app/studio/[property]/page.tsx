@@ -37,6 +37,8 @@ export default function PropertyStudioPage({ params }: { params: Promise<{ prope
     (async () => {
       const p = await getProperty(id);
       if (!p) return setGate({ kind: 'missing' });
+      // The client's staff have no spaces to edit here: their page is the reservations.
+      if (p.access === 'staff') { location.replace(`/studio/${encodeURIComponent(p.id)}/reservations`); return; }
       // So the project list can show which one you were working in.
       try { localStorage.setItem(LAST_PROJECT_KEY, p.id); } catch { /* private mode */ }
       applyTheme(p.theme, p.title); // so Preview shows the project's own branding

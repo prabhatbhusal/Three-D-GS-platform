@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { cardBox, nearestIds, showsCard, NEAR_DISTANCE, CARD_W, CARD_H } from '../src/lib/hotspotLayout.ts';
 import { safeUrl, resolveAsset, assetUrl } from '../src/lib/api.ts';
-import { bookingHref, stayProblem, nightsBetween, isoDay } from '../src/lib/booking.ts';
+import { bookingHref, stayProblem, nightsBetween, isoDay, freeForStay, roomsNeeded } from '../src/lib/booking.ts';
 import { resolveInitialTier } from '../src/lib/deviceTier.ts';
 
 test('booking link carries the visitor\'s dates and guests', () => {
@@ -29,6 +29,18 @@ test('a stay must be in the future, at least one night, with a guest', () => {
   assert.match(stayProblem({ checkin: '2026-09-22', checkout: '2026-09-24', guests: 0 }, today), /guest/);
   assert.equal(nightsBetween('2026-10-30', '2026-11-02'), 3, 'across a month end');
   assert.equal(isoDay(1, new Date(2026, 11, 31)), '2027-01-01', 'across a year end');
+});
+
+test('rooms left for a stay: the fullest night counts, the check-out night does not', () => {
+  const dates = ['2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04'];
+  const free = [3, 1, 2, 0];
+  assert.equal(freeForStay(dates, free, '2026-10-01', '2026-10-03'), 1, 'two nights: the 2nd has one left');
+  assert.equal(freeForStay(dates, free, '2026-10-03', '2026-10-04'), 2, 'leaving on the full 4th is fine');
+  assert.equal(freeForStay(dates, free, '2026-10-03', '2026-10-05'), 0, 'staying the night of the 4th is not');
+  assert.equal(freeForStay(dates, free, '2026-10-04', '2026-10-06'), 0, 'runs past the calendar');
+  assert.equal(freeForStay(dates, free, '2026-10-02', '2026-10-02'), 0, 'no nights');
+  assert.equal(freeForStay(dates, undefined, '2026-10-01', '2026-10-02'), 0, 'a room the calendar doesn’t know');
+  assert.deepEqual([roomsNeeded(1, 2), roomsNeeded(2, 2), roomsNeeded(5, 2), roomsNeeded(3, 4)], [1, 1, 3, 1]);
 });
 
 const W = 1280;
@@ -252,7 +264,7 @@ test('a point cloud gets a floor to stand on, and walls it can\'t walk through',
 test('every tour string has a Nepali and a Chinese translation', async () => {
   const { DICT, translate } = await import('../src/lib/i18n.ts');
   const { readFileSync } = await import('node:fs');
-  const files = ['Viewer', 'EnquiryPanel', 'FloorMap', 'BookingCard', 'TouchControls', 'HotspotMarkers', 'TableCard']
+  const files = ['Viewer', 'EnquiryPanel', 'FloorMap', 'BookingCard', 'TouchControls', 'HotspotMarkers', 'TableCard', 'RoomCard', 'ConciergePanel']
     .map((f) => readFileSync(new URL(`../src/components/${f}.tsx`, import.meta.url), 'utf8'));
   const keys = new Set(files.flatMap((src) => [...src.matchAll(/\bt[r]?\('([^']+)'/g)].map((m) => m[1])));
   // passed to t() through a variable
@@ -293,6 +305,28 @@ test('a night version is reached from its day space, not listed on its own', asy
   assert.equal(sameTimeOfDay('dn-a', 'dn-b'), 'dn-b');
   limitTour(['dn-a', 'dn-b', 'dn-bn'], 'dn-a'); // A's night version isn't published
   assert.equal(dayNightPair('dn-a'), null);
+});
+
+test('a large site’s spaces group by building, then floor, lowest floor first', async () => {
+  // scenes.ts was already loaded (with its import resolver) by the night-version test above
+  const { hydrateScenes, limitTour, placesMap, hasPlaces, floorRank } = await import('../src/lib/scenes.ts');
+  assert.deepEqual(['Roof terrace', '2nd floor', 'Ground floor', 'Basement', 'First floor', 'Level 3'].sort((a, b) => floorRank(a) - floorRank(b)),
+    ['Basement', 'Ground floor', 'First floor', '2nd floor', 'Level 3', 'Roof terrace']);
+  hydrateScenes([
+    { id: 'pl-lab', title: 'Lab', building: 'Science block', floor: '1st floor' },
+    { id: 'pl-lobby', title: 'Lobby', building: 'Main block', floor: 'Ground floor' },
+    { id: 'pl-hall', title: 'Hall', building: 'Main block', floor: 'First floor' },
+    { id: 'pl-canteen', title: 'Canteen', building: 'Main block', floor: 'Ground floor' },
+    { id: 'pl-store', title: 'Store', building: 'Main block', floor: 'Basement' }
+  ]);
+  limitTour(['pl-lab', 'pl-lobby', 'pl-hall', 'pl-canteen', 'pl-store'], 'pl-lobby');
+  assert.ok(hasPlaces());
+  assert.deepEqual(placesMap().map((b) => [b.name, b.floors.map((f) => [f.name, f.spaces.map((s) => s.id)])]), [
+    ['Science block', [['1st floor', ['pl-lab']]]],
+    ['Main block', [['Basement', ['pl-store']], ['Ground floor', ['pl-lobby', 'pl-canteen']], ['First floor', ['pl-hall']]]]
+  ]);
+  limitTour(['pl-lobby', 'pl-canteen'], 'pl-lobby'); // one building, one floor: nothing to pick
+  assert.equal(hasPlaces(), false);
 });
 
 test('a logo’s colours: the brand colour, not its background, outline or edges', async () => {

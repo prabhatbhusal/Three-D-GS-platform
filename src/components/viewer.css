@@ -689,6 +689,59 @@ button.vw-book { border: 0; cursor: pointer; }
   .vw-cta-btn { bottom: 16px; z-index: 14; }
 }
 
+/* ---- the AI concierge (ConciergePanel) ---- */
+.vw-sheet-scrim-light { background: transparent; }
+.vw-concierge { display: flex; flex-direction: column; }
+.vw-chat { display: grid; gap: 8px; align-content: start; min-height: 120px; max-height: 42vh; overflow-y: auto; margin: 4px 0 12px; }
+.vw-chat-msg { max-width: 88%; padding: 9px 12px; border-radius: 14px; font: 400 14px/1.45 var(--sans); }
+.vw-chat-msg p { margin: 0; white-space: pre-wrap; }
+.vw-chat-msg.is-user { justify-self: end; background: var(--ink, #1d1814); color: #fff; border-bottom-right-radius: 4px; }
+.vw-chat-msg.is-assistant { justify-self: start; background: #fff; border: 1px solid var(--edge); border-bottom-left-radius: 4px; }
+.vw-chat-msg .vw-sheet-link { margin-top: 6px; }
+.vw-chat-starters { display: flex; flex-wrap: wrap; gap: 6px; }
+.vw-chat-starters button {
+  appearance: none; cursor: pointer; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--edge);
+  background: #fff; color: var(--ink); font: 500 13px var(--sans);
+}
+.vw-chat-msg.is-typing { display: flex; gap: 4px; padding: 12px 14px; }
+.vw-chat-msg.is-typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-dim); animation: vw-dot 1s infinite ease-in-out; }
+.vw-chat-msg.is-typing span:nth-child(2) { animation-delay: 0.15s; }
+.vw-chat-msg.is-typing span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes vw-dot { 0%, 80%, 100% { opacity: 0.25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+.vw-chat-ask { display: flex; gap: 8px; }
+.vw-chat-ask input {
+  flex: 1; min-width: 0; padding: 11px 14px; border-radius: 999px; border: 1px solid var(--edge);
+  background: var(--field); color: var(--ink); font: 400 15px var(--sans);
+}
+.vw-chat-ask .vw-sheet-go { width: auto; padding: 0 18px; margin: 0; }
+
+/* ---- narration captions (NarrationCaption) ---- */
+.vw-caption {
+  position: fixed; left: 50%; bottom: 150px; translate: -50% 0; z-index: 12; max-width: min(720px, calc(100vw - 32px));
+  margin: 0; padding: 10px 16px; border-radius: 12px; text-align: center;
+  font: 500 15px/1.45 var(--sans); color: #fff; background: rgba(13, 10, 8, 0.78);
+  animation: vw-fade 0.3s ease both; pointer-events: none;
+}
+
+/* ---- buildings and floors (PlacePicker): under the space's name ---- */
+.vw-places { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-top: 8px; pointer-events: auto; }
+.vw-places select {
+  appearance: none; padding: 6px 28px 6px 12px; border-radius: 999px; cursor: pointer;
+  font: 600 12px/1 var(--sans); color: var(--paper, #f6f1e7); border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(13, 10, 8, 0.7) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23fff' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 11px center;
+}
+.vw-places select option { color: #111; }
+.vw-floors { display: flex; flex-direction: column; gap: 4px; }
+.vw-floors button {
+  appearance: none; cursor: pointer; padding: 6px 12px; border-radius: 10px; text-align: left;
+  font: 600 12px/1.2 var(--sans); color: var(--paper, #f6f1e7);
+  background: rgba(13, 10, 8, 0.6); border: 1px solid rgba(255, 255, 255, 0.16); transition: background 0.2s, border-color 0.2s;
+}
+.vw-floors button:hover:not(:disabled) { border-color: rgba(255, 255, 255, 0.5); }
+.vw-floors button.on { background: var(--gold, #c9a46a); border-color: var(--gold, #c9a46a); color: var(--gold-ink, #14110e); }
+.vw-space-where { margin: 12px 0 6px; font: 650 11px/1 var(--sans); letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.6; }
+.vw-space-group:first-of-type .vw-space-where { margin-top: 0; }
+
 /* ---- floor map (FloorMap.tsx): bottom left, above the joystick's corner -- */
 .vw-map {
   position: fixed; left: 16px; bottom: 16px; z-index: 11;

@@ -7,6 +7,51 @@ import './report.css';
 
 const thisMonth = () => new Date().toISOString().slice(0, 7); // the server counts in UTC months too
 
+const pct = (n: number, of: number) => (of ? `${Math.round((n / of) * 100)}%` : '—');
+
+/**
+ * The path to a booking: from a visit to a confirmed booking, each step as a
+ * bar against the visits, with how many went on from the step before. The
+ * first three steps are counted in the tour; the rest are what was saved,
+ * so they include enquiries and bookings made on the website too.
+ */
+function Funnel({ report }: { report: ProjectReport }) {
+  const f = report.funnel;
+  const requests = f.requests.tables + f.requests.rooms;
+  const confirmed = f.confirmed.tables + f.confirmed.rooms;
+  const split = (t: number, r: number) => [t && `${t} table${t === 1 ? '' : 's'}`, r && `${r} room${r === 1 ? '' : 's'}`].filter(Boolean).join(', ');
+  const cards = ([['enquire', 'Ask'], ['book', 'Book now'], ['table', 'Reserve a table'], ['room', 'Book a room']] as const)
+    .filter(([k]) => f.intent[k]).map(([k, label]) => `${label} ${f.intent[k]}`).join(' · ');
+  const steps: [string, number, string][] = [
+    ['Space visits', f.visits, ''],
+    ['Opened a hotspot', f.engaged, ''],
+    ['Opened a booking or enquiry card', f.intents, cards],
+    ['Sent an enquiry', f.enquiries, ''],
+    ['Asked to book', requests, split(f.requests.tables, f.requests.rooms)],
+    ['Confirmed', confirmed, split(f.confirmed.tables, f.confirmed.rooms)]
+  ];
+  const top = Math.max(1, ...steps.map((s) => s[1]));
+  return (
+    <section>
+      <h2>The path to a booking</h2>
+      <ol className="rp-funnel">
+        {steps.map(([label, n, note], i) => (
+          <li key={label}>
+            <span className="rp-funnel-label">{label}{note && <small>{note}</small>}</span>
+            <span className="rp-funnel-bar"><i style={{ width: `${Math.max(n ? 1.5 : 0, (n / top) * 100)}%` }} /></span>
+            <b>{n}</b>
+            <span className="rp-funnel-rate">{i === 0 ? '' : pct(n, steps[i === 3 || i === 4 ? 2 : i - 1][1])}</span>
+          </li>
+        ))}
+      </ol>
+      <p className="rp-muted">
+        The first three steps are counted in the tour, once per space visit. Enquiries and bookings are counted from what was sent,
+        from the tour and the website. The percentage is how many went on from the step before (enquiries and bookings: from the cards opened).
+      </p>
+    </section>
+  );
+}
+
 function duration(s: number) {
   if (s < 60) return `${s}s`;
   const m = Math.round(s / 60);
@@ -82,6 +127,28 @@ export default function ReportPage({ params }: { params: Promise<{ property: str
             ))}
           </div>
         </section>
+
+        <Funnel report={report} />
+
+        {report.hotspots.length > 0 && (
+          <section>
+            <h2>What visitors looked at</h2>
+            <table className="rp-table">
+              <thead><tr><th>Hotspot</th><th>Space</th><th>Opened</th><th>Enquiries after</th></tr></thead>
+              <tbody>
+                {report.hotspots.map((h) => (
+                  <tr key={`${h.space}/${h.id}`}>
+                    <td>{h.label}</td>
+                    <td className="rp-dim">{h.spaceTitle}</td>
+                    <td>{h.opens}</td>
+                    <td>{h.enquiries}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="rp-muted">“Enquiries after”: enquiries sent from the tour when this was the last hotspot the visitor opened.</p>
+          </section>
+        )}
 
         <section>
           <h2>Spaces</h2>

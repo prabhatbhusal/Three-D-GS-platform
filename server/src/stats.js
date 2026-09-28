@@ -4,7 +4,13 @@
  * space: how many visits, how many seconds, and visits per day. One small
  * file per project-month under data/stats/ (gitignored). Writes to one file
  * are queued, so beacons arriving together can't lose each other's counts.
+ *
+ * The path to a booking (2026-09-28), totals too: how often each hotspot was
+ * opened, how many visits opened any hotspot ("engaged"), and how many
+ * opened each booking or enquiry card ("intent"). Enquiries and booking
+ * requests themselves are counted from what was saved, not from here.
  */
+export const INTENTS = ['enquire', 'book', 'table', 'room'];
 import { promises as fs } from 'fs';
 import path from 'path';
 import { DATA_DIR } from './dataDir.js';
@@ -14,7 +20,7 @@ const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 const monthOf = (d = new Date()) => d.toISOString().slice(0, 7);
 const fileFor = (propertyId, month) => path.join(DIR, propertyId, `${month}.json`);
 
-const empty = () => ({ visits: 0, seconds: 0, days: {}, spaces: {} });
+const empty = () => ({ visits: 0, seconds: 0, days: {}, spaces: {}, engaged: 0, intent: {}, hotspots: {} });
 
 async function read(propertyId, month) {
   try {
@@ -32,11 +38,21 @@ function queued(key, fn) {
   return run;
 }
 
-/** One visit to a space, or `seconds` more spent in it. */
-export function count(propertyId, sceneId, { visit = false, seconds = 0 }) {
+/** One visit to a space, or `seconds` more spent in it; or a hotspot opened
+ *  (`hotspot`: { id, label }, `first` for a visit's first), or a card opened
+ *  (`intent`: one of INTENTS). */
+export function count(propertyId, sceneId, { visit = false, seconds = 0, hotspot = null, first = false, intent = null }) {
   const month = monthOf();
   return queued(`${propertyId}/${month}`, async () => {
-    const s = await read(propertyId, month);
+    const s = { ...empty(), ...(await read(propertyId, month)) };
+    if (hotspot) {
+      const bySpace = (s.hotspots[sceneId] ??= {});
+      const h = (bySpace[hotspot.id] ??= { opens: 0, label: '' });
+      h.opens += 1;
+      h.label = hotspot.label;
+      if (first) s.engaged += 1;
+    }
+    if (intent) s.intent[intent] = (s.intent[intent] ?? 0) + 1;
     const sp = (s.spaces[sceneId] ??= { visits: 0, seconds: 0 });
     if (visit) {
       s.visits += 1;
@@ -55,7 +71,7 @@ export function count(propertyId, sceneId, { visit = false, seconds = 0 }) {
 
 export async function monthStats(propertyId, month) {
   if (!MONTH.test(month)) return null;
-  return read(propertyId, month);
+  return { ...empty(), ...(await read(propertyId, month)) };
 }
 
 export { MONTH, monthOf };

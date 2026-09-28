@@ -16,7 +16,7 @@ const fileFor = (propertyId) =>
 /** `req.session` names who; the legacy shared-password session has no account. */
 export async function record(req, propertyId, action, target, detail) {
   const s = req.session;
-  const who = s?.sub ? { id: s.sub, name: s.name } : { id: null, name: 'Shared team password' };
+  const who = s?.sub ? { id: s.sub, name: s.name } : { id: null, name: s?.name || 'Shared team password' }; // a named client, from a review link
   const entry = { at: new Date().toISOString(), who, action, target, ...(detail ? { detail } : {}) };
   try {
     await fs.mkdir(DIR, { recursive: true });

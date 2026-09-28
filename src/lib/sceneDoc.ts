@@ -39,7 +39,8 @@ export function setBooking(sceneId: string, patch: Partial<Booking>) {
 
 /** True when any hotspot in the space carries audio — the sound toggle only
  *  shows then (§6.3). */
-export const sceneHasAudio = (sceneId: string) => hotspotsFor(sceneId).some((h) => !!h.payload?.audio);
+export const sceneHasAudio = (sceneId: string) =>
+  hotspotsFor(sceneId).some((h) => !!h.payload?.audio) || liveViewpoints(sceneId).some((v) => !!v.audio);
 
 const blankPayload = (type: HotspotType): HotspotPayload =>
   type === 'image' ? { url: '', caption: '' }
@@ -87,6 +88,19 @@ export function removeHotspot(sceneId: string, id: string) {
   const i = arr.findIndex((h) => h.id === id);
   if (i >= 0) { arr.splice(i, 1); emit(); }
 }
+
+/** A space's hotspots and Book now, set outright: undo/redo (history.ts) and
+ *  copying hotspots in from another space. */
+export function setHotspots(sceneId: string, hotspots: Hotspot[]) {
+  doc[sceneId] = { hotspots: structuredClone(hotspots) };
+  emit();
+}
+export function setBookingOutright(sceneId: string, b: Booking | null) {
+  booking[sceneId] = b ? { ...b } : null;
+  emit();
+}
+/** A new id for a copy of a hotspot in another space. */
+export const copyHotspotId = (sceneId: string) => `hs-${sceneId}-${Date.now().toString(36)}${(++hsSeq).toString(36)}`;
 
 export function placeHotspotAtCamera(sceneId: string, id: string, camera: THREE.Camera) {
   const p = camera.position;
@@ -150,6 +164,9 @@ export function markSaved(sceneId: string, sent: SceneDoc) {
   emit();
 }
 
+/** Has the space's saved draft been read yet? Undo starts from it (history.ts). */
+export const docLoaded = (sceneId: string) => !!serverDocs[sceneId];
+
 /** True when the studio holds edits the server doesn't have yet. A scene
  *  that was never loaded counts as unsaved. */
 export const hasUnsavedChanges = (sceneId: string) =>
@@ -183,7 +200,8 @@ export function sceneDocFor(sceneId: string): SceneDoc {
       autoplayOnLoad: false,
       keyframes: sorted,
       cues: [],
-      audio: null,
+      audio: v.audio ?? null,
+      ...(v.transcript ? { transcript: v.transcript } : {}),
       seconds: totalSeconds,
       thumb: v.thumb ?? null
     };
@@ -226,7 +244,9 @@ export function sceneDocFor(sceneId: string): SceneDoc {
     hotspots: hotspotsFor(sceneId),
     tracks,
     booking: bookingFor(sceneId),
-    night: conf?.night ?? null
+    night: conf?.night ?? null,
+    building: conf?.building ?? '',
+    floor: conf?.floor ?? ''
   };
 }
 

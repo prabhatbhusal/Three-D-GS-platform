@@ -4,11 +4,12 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { transformFor, setTransform, subscribeTransform, gizmo, setGizmoMode } from '../lib/transform';
-import { SCENE_BY_ID, renameScene, setNight, setSessionSpawn, visibleScenes } from '../lib/scenes';
+import { SCENE_BY_ID, renameScene, setNight, setPlace, setSessionSpawn, visibleScenes } from '../lib/scenes';
 import { walkerCfg } from '../lib/walkerConfig';
-import { subscribeViewpoints } from '../lib/viewpoints';
+import { subscribeViewpoints, loadTracks, updateSessionViewpoint } from '../lib/viewpoints';
+import { canRedo, canUndo, redo, subscribeHistory, undo, watchHistory } from '../lib/history';
 import {
-  hotspotsFor, subscribeDoc, sceneDocFor, loadSceneDoc, markSaved, hasUnsavedChanges, bookingFor, setBooking
+  hotspotsFor, subscribeDoc, sceneDocFor, loadSceneDoc, markSaved, hasUnsavedChanges, bookingFor, setBooking, setHotspots, copyHotspotId
 } from '../lib/sceneDoc';
 import { uploadAudio } from '../lib/upload';
 import { playClip, setMuted, stopClip, useSound } from '../lib/audio';
@@ -50,6 +51,10 @@ export function EditorShell({ state, property, onPreview }: {
 
   useEffect(() => subscribeViewpoints(bump), []);
   useEffect(() => subscribeDoc(bump), []);
+  useEffect(() => subscribeHistory(bump), []);
+  const activeId = state?.activeId;
+  useEffect(() => (activeId ? watchHistory(activeId) : undefined), [activeId]);
+  const [copying, setCopying] = useState(false);
 
   useEffect(() => {
     if (!state?.editor) return;
@@ -97,7 +102,9 @@ export function EditorShell({ state, property, onPreview }: {
         state={state} tracks={tracks} hotspots={hotspots} sel={sel}
         onSelect={setSel} onAddTrack={addTrack} onAddHotspot={addHotspot}
         onNewSpace={() => setUploaderOpen(true)} onRename={doRename}
+        onCopy={hotspots.length || tracks.length ? () => setCopying(true) : undefined}
       />
+      {copying && <CopyToSpaces sceneId={state.activeId} propertyId={property?.id ?? null} onClose={() => setCopying(false)} />}
 
       {uploaderOpen && (
         <Uploader
@@ -115,7 +122,7 @@ export function EditorShell({ state, property, onPreview }: {
           />
         ) : selTrack ? (
           <TrackInspector
-            ed={ed} track={selTrack}
+            ed={ed} track={selTrack} sceneId={state.activeId}
             onDelete={() => { ed.removeViewpoint(selTrack.id); setSel(null); }}
             onBump={bump}
           />
@@ -180,6 +187,10 @@ function TopBar({ onPreview, sceneId, property }: { onPreview: () => void; scene
         />
       </div>
       <button className="ed2-preview" onClick={onPreview}>▶ Preview</button>
+      <span className="ed2-undo">
+        <button onClick={() => undo(sceneId)} disabled={!canUndo(sceneId)} title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
+        <button onClick={() => redo(sceneId)} disabled={!canRedo(sceneId)} title="Redo (Ctrl+Y)" aria-label="Redo">↷</button>
+      </span>
       <SaveToServerButton sceneId={sceneId} />
       <PublishButton sceneId={sceneId} />
       <ThemeToggle className="ed2-theme" />
@@ -706,9 +717,11 @@ interface SceneTreeProps {
   onAddHotspot: (type: HotspotType) => void;
   onNewSpace: () => void;
   onRename: (sceneId: string, name: string) => void;
+  /** Copy hotspots and tracks to other spaces (CopyToSpaces). */
+  onCopy?: () => void;
 }
 
-function SceneTree({ state, tracks, hotspots, sel, onSelect, onAddTrack, onAddHotspot, onNewSpace, onRename }: SceneTreeProps) {
+function SceneTree({ state, tracks, hotspots, sel, onSelect, onAddTrack, onAddHotspot, onNewSpace, onRename, onCopy }: SceneTreeProps) {
   const [addOpen, setAddOpen] = useState(false);
   return (
     <div className="ed2-left">
@@ -728,6 +741,7 @@ function SceneTree({ state, tracks, hotspots, sel, onSelect, onAddTrack, onAddHo
 
       <div className="ed2-tree-grp">
         Hotspots <span className="ed2-tree-n">{hotspots.length}</span>
+        {onCopy && <span className="ed2-tree-add ed2-tree-copy" onClick={onCopy} title="Copy hotspots and tracks to other spaces">⧉</span>}
         <span className="ed2-tree-add" onClick={() => setAddOpen((v) => !v)}>＋</span>
       </div>
       {addOpen && (
@@ -792,6 +806,7 @@ function WorldInspector({ state, pose, onBump }: { state: ViewerState; pose: Pos
 
       <BookingSection sceneId={state.activeId} />
       <NightSection sceneId={state.activeId} onBump={onBump} />
+      <PlaceSection sceneId={state.activeId} onBump={onBump} />
       <FloorPlanSection sceneId={state.activeId} />
 
       <Section title="Start view">
@@ -851,6 +866,90 @@ function WorldInspector({ state, pose, onBump }: { state: ViewerState; pose: Pos
  *  sign-in screen yet, so until one exists this only works once something
  *  (curl, a future login form) has called POST /api/auth/login. */
 /** Saves the OPEN space only, and says exactly what went to the server. */
+/**
+ * Copy this space's hotspots and camera tracks into other spaces of the
+ * project: 20 identical hotel rooms get the same "Minibar" and "Bathroom"
+ * hotspots and the same walk-through in one go. The copies land at the same
+ * coordinates, so they fit spaces scanned alike; move any that don't. Each
+ * space is saved as it's copied into (its draft only: publish as usual).
+ */
+function CopyToSpaces({ sceneId, propertyId, onClose }: { sceneId: string; propertyId: string | null; onClose: () => void }) {
+  const hotspots = hotspotsFor(sceneId);
+  const tracks = sceneDocFor(sceneId).tracks;
+  const others = Object.values(SCENE_BY_ID).filter((x) => x.id !== sceneId && (x.propertyId ?? null) === propertyId);
+  const [pickHs, setPickHs] = useState(() => new Set(hotspots.map((h) => h.id)));
+  const [pickTr, setPickTr] = useState(() => new Set<string>());
+  const [to, setTo] = useState(() => new Set<string>());
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState('');
+  const [error, setError] = useState('');
+  const flip = (set: Set<string>, id: string) => { const n = new Set(set); if (n.has(id)) n.delete(id); else n.add(id); return n; };
+
+  const copy = async () => {
+    setBusy(true); setError('');
+    let n = 0;
+    try {
+      for (const target of to) {
+        await loadSceneDoc(target); // its saved draft first, so nothing of its own is lost
+        const newHs = hotspots.filter((h) => pickHs.has(h.id)).map((h) => ({ ...structuredClone(h), id: copyHotspotId(target) }));
+        setHotspots(target, [...hotspotsFor(target), ...newHs]);
+        const newTr = tracks.filter((t) => pickTr.has(t.id)).map((t) => ({ ...structuredClone(t), id: `${t.id}-${target}-${Date.now().toString(36)}` }));
+        if (newTr.length) loadTracks(target, [...sceneDocFor(target).tracks, ...newTr], { replace: true });
+        const sent = sceneDocFor(target);
+        await saveScene(target, sent);
+        markSaved(target, sent);
+        n += 1;
+      }
+      setDone(`Copied into ${n} space${n === 1 ? '' : 's'} and saved their drafts. Open each to check the spots, then publish.`);
+      setTo(new Set());
+    } catch (e) {
+      setError(`${n ? `Copied into ${n}, then: ` : ''}${e instanceof Error ? e.message : 'the copy failed.'}`);
+    } finally { setBusy(false); }
+  };
+
+  return createPortal(
+    <div className="np-scrim" onClick={onClose}>
+      <div className="pl-dialog pl-dialog-wide" role="dialog" aria-modal="true" aria-label="Copy to other spaces" onClick={(e) => e.stopPropagation()}>
+        <header className="np-head">
+          <h2>Copy to other spaces</h2>
+          <button className="np-x" onClick={onClose} aria-label="Close">✕</button>
+        </header>
+        <div className="pl-dialog-body ed2-copy">
+          <p className="pl-sub">For spaces scanned alike, such as identical rooms: the copies land at the same spots. Move any that don’t fit.</p>
+          <div className="ed2-copy-cols">
+            <fieldset>
+              <legend>What</legend>
+              {hotspots.map((h) => (
+                <label key={h.id}><input type="checkbox" checked={pickHs.has(h.id)} onChange={() => setPickHs(flip(pickHs, h.id))} /> {HS_ICON[h.type] || '•'} {h.label}</label>
+              ))}
+              {tracks.map((t) => (
+                <label key={t.id}><input type="checkbox" checked={pickTr.has(t.id)} onChange={() => setPickTr(flip(pickTr, t.id))} /> ▸ {t.label} <small>track</small></label>
+              ))}
+            </fieldset>
+            <fieldset>
+              <legend>Into</legend>
+              {others.length ? others.map((x) => (
+                <label key={x.id}><input type="checkbox" checked={to.has(x.id)} onChange={() => setTo(flip(to, x.id))} /> {x.name}</label>
+              )) : <p className="pl-sub">No other spaces in this project yet.</p>}
+              {others.length > 1 && (
+                <button type="button" className="pl-btn" onClick={() => setTo(to.size === others.length ? new Set() : new Set(others.map((x) => x.id)))}>
+                  {to.size === others.length ? 'None' : 'All'}
+                </button>
+              )}
+            </fieldset>
+          </div>
+          {done && <p className="pl-sub" role="status">{done}</p>}
+          {error && <p className="ed2-warn ed2-fine">{error}</p>}
+          <button className="pl-btn pl-btn-main" disabled={busy || !to.size || !(pickHs.size || pickTr.size)} onClick={copy}>
+            {busy ? 'Copying…' : `Copy ${pickHs.size + pickTr.size} into ${to.size} space${to.size === 1 ? '' : 's'}`}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 function SaveToServerButton({ sceneId }: { sceneId: string }) {
   const [status, setStatus] = useState<'idle' | 'saving' | 'error'>('idle');
   const [message, setMessage] = useState('');
@@ -1284,6 +1383,31 @@ function BookingSection({ sceneId }: { sceneId: string }) {
   );
 }
 
+/** Where in a large site this space is: its building and floor. The tour
+ *  then offers floors as lift buttons and lists each floor's spaces. */
+function PlaceSection({ sceneId, onBump }: { sceneId: string; onBump: () => void }) {
+  const here = SCENE_BY_ID[sceneId];
+  const others = visibleScenes();
+  const values = (k: 'building' | 'floor') => [...new Set(others.map((s) => s[k]).filter(Boolean))] as string[];
+  return (
+    <Section title="Building and floor">
+      <div className="ed2-row2">
+        <input className="ed2-name" list="ed2-buildings" aria-label="Building" placeholder="Building, e.g. Main block" maxLength={60}
+          value={here?.building ?? ''} onChange={(e) => { setPlace(sceneId, { building: e.target.value }); onBump(); }} />
+        <input className="ed2-name" list="ed2-floors" aria-label="Floor" placeholder="Floor, e.g. Ground floor" maxLength={60}
+          value={here?.floor ?? ''} onChange={(e) => { setPlace(sceneId, { floor: e.target.value }); onBump(); }} />
+      </div>
+      <datalist id="ed2-buildings">{values('building').map((v) => <option key={v} value={v} />)}</datalist>
+      <datalist id="ed2-floors">{values('floor').map((v) => <option key={v} value={v} />)}</datalist>
+      <p className="ed2-muted ed2-fine">
+        For campuses and large hotels. Give each space its building and floor; visitors get a building choice and
+        floor buttons, and the list shows one floor at a time. Name floors so they sort: Basement, Ground floor,
+        1st floor… Leave both empty on a small site.
+      </p>
+    </Section>
+  );
+}
+
 /** Day and night: another space in this project, scanned after dark from the
  *  same spot, as this one's night version. */
 function NightSection({ sceneId, onBump }: { sceneId: string; onBump: () => void }) {
@@ -1310,11 +1434,65 @@ function NightSection({ sceneId, onBump }: { sceneId: string; onBump: () => void
 interface TrackInspectorProps {
   ed: EditorApi;
   track: Viewpoint;
+  sceneId: string;
   onDelete: () => void;
   onBump: () => void;
 }
 
-function TrackInspector({ ed, track, onDelete, onBump }: TrackInspectorProps) {
+/** Narration on a camera track: plays as a visitor flies to it (and through a
+ *  guided flythrough), with its transcript as a caption. */
+function NarrationSection({ sceneId, track }: { sceneId: string; track: Viewpoint }) {
+  const [upload, setUpload] = useState<{ sent: number; total: number } | null>(null);
+  const [error, setError] = useState('');
+  const sound = useSound();
+  const url = resolveAsset(track.audio);
+  const playing = !!url && sound.playing === url;
+  const set = (patch: Partial<Viewpoint>) => updateSessionViewpoint(sceneId, track.id, patch);
+  const mb = (n: number) => `${(n / 1048576).toFixed(2)} MB`;
+  useEffect(() => () => stopClip(), []);
+  const pick = (file?: File) => {
+    if (!file) return;
+    setError('');
+    setUpload({ sent: 0, total: file.size });
+    uploadAudio(file, (pr) => setUpload({ sent: pr.bytesSent, total: pr.bytesTotal }))
+      .then((ref) => set({ audio: ref }))
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'The upload failed. Try again.'))
+      .finally(() => setUpload(null));
+  };
+  return (
+    <Section title="Narration">
+      {track.audio ? (
+        <>
+          <p className="ed2-pose">{track.audio.split('/').pop()}</p>
+          <div className="ed2-row">
+            <button onClick={() => {
+              if (playing) { stopClip(); return; }
+              if (sound.muted) setMuted(false);
+              if (url) playClip(url, track.transcript || null);
+            }}>{playing ? '■ Stop' : sound.loading === url ? 'Loading…' : '▶ Play'}</button>
+            <button onClick={() => { stopClip(); set({ audio: undefined }); }}>Remove</button>
+          </div>
+        </>
+      ) : upload ? (
+        <p className="ed2-pose">Uploading {mb(upload.sent)} of {mb(upload.total)}</p>
+      ) : (
+        <label className="ed2-filepick">
+          <input type="file" accept=".m4a,audio/mp4" onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ''; }} />
+          <span>＋ Add narration (.m4a)</span>
+        </label>
+      )}
+      {error && <p className="ed2-warn ed2-fine">{error}</p>}
+      <textarea
+        className="ed2-name ed2-area" rows={3} style={{ marginTop: 8 }} key={track.id}
+        placeholder="Transcript: shown as a caption while it plays"
+        defaultValue={track.transcript ?? ''} onChange={(e) => set({ transcript: e.target.value })}
+      />
+      <p className="ed2-muted ed2-fine">Plays as a visitor flies to this view, and through a guided flythrough. AAC .m4a, mono, 96 kbps, 2 MB at most. The transcript shows as a caption, so visitors with sound off still get it.</p>
+    </Section>
+  );
+}
+
+function TrackInspector({ ed, track, sceneId, onDelete, onBump }: TrackInspectorProps) {
   const editable = !!track.session;
   return (
     <>
@@ -1350,6 +1528,8 @@ function TrackInspector({ ed, track, onDelete, onBump }: TrackInspectorProps) {
           ))}
         </ol>
       </Section>
+
+      {editable && <NarrationSection sceneId={sceneId} track={track} />}
 
       <div className="ed2-row ed2-viewactions">
         <button className="ed2-play" onClick={() => ed.play(track)}>▶ Play</button>

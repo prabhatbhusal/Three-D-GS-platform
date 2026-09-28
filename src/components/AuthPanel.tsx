@@ -130,8 +130,9 @@ export function AuthPanel() {
   );
 }
 
-/** Set a new password from an admin's one-time reset link, then open the
- *  studio signed in with it. The link works once and for a day. */
+/** Set a password from a one-time link (an admin's reset, or a client staff
+ *  invite from a project's owner), then open the studio signed in with it.
+ *  The link works once and for a day. */
 function ResetPanel({ token }: { token: string }) {
   const router = useRouter();
   const [password, setPassword] = useState('');
@@ -156,8 +157,8 @@ function ResetPanel({ token }: { token: string }) {
 
   return (
     <div className="auth-card">
-      <h1 className="auth-title">Set a <em>new</em> password</h1>
-      <p className="auth-sub">Your admin sent you this link. Choose a new password; you&apos;ll be signed in with it, and signed out everywhere else.</p>
+      <h1 className="auth-title">Set your <em>password</em></h1>
+      <p className="auth-sub">Choose a password for your account. You&apos;ll be signed in with it, and signed out anywhere else.</p>
       <form className="auth-form" onSubmit={submit}>
         <label className="auth-field">
           <span>New password</span>

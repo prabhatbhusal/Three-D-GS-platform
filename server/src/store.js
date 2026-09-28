@@ -65,7 +65,10 @@ export async function listScenes() {
     neighbours: s.neighbours ?? [],
     propertyId: s.propertyId ?? null,
     ownerId: s.ownerId ?? null,
-    night: s.night ?? null
+    night: s.night ?? null,
+    // Multi-building and multi-floor sites (2026-09-28): where in the site this space is.
+    building: typeof s.building === 'string' ? s.building.slice(0, 60) : '',
+    floor: typeof s.floor === 'string' ? s.floor.slice(0, 60) : ''
   }));
 }
 
@@ -152,6 +155,11 @@ export function publishChecks(doc) {
   for (const h of doc.hotspots ?? []) {
     if (h.payload?.audio && !String(h.payload.transcript ?? '').trim()) {
       warnings.push(`Hotspot "${h.label}" has audio but no transcript. Muted visitors will miss what it says.`);
+    }
+  }
+  for (const t of doc.tracks ?? []) {
+    if (t.audio && !String(t.transcript ?? '').trim()) {
+      warnings.push(`Camera track "${t.label}" has narration but no transcript, so no caption. Muted visitors will miss what it says.`);
     }
   }
 
@@ -291,7 +299,7 @@ export function propertyIdFor(title) {
 /** `ownerId`/`members` arrived 2026-09-24; a property saved before then has
  *  neither. `ownerId: null` means "no owner yet": nobody's work to see, only
  *  to claim (propertyIsClaimable, POST /api/properties/:id/claim). */
-const fillPropertyDefaults = (doc) => (doc ? { ownerId: null, members: [], ...doc } : doc);
+const fillPropertyDefaults = (doc) => (doc ? { ownerId: null, members: [], staff: [], ...doc } : doc);
 
 /**
  * Can this session see the project in a list, or open it directly? Its owner
@@ -302,6 +310,16 @@ const fillPropertyDefaults = (doc) => (doc ? { ownerId: null, members: [], ...do
 export function propertyIsVisible(property, session) {
   if (!session?.sub) return true; // the legacy full-access session
   return property.ownerId === session.sub || (property.members ?? []).includes(session.sub);
+}
+
+/**
+ * A client's staff (2026-09-28): a restaurant's host or a hotel's front desk,
+ * added to one project to answer its guests. They see its enquiries, its
+ * reservations and its monthly report, and nothing else: none of its spaces,
+ * its website or its settings, which stay behind propertyIsVisible.
+ */
+export function propertyStaffSees(property, session) {
+  return propertyIsVisible(property, session) || (property.staff ?? []).includes(session?.sub);
 }
 
 /** Can this session rename/delete it, or manage who else can see it? The
@@ -357,7 +375,7 @@ export async function createProperty(title, ownerId = null) {
   const clean = cleanTitle(title);
   const id = propertyIdFor(clean);
   if (!id) throw badRequest('Use at least one letter or number in the name.');
-  const doc = { id, version: 1, title: clean, ownerId, members: [], createdAt: new Date().toISOString() };
+  const doc = { id, version: 1, title: clean, ownerId, members: [], staff: [], createdAt: new Date().toISOString() };
   await fs.mkdir(PROPERTIES_DIR, { recursive: true });
   try {
     // 'wx': never overwrite a property that already has this id.
@@ -406,14 +424,16 @@ export async function deleteProperty(id, by = null) {
   return { id, released };
 }
 
-/** Add a teammate (by user id) to a project's members. Idempotent — adding
- *  someone already on it just returns the property unchanged. */
-export async function addPropertyMember(id, userId) {
+/** Add a teammate (by user id) to a project: as a member (full access), or
+ *  as the client's staff (enquiries, reservations, report). Adding someone
+ *  already on it moves them to the access asked for. */
+export async function addPropertyMember(id, userId, as = 'member') {
   const p = await getProperty(id);
   if (!p) return null;
   if (p.ownerId === userId) return p; // the owner already sees it
-  const members = p.members.includes(userId) ? p.members : [...p.members, userId];
-  const next = { ...p, members };
+  const members = p.members.filter((m) => m !== userId);
+  const staff = p.staff.filter((m) => m !== userId);
+  const next = { ...p, members: as === 'staff' ? members : [...members, userId], staff: as === 'staff' ? [...staff, userId] : staff };
   await fs.writeFile(propertyFile(id), JSON.stringify(next, null, 2));
   return next;
 }
@@ -500,9 +520,13 @@ export async function reassignProjects(userId, toId) {
   let moved = 0;
   for (const p of await listProperties()) {
     const owned = p.ownerId === userId;
-    if (!owned && !p.members.includes(userId)) continue;
+    if (!owned && !p.members.includes(userId) && !p.staff.includes(userId)) continue;
     if (owned) moved += 1;
-    const next = { ...p, ownerId: owned ? toId : p.ownerId, members: p.members.filter((m) => m !== userId && m !== (owned ? toId : null)) };
+    const next = {
+      ...p, ownerId: owned ? toId : p.ownerId,
+      members: p.members.filter((m) => m !== userId && m !== (owned ? toId : null)),
+      staff: p.staff.filter((m) => m !== userId && m !== (owned ? toId : null))
+    };
     await fs.writeFile(propertyFile(p.id), JSON.stringify(next, null, 2));
   }
   return moved;
@@ -511,7 +535,7 @@ export async function reassignProjects(userId, toId) {
 export async function removePropertyMember(id, userId) {
   const p = await getProperty(id);
   if (!p) return null;
-  const next = { ...p, members: p.members.filter((m) => m !== userId) };
+  const next = { ...p, members: p.members.filter((m) => m !== userId), staff: p.staff.filter((m) => m !== userId) };
   await fs.writeFile(propertyFile(id), JSON.stringify(next, null, 2));
   return next;
 }

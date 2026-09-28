@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { filesFromDataTransfer, filesFromFileList, uploadVariant } from '../lib/upload';
-import { createProperty, getScenes, saveScene, setProjectInfo, setProjectTheme, uploadProjectLogo } from '../lib/api';
+import { createProperty, getScenes, saveScene, saveSiteDraft, setProjectInfo, setProjectTheme, uploadProjectLogo } from '../lib/api';
+import { TEMPLATES, templateFor, type PlaceKind } from '../lib/siteTemplates';
 import { BrandInfoFields, infoProblem } from './BrandInfoFields';
 import { inkOn, paletteFromImage } from '../lib/brandColor';
 import type { BrandFont, ProjectInfo } from '../@types/config.types';
@@ -46,6 +47,8 @@ const isVideo = (f: StagedFile) => /\.(insv|mp4|mov|mkv)$/i.test(f.relPath);
 export function NewProjectDialog({ onClose }: { onClose: () => void }) {
   const [title, setTitle] = useState('');
   const [spaceName, setSpaceName] = useState('');
+  const [kind, setKind] = useState<PlaceKind>('other');
+  const starter = templateFor(kind);
   const [source, setSource] = useState<Source>('lcc2');
   const [status, setStatus] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle');
   const [progress, setProgress] = useState<UploadProgress | null>(null);
@@ -147,6 +150,7 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
         setCreateError(`The project was made, but its brand didn’t save (${e instanceof Error ? e.message : 'unknown error'}). Open it and set it in ⋯ → Branding.`);
         return;
       }
+      if (starter.site) await saveSiteDraft(p.id, starter.site).catch(() => { /* a blank website: nothing lost */ });
       if (result) {
         const name = spaceName.trim() || title.trim();
         const id = freeSceneId(`${p.id}-${slugify(name)}`);
@@ -320,9 +324,19 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
               />
               <small>{title.length}/{TITLE_MAX}</small>
             </label>
+            <div className="np-field">
+              <span>Kind of place</span>
+              <div className="np-kinds" role="radiogroup" aria-label="Kind of place">
+                {TEMPLATES.map((t) => (
+                  <button key={t.kind} type="button" role="radio" aria-checked={kind === t.kind}
+                    className={`np-kind${kind === t.kind ? ' is-on' : ''}`} onClick={() => setKind(t.kind)}>{t.label}</button>
+                ))}
+              </div>
+              <small className="np-kind-note">{starter.gives}</small>
+            </div>
             <label className="np-field">
               <span>First space</span>
-              <input value={spaceName} maxLength={TITLE_MAX} placeholder="Reception" onChange={(e) => setSpaceName(e.target.value)} />
+              <input value={spaceName} maxLength={TITLE_MAX} placeholder={starter.firstSpace} onChange={(e) => setSpaceName(e.target.value)} />
               <small>Named from the export; change it if you like.</small>
             </label>
 

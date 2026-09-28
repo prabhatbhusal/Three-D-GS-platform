@@ -21,6 +21,9 @@ export interface Scene {
   propertyId?: string | null;
   /** Another space in the same project: this one's night version (day/night switch in the tour). */
   night?: string | null;
+  /** Where in a large site: its building and floor, as the studio typed them ("Main block", "Ground floor"). */
+  building?: string;
+  floor?: string;
 }
 
 export interface SpawnState {
@@ -41,6 +44,8 @@ export interface ApiScene {
   format?: ModelFormat;
   neighbours?: string[];
   night?: string | null;
+  building?: string;
+  floor?: string;
   propertyId?: string | null;
 }
 
@@ -54,6 +59,10 @@ export interface Property {
   createdAt: string;
   ownerId: string | null;
   members: string[];
+  /** The client's staff (2026-09-28): enquiries, reservations and the report only. */
+  staff?: string[];
+  /** How this session may use it: 'staff' sees only enquiries, reservations and the report. */
+  access?: 'owner' | 'member' | 'staff';
   /** Branding on its tours; see ProjectTheme. */
   theme?: import('./config.types').ProjectTheme;
   /** Its brand information; see ProjectInfo. */
@@ -65,6 +74,7 @@ export interface Property {
   /** Only on GET /api/properties/:id (the share panel). */
   ownerName?: string | null;
   memberDetails?: { id: string; name: string; email: string }[];
+  staffDetails?: { id: string; name: string; email: string }[];
 }
 
 /** Optional Book now card (§7.6). Off unless a hotel asks for it. Everything
@@ -103,7 +113,10 @@ export interface Track {
   autoplayOnLoad: boolean;
   keyframes: TrackKeyframe[];
   cues: unknown[];
-  audio: null;
+  /** Narration (2026-09-28): an uploaded .m4a (an asset path), played as the visitor flies to this view. */
+  audio: string | null;
+  /** What the narration says, shown as a caption. */
+  transcript?: string;
   /** Total flight time. Absent on docs saved before 2026-09-17 → 4 s. */
   seconds?: number;
   /** Filmstrip thumbnail (data URL). Absent → none. */
@@ -150,5 +163,8 @@ export interface SceneDoc {
   neighbours: string[];
   /** This space's night version: another space's id (lib/scenes.ts dayNightPair). */
   night?: string | null;
+  /** Its building and floor, for sites with several (lib/scenes.ts placesMap). */
+  building?: string;
+  floor?: string;
   status: 'draft' | 'published';
 }

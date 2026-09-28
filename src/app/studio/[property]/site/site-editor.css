@@ -96,6 +96,10 @@
 .rs-contact { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 4px; }
 .rs-contact a { color: inherit; }
 .rs-notes { margin: 6px 0 0; font-style: italic; }
+.rs-stay { margin: 4px 0 0; font-weight: 600; }
+.rs-kinds { display: flex; gap: 6px; margin-left: auto; }
+.se .rs-kinds button.is-on { border-color: var(--ed-signal); color: var(--ed-signal); }
+.se .se-pin { border-radius: 999px 999px 999px 3px; }
 .rs-act { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .rs-status { padding: 3px 10px; border-radius: 999px; font-size: 12px; border: 1px solid var(--ed-line); }
 .rs-status.is-requested { border-color: #d9a441; color: #d9a441; }
@@ -104,3 +108,23 @@
   .rs-item { grid-template-columns: 70px 1fr; }
   .rs-act { grid-column: 1 / -1; justify-content: flex-start; }
 }
+
+/* Scheduled publishing: a row under the bar. */
+.se-schedule {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 10px 20px;
+  border-bottom: 1px solid var(--ed-line); background: var(--ed-raise);
+}
+.se-schedule label { display: flex; gap: 8px; align-items: center; }
+.se-schedule input { width: auto; }
+.se-schedule .se-hint { margin: 0; }
+
+/* Client review: the link, the approval, the comments. */
+.se-review { flex-direction: column; align-items: stretch; }
+.se-review-link { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.se-review-link input { flex: 1 1 320px; min-width: 0; font-size: 12px; }
+.se-review-ok { margin: 0; color: #3fb950; }
+.se-review-list { display: grid; gap: 6px; margin: 0; padding: 0 0 0 20px; }
+.se-review-list label { display: flex; gap: 8px; align-items: flex-start; }
+.se-review-list input { width: auto; margin-top: 3px; }
+.se-review-list small { color: var(--ed-text-dim); }
+.se-review-list .is-resolved { opacity: 0.55; text-decoration: line-through; }

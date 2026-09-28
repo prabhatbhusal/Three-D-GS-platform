@@ -33,7 +33,8 @@ import { EditorShell } from './EditorShell';
 import { editorActive } from '../lib/editorActive';
 import { useUiConfig } from '../lib/uiConfig';
 import { getScenes } from '../lib/api';
-import { unlockAudio } from '../lib/audio';
+import { playClip, unlockAudio } from '../lib/audio';
+import { resolveAsset } from '../lib/api';
 import { mapPose, setMapGoto } from '../lib/floorMap';
 import type { EditorApi, ViewerState } from '../@types/app.types';
 import type { Viewpoint } from '../@types/viewpoint.types';
@@ -172,8 +173,10 @@ function Stage({ onState, viewerMode }: StageProps) {
   useVisitBeacon(mgr.activeId);
   useSceneTransform(mgr.renderer, mgr.activeId, mgr.unitScale, mgr.baseMatrix);
 
+  // A view with narration plays it as the camera sets off (lib/audio: silent but captioned while muted).
+  const narrate = (vp: Viewpoint) => { const url = vp.audio ? resolveAsset(vp.audio) : null; if (url) playClip(url, vp.transcript || null); };
   const playViewport = useCallback(
-    (vp: Viewpoint) => { setFlying(true); play(vp, { onDone: () => setFlying(false) }); },
+    (vp: Viewpoint) => { setFlying(true); narrate(vp); play(vp, { onDone: () => setFlying(false) }); },
     [play]
   );
   const stopFly = useCallback(() => {
@@ -191,6 +194,7 @@ function Stage({ onState, viewerMode }: StageProps) {
         if (seq.current !== token) return;
         onIndex?.(i);
         setFlying(true);
+        narrate(list[i]);
         play(list[i], {
           onDone: (arrived: boolean) => {
             if (seq.current !== token) return;

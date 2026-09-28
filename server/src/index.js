@@ -10,7 +10,8 @@ import { assetsRouter } from './routes/assets.js';
 import { propertiesRouter } from './routes/properties.js';
 import { teamRouter } from './routes/team.js';
 import { statsRouter } from './routes/stats.js';
-import { sitesRouter } from './routes/sites.js';
+import { conciergeRouter } from './routes/concierge.js';
+import { sitesRouter, publishDue } from './routes/sites.js';
 import { reservationsRouter } from './routes/reservations.js';
 import { fileURLToPath } from 'url';
 import path from 'path';
@@ -43,6 +44,7 @@ app.use('/api/assets', assetsRouter);
 app.use('/api/properties', propertiesRouter);
 app.use('/api/team', teamRouter);
 app.use('/api/stats', statsRouter);
+app.use('/api/concierge', conciergeRouter);
 app.use('/api/sites', reservationsRouter);
 app.use('/api/sites', sitesRouter);
 
@@ -89,3 +91,8 @@ function listen(port, tries = 0) {
   });
 }
 listen(PORT);
+
+// Websites scheduled to go live (routes/sites.js), checked every 30 s.
+const tick = () => publishDue().then((n) => n && console.log(`[sites] published ${n} scheduled website(s)`)).catch((err) => console.warn('[sites] schedule:', err.message));
+setInterval(tick, Number(process.env.SCHEDULE_TICK_MS) || 30000).unref();
+tick();

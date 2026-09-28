@@ -44,11 +44,23 @@
 .rp-table th:first-child, .rp-table td:first-child { text-align: left; }
 .rp-table th { font-size: 12px; color: #666; font-weight: 600; }
 .rp-muted { font-size: 12px; color: #777; }
+.rp-table td.rp-dim { color: #666; text-align: left; }
+
+/* The path to a booking: one bar per step, against the visits. */
+.rp-funnel { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.rp-funnel li { display: grid; grid-template-columns: 210px 1fr 44px 44px; gap: 10px; align-items: center; font-size: 14px; }
+.rp-funnel-label small { display: block; font-size: 11px; color: #777; }
+.rp-funnel-bar { height: 18px; background: #f1f1f3; border-radius: 3px; overflow: hidden; }
+.rp-funnel-bar i { display: block; height: 100%; background: var(--rp-accent); border-radius: 3px; }
+.rp-funnel b { text-align: right; font-variant-numeric: tabular-nums; }
+.rp-funnel-rate { text-align: right; font-size: 12px; color: #666; font-variant-numeric: tabular-nums; }
 
 @media (max-width: 640px) {
   .rp-page { padding: 24px 16px; margin: 0 0 16px; border-radius: 0; }
   .rp-kpis { grid-template-columns: repeat(2, 1fr); }
   .rp-table { font-size: 12px; }
+  .rp-funnel li { grid-template-columns: 1fr 36px 36px; }
+  .rp-funnel-bar { grid-column: 1 / -1; grid-row: 2; }
 }
 
 @media print {
@@ -56,7 +68,7 @@
   html:has(.rp), body:has(.rp), .rp { background: #fff; min-height: 0; }
   .rp-controls { display: none; }
   .rp-page { box-shadow: none; padding: 0; margin: 0; max-width: none; }
-  .rp-head, .rp-bars i { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .rp-head, .rp-bars i, .rp-funnel-bar, .rp-funnel-bar i { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .rp-table tr { break-inside: avoid; }
 }
 

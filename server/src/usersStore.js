@@ -87,6 +87,8 @@ export async function setUserRole(id, role) {
   const all = await readAllUsers();
   const record = all.find((u) => u.id === id);
   if (!record) return null;
+  // A client's staff account, invited to answer one project's guests, never becomes a team account.
+  if (record.role === 'staff') throw Object.assign(new Error('That’s a client staff account. Invite the person with a team account of their own instead.'), { status: 400 });
   if (record.role === 'admin' && role !== 'admin' && all.filter((u) => u.role === 'admin').length <= 1) {
     throw Object.assign(new Error('That is the only admin left — promote someone else first.'), { status: 409 });
   }
@@ -99,7 +101,7 @@ export async function setUserRole(id, role) {
  *  The first account ever created becomes admin (there is no admin yet to
  *  invite anyone); every account after that starts as an editor and an
  *  admin promotes them from the team list. */
-export async function createUser({ name, email, password }) {
+export async function createUser({ name, email, password, role }) {
   await fs.mkdir(USERS_DIR, { recursive: true });
   const isFirstAccount = (await readAllUsers()).length === 0;
   const record = {
@@ -107,7 +109,7 @@ export async function createUser({ name, email, password }) {
     name: String(name).trim(),
     email: normEmail(email),
     passwordHash: await hashPassword(password),
-    role: isFirstAccount ? 'admin' : 'editor',
+    role: isFirstAccount ? 'admin' : role === 'staff' ? 'staff' : 'editor',
     createdAt: new Date().toISOString()
   };
   try {
@@ -127,6 +129,19 @@ export async function createUser({ name, email, password }) {
 /* ------------------------------------------------------------------ */
 
 const RESET_TTL = 24 * 60 * 60 * 1000;
+
+/**
+ * A client's staff account (2026-09-28), made by a project owner's invite:
+ * role 'staff', no password yet (a random one nobody knows), and a one-time
+ * link to set theirs. Staff never sign up with the team's code. Returns the
+ * account and its link, or null if the email already has an account.
+ */
+export async function createStaffAccount({ name, email }) {
+  const user = await createUser({ name, email, password: randomBytes(32).toString('base64url'), role: 'staff' });
+  if (!user) return null;
+  const link = await createResetToken(user.id);
+  return { user, token: link.token, expires: link.expires };
+}
 const sha = (s) => createHash('sha256').update(String(s)).digest('hex');
 
 /** When the password last changed: sessions issued before it are void. */

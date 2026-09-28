@@ -3,17 +3,31 @@
  * live tour — its story, its rooms, photos, floor plan, a menu, and the
  * enquiry form. The tour itself is the published one, embedded as-is. The
  * studio edits a draft; publishing copies it to what the public page reads.
- * Stored as data/sites/<project>.json: { draft, published, publishedAt }.
+ * Stored as data/sites/<project>.json: { draft, published, publishedAt, scheduled? }.
  * Photos are the asset `site_<project>`.
  *
  *   GET  /api/sites/:id           public: the published site, ready to render
  *   GET  /api/sites/:id/draft     studio: the draft, and the project's spaces and viewpoints
  *   PUT  /api/sites/:id/draft     studio: save the draft
  *   POST /api/sites/:id/publish   studio: put the draft live
+ *   POST /api/sites/:id/schedule  studio: { at } put the draft, as it is now, live then
+ *   DELETE /api/sites/:id/schedule  studio: cancel that
+ *
+ * Client review (2026-09-28): a private link to the draft for the client,
+ * who pins comments on it and approves it; no account needed, the link's key
+ * is the pass.
+ *   POST   /api/sites/:id/review                      studio: the review link's key (made once, kept)
+ *   DELETE /api/sites/:id/review                      studio: the link stops working (comments are kept)
+ *   GET    /api/sites/:id/review/feedback             studio: comments, the approval, and whether it's this draft
+ *   PATCH  /api/sites/:id/review/comments/:cid        studio: { resolved }
+ *   GET    /api/sites/:id/review?key=                 the client: the draft, shaped like the public site, and its comments
+ *   POST   /api/sites/:id/review/comments?key=        the client: { name, text, sec, x, y, where }
+ *   POST   /api/sites/:id/review/approve?key=         the client: { name }
  *   POST /api/sites/:id/images    studio: a photo (PNG, JPEG or WebP body) -> { path }
  */
 import { Router } from 'express';
 import express from 'express';
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { Readable } from 'stream';
@@ -68,7 +82,8 @@ export function cleanSite(d, pid) {
         .filter((m) => m.name)
     },
     contact: { title: s(d.contact?.title, 120), body: s(d.contact?.body, 400) },
-    booking: cleanBooking(d.booking, { s, img, id })
+    booking: cleanBooking(d.booking, { s, img, id }),
+    stays: cleanStays(d.stays, { s, img, id })
   };
 }
 
@@ -106,11 +121,51 @@ export const liveBooking = (site) => {
   return b?.on && b.plan && b.tables.length ? b : null;
 };
 
+/** Room booking (stays.js): the hotel's room types, how many of each and
+ *  how many each sleeps, check-in and check-out times, how long a stay may
+ *  be. A site plan is optional; a room with `pin` sits on it at x, y. */
+function cleanStays(b, { s, img, id }) {
+  b = b && typeof b === 'object' ? b : {};
+  const int = (v, lo, hi, dflt) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt; };
+  const frac = (v) => { const n = Number(v); return Number.isFinite(n) ? Math.min(1, Math.max(0, Math.round(n * 10000) / 10000)) : 0.5; };
+  const seen = new Set();
+  const rooms = (Array.isArray(b.rooms) ? b.rooms : []).slice(0, 40).map((r) => ({
+    id: typeof r?.id === 'string' && /^[a-z0-9-]{1,24}$/i.test(r.id) ? r.id : '',
+    label: s(r?.label, 60), units: int(r?.units, 1, 200, 1), sleeps: int(r?.sleeps, 1, 20, 2),
+    price: s(r?.price, 30), per: s(r?.per, 20), features: s(r?.features, 200), image: img(r?.image), area: s(r?.area, 40),
+    pin: r?.pin === true, x: frac(r?.x), y: frac(r?.y), space: id(r?.space), view: id(r?.view)
+  })).filter((r) => r.id && r.label && !seen.has(r.id) && seen.add(r.id));
+  const minNights = int(b.minNights, 1, 30, 1);
+  return {
+    on: b.on === true, plan: img(b.plan), rooms,
+    checkin: TIME.test(b.checkin) ? b.checkin : '14:00', checkout: TIME.test(b.checkout) ? b.checkout : '12:00',
+    days: int(b.days, 1, 365, 180), minNights, maxNights: int(b.maxNights, minNights, 60, Math.max(14, minNights)),
+    maxGuests: int(b.maxGuests, 1, 40, 10),
+    timezone: typeof b.timezone === 'string' && validTimezone(b.timezone) ? b.timezone : 'Asia/Kathmandu',
+    note: s(b.note, 300)
+  };
+}
+
+/** The room booking the public page may use: switched on, with at least one room. */
+export const liveStays = (site) => {
+  const b = site?.stays;
+  return b?.on && b.rooms.length ? b : null;
+};
+
 /** A space the public page may show: published, and in this project. */
 async function ownPublished(pid, space) {
   if (!space) return null;
   const snap = await getPublishedScene(space).catch(() => null);
   return snap && snap.propertyId === pid ? snap : null;
+}
+
+/** The live room booking, its rooms only pointing at this project's published spaces. */
+export async function publicStays(pid, site) {
+  const cfg = liveStays(site);
+  if (!cfg) return null;
+  const rooms = [];
+  for (const r of cfg.rooms) rooms.push((await ownPublished(pid, r.space)) ? r : { ...r, space: '', view: '' });
+  return { ...cfg, rooms };
 }
 
 sitesRouter.get('/:id', wrap(async (req, res) => {
@@ -154,7 +209,7 @@ async function renderSite(p, site, publishedAt) {
 
   return {
     project: { id: p.id, title: p.title, theme: p.theme ?? {}, info: p.info ?? {} },
-    site: { ...site, rooms, booking: liveBooking(site) },
+    site: { ...site, rooms, booking: liveBooking(site), stays: await publicStays(p.id, site) },
     tour: tour && embed ? { space: tour.id, title: tour.title, key: embedKey(tour.id, embed.version) } : null,
     plan,
     publishedAt
@@ -172,7 +227,7 @@ sitesRouter.get('/:id/draft', requireEditorSession, wrap(async (req, res) => {
     spaces.push({ id: s.id, title: s.title ?? s.id, published: !!snap, views: (snap?.tracks ?? []).map((t) => ({ id: t.id, label: t.label })) });
   }
   // cleanSite fills in anything added to the site since this draft was saved
-  res.json({ draft: cleanSite(saved?.draft, p.id), publishedAt: saved?.publishedAt ?? null, spaces });
+  res.json({ draft: cleanSite(saved?.draft, p.id), publishedAt: saved?.publishedAt ?? null, scheduledAt: saved?.scheduled?.at ?? null, spaces });
 }));
 
 sitesRouter.put('/:id/draft', requireEditorSession, wrap(async (req, res) => {
@@ -194,6 +249,171 @@ sitesRouter.post('/:id/publish', requireEditorSession, wrap(async (req, res) => 
   await write(p.id, { ...saved, published: saved.draft, publishedAt });
   await record(req, p.id, 'published the website', p.title);
   res.json({ publishedAt });
+}));
+
+/**
+ * Scheduled publishing (2026-09-28), e.g. a new menu at midnight: the draft
+ * as it is when scheduled goes live at `at` (publishDue, checked every
+ * SCHEDULE_TICK_MS by index.js). Edits after scheduling wait for the next
+ * publish; scheduling again replaces the time and the snapshot.
+ */
+sitesRouter.post('/:id/schedule', requireEditorSession, wrap(async (req, res) => {
+  const p = await visibleProject(req, res);
+  if (!p) return;
+  const at = Date.parse(req.body?.at);
+  if (!Number.isFinite(at) || at <= Date.now()) return res.status(400).json({ error: 'Pick a time in the future.' });
+  if (at > Date.now() + 366 * 86400000) return res.status(400).json({ error: 'Schedule it within a year.' });
+  const saved = await readSite(p.id);
+  if (!saved?.draft) return res.status(409).json({ error: 'Save the website before scheduling it.' });
+  const scheduled = { at: new Date(at).toISOString(), site: saved.draft, by: { id: req.session.sub ?? null, name: req.session.name ?? null } };
+  await write(p.id, { ...saved, scheduled });
+  await record(req, p.id, 'scheduled the website', p.title, `live at ${scheduled.at}`);
+  res.json({ scheduledAt: scheduled.at });
+}));
+
+sitesRouter.delete('/:id/schedule', requireEditorSession, wrap(async (req, res) => {
+  const p = await visibleProject(req, res);
+  if (!p) return;
+  const { scheduled, ...saved } = (await readSite(p.id)) ?? {};
+  if (scheduled) {
+    await write(p.id, saved);
+    await record(req, p.id, 'cancelled the scheduled website', p.title);
+  }
+  res.json({ scheduledAt: null });
+}));
+
+/** Put every website whose time has come live. Returns how many.
+ *  ponytail: a studio save in the same millisecond could write back the old
+ *  file; add a per-project write queue (like reservations.js) if that ever bites. */
+export async function publishDue(now = Date.now()) {
+  let files;
+  try { files = await fs.readdir(SITES_DIR); } catch { return 0; }
+  let done = 0;
+  for (const f of files.filter((x) => x.endsWith('.json'))) {
+    const pid = f.slice(0, -5);
+    const saved = await readSite(pid);
+    if (!saved?.scheduled || Date.parse(saved.scheduled.at) > now) continue;
+    const { scheduled, ...rest } = saved;
+    await write(pid, { ...rest, published: scheduled.site, publishedAt: new Date(now).toISOString() });
+    const by = scheduled.by?.id ? { session: { sub: scheduled.by.id, name: scheduled.by.name } } : { session: null };
+    await record(by, pid, 'published the website on schedule', (await getProperty(pid))?.title ?? pid, `set for ${scheduled.at}`);
+    done += 1;
+  }
+  return done;
+}
+
+/* ---------------------------------------------------------------- client review */
+
+const draftHash = (draft) => createHash('sha1').update(JSON.stringify(draft ?? null)).digest('hex').slice(0, 16);
+const emptyReview = () => ({ key: null, comments: [], approval: null });
+
+/** The site file and its review, if `key` is its link's key (compared in constant time). */
+export async function reviewed(pid, key) {
+  const saved = await readSite(pid);
+  const real = saved?.review?.key;
+  if (!real || typeof key !== 'string' || key.length !== real.length) return null;
+  return timingSafeEqual(Buffer.from(key), Buffer.from(real)) ? saved : null;
+}
+
+sitesRouter.post('/:id/review', requireEditorSession, wrap(async (req, res) => {
+  const p = await visibleProject(req, res);
+  if (!p) return;
+  const saved = (await readSite(p.id)) ?? {};
+  const review = { ...emptyReview(), ...saved.review };
+  if (!review.key) {
+    review.key = randomBytes(24).toString('hex');
+    await write(p.id, { ...saved, review });
+    await record(req, p.id, 'shared the website draft for review', p.title);
+  }
+  res.json({ key: review.key });
+}));
+
+sitesRouter.delete('/:id/review', requireEditorSession, wrap(async (req, res) => {
+  const p = await visibleProject(req, res);
+  if (!p) return;
+  const saved = await readSite(p.id);
+  if (saved?.review?.key) {
+    await write(p.id, { ...saved, review: { ...saved.review, key: null } });
+    await record(req, p.id, 'stopped the review link', p.title);
+  }
+  res.json({ key: null });
+}));
+
+sitesRouter.get('/:id/review/feedback', requireEditorSession, wrap(async (req, res) => {
+  const p = await visibleProject(req, res);
+  if (!p) return;
+  const saved = await readSite(p.id);
+  const review = { ...emptyReview(), ...saved?.review };
+  res.json({
+    key: review.key, comments: review.comments, approval: review.approval,
+    approvedThisDraft: !!review.approval && review.approval.draft === draftHash(cleanSite(saved?.draft, p.id))
+  });
+}));
+
+sitesRouter.patch('/:id/review/comments/:cid', requireEditorSession, wrap(async (req, res) => {
+  const p = await visibleProject(req, res);
+  if (!p) return;
+  const saved = await readSite(p.id);
+  const c = saved?.review?.comments?.find((x) => x.id === req.params.cid);
+  if (!c) return res.status(404).json({ error: 'That comment does not exist.' });
+  c.resolved = req.body?.resolved === true;
+  await write(p.id, saved);
+  res.json(c);
+}));
+
+sitesRouter.get('/:id/review', wrap(async (req, res) => {
+  const p = await getProperty(req.params.id);
+  const saved = p && (await reviewed(p.id, req.query.key));
+  if (!saved) return res.status(404).json({ error: 'This review link doesn’t work any more. Ask for a new one.' });
+  const draft = cleanSite(saved.draft, p.id);
+  res.json({
+    ...(await renderSite(p, draft, saved.publishedAt ?? null)), preview: true,
+    review: { comments: saved.review.comments, approval: saved.review.approval, approvedThisDraft: saved.review.approval?.draft === draftHash(draft) }
+  });
+}));
+
+const REVIEW_RATE = new Map();
+const reviewLimited = (ip) => {
+  const now = Date.now();
+  const list = (REVIEW_RATE.get(ip) || []).filter((t) => now - t < 10 * 60 * 1000);
+  list.push(now);
+  REVIEW_RATE.set(ip, list);
+  return list.length > (Number(process.env.REVIEW_RATE_MAX) || 60);
+};
+const plain = (v, max) => String(v ?? '').replace(/[<>]/g, '').trim().slice(0, max);
+const frac = (v) => { const n = Number(v); return Number.isFinite(n) ? Math.min(1, Math.max(0, Math.round(n * 10000) / 10000)) : 0.5; };
+
+sitesRouter.post('/:id/review/comments', wrap(async (req, res) => {
+  if (reviewLimited(req.ip || 'unknown')) return res.status(429).json({ error: 'That’s a lot of comments at once. Try again in a few minutes.' });
+  const p = await getProperty(req.params.id);
+  const saved = p && (await reviewed(p.id, req.query.key));
+  if (!saved) return res.status(404).json({ error: 'This review link doesn’t work any more. Ask for a new one.' });
+  const text = plain(req.body?.text, 1000), name = plain(req.body?.name, 60);
+  if (!text) return res.status(400).json({ error: 'Write your comment first.' });
+  if (!name) return res.status(400).json({ error: 'Add your name, so the team knows who it’s from.' });
+  const review = { ...emptyReview(), ...saved.review };
+  if (review.comments.length >= 500) return res.status(409).json({ error: 'This draft has 500 comments. Ask the team to resolve some first.' });
+  const c = {
+    id: randomUUID(), name, text, where: plain(req.body?.where, 80),
+    sec: Math.max(0, Math.min(99, Math.round(Number(req.body?.sec)) || 0)), x: frac(req.body?.x), y: frac(req.body?.y),
+    at: new Date().toISOString(), resolved: false
+  };
+  review.comments.push(c);
+  await write(p.id, { ...saved, review });
+  res.status(201).json(c);
+}));
+
+sitesRouter.post('/:id/review/approve', wrap(async (req, res) => {
+  if (reviewLimited(req.ip || 'unknown')) return res.status(429).json({ error: 'Try again in a few minutes.' });
+  const p = await getProperty(req.params.id);
+  const saved = p && (await reviewed(p.id, req.query.key));
+  if (!saved) return res.status(404).json({ error: 'This review link doesn’t work any more. Ask for a new one.' });
+  const name = plain(req.body?.name, 60);
+  if (!name) return res.status(400).json({ error: 'Add your name to approve it.' });
+  const approval = { name, at: new Date().toISOString(), draft: draftHash(cleanSite(saved.draft, p.id)) };
+  await write(p.id, { ...saved, review: { ...emptyReview(), ...saved.review, approval } });
+  await record({ session: { sub: null, name } }, p.id, 'approved the website draft', p.title, 'from the review link');
+  res.json(approval);
 }));
 
 const IMAGE_MAX = 8 * 1024 * 1024;

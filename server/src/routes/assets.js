@@ -21,7 +21,7 @@ import yauzl from 'yauzl';
 import zlib from 'zlib';
 import { Readable, pipeline } from 'stream';
 import { requireEditorSession } from '../middleware/auth.js';
-import { assetGuard } from '../access.js';
+import { assetGuard, refuseStaff } from '../access.js';
 import { recordAsset } from '../activity.js';
 import * as storage from '../storage.js';
 import { buildFloorPlan } from '../floorplan.js';
@@ -72,6 +72,7 @@ async function stagedBytes(assetId, relPath) {
 
 assetsRouter.post('/', requireEditorSession, async (req, res, next) => {
   try {
+    if (await refuseStaff(req, res)) return;
     const assetId = newAssetId();
     await fs.mkdir(path.join(STAGING_DIR, assetId), { recursive: true });
     res.json({ assetId });

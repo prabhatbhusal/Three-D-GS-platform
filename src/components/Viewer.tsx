@@ -1,15 +1,19 @@
 'use client';
 
 import { useEffect, useReducer, useRef, useState } from 'react';
-import { tourSpaces, visibleScenes, dayNightPair, sameTimeOfDay, SCENE_BY_ID, isPublicTour } from '../lib/scenes';
+import { tourSpaces, visibleScenes, dayNightPair, sameTimeOfDay, SCENE_BY_ID, isPublicTour, hasPlaces, placesMap } from '../lib/scenes';
 import { useUiConfig, setUiConfig } from '../lib/uiConfig';
 import { useNavMode, setVisitorMode, visitorMode } from '../lib/navMode';
 import { zoomOrbit, scaleFlySpeed, walkerCfg } from '../lib/walkerConfig';
 import { bookingFor, sceneHasAudio, subscribeDoc } from '../lib/sceneDoc';
-import { safeUrl, getSiteBooking, getSitePreview, type SiteBooking, type SiteTable } from '../lib/api';
+import { safeUrl, getSiteBooking, getSitePreview, getSiteStays, conciergeOn, type ConciergeShow, type SiteBooking, type SiteStays, type SiteTable, type StayRoom } from '../lib/api';
+import { ConciergePanel } from './ConciergePanel';
 import { TableBooking } from './TableBooking';
 import { TableCard } from './TableCard';
+import { RoomBooking } from './RoomBooking';
+import { RoomCard } from './RoomCard';
 import { setMuted, unlockAudio, useSound } from '../lib/audio';
+import { countHotspot, countIntent, type Intent } from '../lib/stats';
 import { closeCurtain, openCurtain } from './Curtain';
 import { FloorMap } from './FloorMap';
 import { TouchControls } from './TouchControls';
@@ -44,20 +48,47 @@ export function Viewer({ state, isTouch, autoStart = false, tour = false }: View
   const [panel, setPanel] = useState<Panel>('views');
   // Book now and Ask about this space are two cards in the same place: one at a time.
   // 'table': the Reserve a table card (like Book now); 'plan': its floor plan, to pick by sight.
-  const [sheet, setSheet] = useState<'book' | 'ask' | 'table' | 'plan' | null>(null);
-  // Table booking from the project's website: the published setup on the tour,
-  // the saved draft in the studio's Preview (which never books). Null when off.
+  // 'room': the Book a room card; 'rooms': every room and the site plan.
+  const [sheet, setSheet] = useState<'book' | 'ask' | 'table' | 'plan' | 'room' | 'rooms' | 'concierge' | null>(null);
+  const [concierge, setConcierge] = useState(false); // the AI concierge is on for this project
+  // Table and room booking from the project's website: the published setup on
+  // the tour, the saved draft in the studio's Preview (which never books). Null when off.
   const pid = state?.activeId ? SCENE_BY_ID[state.activeId]?.propertyId ?? null : null;
   const [tables, setTables] = useState<{ pid: string; booking: SiteBooking } | null>(null);
+  const [stays, setStays] = useState<{ pid: string; stays: SiteStays } | null>(null);
   const [tableId, setTableId] = useState('');
+  const [roomId, setRoomId] = useState('');
   useEffect(() => {
-    if (!pid) { setTables(null); return; }
+    if (!pid) { setTables(null); setStays(null); return; }
     let live = true;
-    const load = isPublicTour() ? getSiteBooking(pid) : getSitePreview(pid).then((s) => s?.site.booking ?? null).catch(() => null);
-    load.then((booking) => { if (live) setTables(booking ? { pid, booking } : null); });
+    const load = isPublicTour()
+      ? Promise.all([getSiteBooking(pid), getSiteStays(pid)])
+      : getSitePreview(pid).then((s) => [s?.site.booking ?? null, s?.site.stays ?? null] as const).catch(() => [null, null] as const);
+    conciergeOn(pid).then((yes) => { if (live) setConcierge(yes); });
+    load.then(([booking, rooms]) => {
+      if (!live) return;
+      setTables(booking ? { pid, booking } : null);
+      setStays(rooms ? { pid, stays: rooms } : null);
+    });
     return () => { live = false; };
   }, [pid]);
   const reserve = (id = '') => { setTableId(id); setSheet('table'); };
+  const showPlace = (s: ConciergeShow) => {
+    if (!state) return;
+    if (s.space !== state.activeId) { wanted.current = { space: s.space, view: s.view }; bumpWanted(); return; }
+    const vp = s.view ? state.viewpoints?.find((v) => v.id === s.view) : undefined;
+    if (vp) state.playViewport(vp);
+    if (s.hotspot) setOpenHs(s.hotspot);
+  };
+  // The path to a booking (monthly report): which card a visitor opened, in which space.
+  useEffect(() => {
+    const intents: Partial<Record<NonNullable<typeof sheet>, Intent>> = { ask: 'enquire', book: 'book', table: 'table', plan: 'table', room: 'room', rooms: 'room' };
+    const intent = sheet ? intents[sheet] : undefined; // the concierge isn't a booking card
+    if (intent && state?.activeId) countIntent(state.activeId, intent);
+  }, [sheet]); // eslint-disable-line react-hooks/exhaustive-deps -- counted as the card opens, in the space it opened in
+  // The room this space shows, when it's one the hotel lets online: "Book this room".
+  const hereRoom = stays?.stays.rooms.find((r) => r.space && r.space === state?.activeId)?.id ?? '';
+  const bookRoom = (id = hereRoom) => { setRoomId(id); setSheet('room'); };
   const [, bump] = useReducer((n) => n + 1, 0);
   useEffect(() => subscribeDoc(bump), []); // booking + hotspot audio arrive with the scene doc
   const nav = useNavMode();
@@ -149,7 +180,10 @@ export function Viewer({ state, isTouch, autoStart = false, tour = false }: View
             panel={panel} setPanel={setPanel}
             bookOpen={sheet === 'book'} onBook={() => setSheet(sheet === 'book' ? null : 'book')}
             reserveOpen={sheet === 'table' || sheet === 'plan'}
-            onReserve={tables ? () => (sheet === 'table' || sheet === 'plan' ? setSheet(null) : reserve()) : undefined} />
+            onReserve={tables ? () => (sheet === 'table' || sheet === 'plan' ? setSheet(null) : reserve()) : undefined}
+            conciergeOpen={sheet === 'concierge'} onConcierge={concierge ? () => setSheet(sheet === 'concierge' ? null : 'concierge') : undefined}
+            stayOpen={sheet === 'room' || sheet === 'rooms'} stayHere={!!hereRoom}
+            onStay={stays ? () => (sheet === 'room' || sheet === 'rooms' ? setSheet(null) : bookRoom()) : undefined} />
           {sheet === 'table' && tables && (
             <TableCard key={tableId} project={tables.pid} booking={tables.booking} venue={ui.brand}
               initialTable={tableId} preview={!isPublicTour()} onClose={() => setSheet(null)}
@@ -171,6 +205,31 @@ export function Viewer({ state, isTouch, autoStart = false, tour = false }: View
                   }} />
               </div>
             </>
+          )}
+          {sheet === 'room' && stays && (
+            <RoomCard key={roomId} project={stays.pid} stays={stays.stays} venue={ui.brand}
+              initialRoom={roomId} preview={!isPublicTour()} onClose={() => setSheet(null)}
+              onOpenAll={(id) => { setRoomId(id); setSheet('rooms'); }} />
+          )}
+          {sheet === 'rooms' && stays && (
+            <>
+              <div className="vw-reserve-scrim" onClick={() => setSheet(null)} />
+              <div className="vw-reserve tb-host" role="dialog" aria-label={t('Book a room')}>
+                <button className="vw-sheet-x" onClick={() => setSheet(null)} aria-label={t('Close')}>✕</button>
+                <h2>{t('Book a room')}</h2>
+                <RoomBooking key={roomId} project={stays.pid} stays={stays.stays} preview={!isPublicTour()} initialRoom={roomId}
+                  onView={(r: StayRoom) => {
+                    // Off to that room's space and view, the way the website's "View in 3D" sends the tour.
+                    setSheet(null);
+                    wanted.current = { space: r.space, view: r.view || undefined };
+                    bumpWanted();
+                  }} />
+              </div>
+            </>
+          )}
+          <NarrationCaption />
+          {sheet === 'concierge' && pid && (
+            <ConciergePanel project={pid} space={state.activeId} venue={ui.brand} onShow={showPlace} onClose={() => setSheet(null)} />
           )}
           {sheet === 'book' && bookingFor(state.activeId)?.enabled && (
             <BookingCard booking={bookingFor(state.activeId)!} place={state.activeName} onClose={() => setSheet(null)} />
@@ -195,6 +254,7 @@ export function Viewer({ state, isTouch, autoStart = false, tour = false }: View
           {controllable && (
             <HotspotMarkers sceneId={state.activeId} mode="view" onOpen={(id) => {
               setOpenHs(id);
+              countHotspot(state.activeId, id);
               const hs = hotspotsFor(state.activeId).find((h) => h.id === id);
               setLastHs({ sceneId: state.activeId, id, label: hs?.label ?? id });
             }} />
@@ -291,6 +351,7 @@ const Icon = {
   fly: <svg viewBox="0 0 24 24"><path d="M3 18c4-9 9-12 18-12" /><path d="M16 3l5 3-3 5" /></svg>,
   orbit: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.5" /><path d="M20 12a8 8 0 1 1-2.34-5.66" /><path d="M20 4v4h-4" /></svg>,
   plus: <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>,
+  chat: <svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4V5Z" /><path d="M8 9.5h8M8 12.5h5" /></svg>,
   close: <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" /></svg>,
   chevL: <svg viewBox="0 0 24 24"><path d="m15 5-7 7 7 7" /></svg>,
   chevR: <svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7" /></svg>,
@@ -318,10 +379,14 @@ function IconBtn({ label, on, onClick, children }: { label: string; on?: boolean
   );
 }
 
-function TopChrome({ state, showBrand, brand, hd, canExit, panel, setPanel, bookOpen, onBook, reserveOpen, onReserve }: {
+function TopChrome({ state, showBrand, brand, hd, canExit, panel, setPanel, bookOpen, onBook, reserveOpen, onReserve, stayOpen, stayHere, onStay, conciergeOpen, onConcierge }: {
   state: ViewerState; showBrand: boolean; brand: string; hd: boolean; canExit: boolean;
   panel: Panel; setPanel: (p: Panel) => void; bookOpen: boolean; onBook: () => void;
   reserveOpen: boolean; onReserve?: () => void;
+  /** Room booking on the website: its card is open; this space is one of its rooms. */
+  stayOpen: boolean; stayHere: boolean; onStay?: () => void;
+  /** The AI concierge, when it's on for this project. */
+  conciergeOpen: boolean; onConcierge?: () => void;
 }) {
   const [full, setFull] = useState(false);
   const { logo } = useUiConfig();
@@ -336,7 +401,8 @@ function TopChrome({ state, showBrand, brand, hd, canExit, panel, setPanel, book
   const booking = bookingFor(state.activeId);
   const pair = dayNightPair(state.activeId);
   const atNight = pair?.night === state.activeId;
-  const bookHref = booking?.enabled ? safeUrl(booking.url) : null;
+  // Rooms booked here, through the website, take over from a Book now link to the hotel's own page.
+  const bookHref = booking?.enabled && !onStay ? safeUrl(booking.url) : null;
 
   return (
     <>
@@ -345,6 +411,7 @@ function TopChrome({ state, showBrand, brand, hd, canExit, panel, setPanel, book
         {showBrand && logo && <img className="vw-place-logo" src={logo} alt={brand} />}
         {showBrand && <span className="vw-place-brand">{brand}</span>}
         <span className="vw-place-name">{state.activeName}</span>
+        <PlacePicker state={state} />
       </div>
 
       <div className="vw-tr">
@@ -365,6 +432,7 @@ function TopChrome({ state, showBrand, brand, hd, canExit, panel, setPanel, book
             {sound.muted ? Icon.soundOff : Icon.soundOn}
           </IconBtn>
         )}
+        {onConcierge && <IconBtn label={t('Ask the concierge')} on={conciergeOpen} onClick={onConcierge}>{Icon.chat}</IconBtn>}
         <LangPicker className="vw-hd" />
         <button className={`vw-hd ${hd ? 'on' : ''}`} onClick={() => setHd(!hd)} aria-pressed={hd}
           title={hd ? t('Full resolution. Tap for a lighter view.') : t('Lighter view. Tap for full resolution.')}>HD</button>
@@ -377,6 +445,12 @@ function TopChrome({ state, showBrand, brand, hd, canExit, panel, setPanel, book
           // Opens the booking card; the card links on to the hotel's own page.
           <button className={`vw-book ${bookOpen ? 'on' : ''}`} onClick={onBook} aria-expanded={bookOpen}>
             {booking!.label.trim() || t('Book now')}
+          </button>
+        )}
+        {onStay && (
+          // The project's room booking, over the tour (RoomCard); in a room that's for let, that room.
+          <button className={`vw-book ${stayOpen ? 'on' : ''}`} onClick={onStay} aria-expanded={stayOpen}>
+            {stayHere ? t('Book this room') : t('Book a room')}
           </button>
         )}
         {onReserve && (
@@ -505,10 +579,13 @@ function FlyBar({ state, mode }: { state: ViewerState; mode: 'orbit' | 'fly' }) 
  * Phones use the Spaces button instead — there's no room for a rail.
  */
 function LayersRail({ state }: { state: ViewerState }) {
-  const spaces = tourSpaces();
   const t = useT();
-  if (spaces.length < 2) return null;
   const here = dayNightPair(state.activeId)?.day ?? state.activeId; // a night version shows as its day space
+  // On a site with buildings or floors, the rail lists this floor's spaces; PlacePicker changes floor.
+  const spaces = hasPlaces()
+    ? tourSpaces().filter((s) => (s.building ?? '') === (SCENE_BY_ID[here]?.building ?? '') && (s.floor ?? '') === (SCENE_BY_ID[here]?.floor ?? ''))
+    : tourSpaces();
+  if (spaces.length < 2) return null;
   const at = Math.max(0, spaces.findIndex((s) => s.id === here));
   return (
     <nav className="vw-layers" aria-label={t('Spaces')} style={{ '--at': at } as React.CSSProperties}>
@@ -615,21 +692,67 @@ function BottomChrome({ state, showLabels, mode, trayOpen, onToggleTray }: {
   );
 }
 
+/**
+ * Buildings and floors (2026-09-28), for campuses and large hotels: which
+ * building you're in (a choice when there are several) and its floors as
+ * lift buttons, top floor first. Picking one goes to that floor's first
+ * space, at the same time of day. Hidden on a site that has neither.
+ */
+function PlacePicker({ state }: { state: ViewerState }) {
+  const t = useT();
+  if (!hasPlaces()) return null;
+  const here = dayNightPair(state.activeId)?.day ?? state.activeId;
+  const map = placesMap();
+  const b = map.find((x) => x.name === (SCENE_BY_ID[here]?.building ?? '')) ?? map[0];
+  const floor = SCENE_BY_ID[here]?.floor ?? '';
+  const go = (to?: { id: string }) => { if (to && to.id !== here && !state.loading) state.select(sameTimeOfDay(state.activeId, to.id)); };
+  return (
+    <span className="vw-places" aria-label={t('Where you are')}>
+      {map.length > 1 && (
+        <select value={b.name} aria-label={t('Building')} disabled={state.loading}
+          onChange={(e) => go(map.find((x) => x.name === e.target.value)?.floors[0]?.spaces[0])}>
+          {map.map((x) => <option key={x.name} value={x.name}>{x.name || t('Other spaces')}</option>)}
+        </select>
+      )}
+      {b.floors.length > 1 && (
+        <span className="vw-floors" role="group" aria-label={t('Floors')}>
+          {[...b.floors].reverse().map((f) => (
+            <button key={f.name} type="button" className={f.name === floor ? 'on' : ''} aria-current={f.name === floor ? 'true' : undefined}
+              disabled={state.loading} onClick={() => go(f.spaces[0])}>{f.name || t('Other spaces')}</button>
+          ))}
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** A view's narration, in words, while it plays: for everyone, sound on or off. */
+function NarrationCaption() {
+  const sound = useSound();
+  if (!sound.playing || !sound.caption) return null;
+  return <p className="vw-caption" role="status" aria-live="polite">{sound.caption}</p>;
+}
+
 function SpacesPanel({ state, onClose }: { state: ViewerState; onClose: () => void }) {
   const t = useT();
   return (
     <div className="vw-pop vw-pop-spaces" role="dialog" aria-label={t('Spaces')}>
       <p className="vw-pop-title">{t('Spaces')}</p>
-      {tourSpaces().map((s) => (
-        <button key={s.id} className={`vw-space ${s.id === (dayNightPair(state.activeId)?.day ?? state.activeId) ? 'on' : ''}`}
-          disabled={state.loading} onClick={() => { state.select(sameTimeOfDay(state.activeId, s.id)); onClose(); }}>
-          <span className="vw-space-tile" aria-hidden>{s.name.trim()[0]}</span>
-          <span className="vw-space-txt">
-            <span className="vw-space-nm">{s.name}</span>
-            {s.tagline && <span className="vw-space-sub">{s.tagline}</span>}
-          </span>
-        </button>
-      ))}
+      {placesMap().flatMap((b) => b.floors.map((f) => (
+        <div key={`${b.name}/${f.name}`} className="vw-space-group">
+          {hasPlaces() && (b.name || f.name) && <p className="vw-space-where">{[b.name, f.name].filter(Boolean).join(' · ')}</p>}
+          {f.spaces.map((s) => (
+            <button key={s.id} className={`vw-space ${s.id === (dayNightPair(state.activeId)?.day ?? state.activeId) ? 'on' : ''}`}
+              disabled={state.loading} onClick={() => { state.select(sameTimeOfDay(state.activeId, s.id)); onClose(); }}>
+              <span className="vw-space-tile" aria-hidden>{s.name.trim()[0]}</span>
+              <span className="vw-space-txt">
+                <span className="vw-space-nm">{s.name}</span>
+                {s.tagline && <span className="vw-space-sub">{s.tagline}</span>}
+              </span>
+            </button>
+          ))}
+        </div>
+      )))}
     </div>
   );
 }

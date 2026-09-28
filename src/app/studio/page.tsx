@@ -91,7 +91,7 @@ export default function StudioPage() {
               <h1>Projects</h1>
               <p className="pl-sub">One per client: a hotel, a college, a campus. Each keeps its own spaces.</p>
             </div>
-            {properties && <NewProjectButton />}
+            {properties && me?.role !== 'staff' && <NewProjectButton />}
           </div>
 
           {error && (
@@ -196,6 +196,26 @@ It becomes yours: from then on only you, and whoever you share it with, can see 
     );
   }
 
+  // The client's staff: its enquiries, reservations and report, nothing to edit.
+  if (project.access === 'staff') {
+    const base = `/studio/${encodeURIComponent(project.id)}`;
+    return (
+      <div className="pl-card pl-card-staff">
+        <span className="pl-card-tile" aria-hidden>{project.title.trim()[0]}</span>
+        <span className="pl-card-txt">
+          <a className="pl-card-title pl-card-link" href={`${base}/reservations`}>{project.title}</a>
+          <span className="pl-card-meta"><span className="pl-tag">Staff</span> Enquiries, reservations and the report</span>
+        </span>
+        <span className="pl-staff-links">
+          <button className="pl-btn" onClick={() => setLeads(true)}>Enquiries</button>
+          <a className="pl-btn" href={`${base}/reservations`}>Reservations</a>
+          <a className="pl-btn" href={`${base}/report`} target="_blank" rel="noopener">Report ↗</a>
+        </span>
+        {leads && <EnquiriesDialog project={project} canEdit={false} onClose={() => setLeads(false)} />}
+      </div>
+    );
+  }
+
   const remove = async () => {
     setMenu(false);
     const spaces = count === 1 ? 'Its 1 space moves' : `Its ${count} spaces move`;
@@ -266,6 +286,9 @@ It becomes yours: from then on only you, and whoever you share it with, can see 
 function ShareDialog({ project, onClose }: { project: Property; onClose: () => void }) {
   const [detail, setDetail] = useState<Property | null>(null);
   const [email, setEmail] = useState('');
+  const [as, setAs] = useState<'member' | 'staff'>('member');
+  const [name, setName] = useState('');
+  const [invite, setInvite] = useState<{ who: string; link: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -279,7 +302,9 @@ function ShareDialog({ project, onClose }: { project: Property; onClose: () => v
     setBusy(true);
     setError('');
     try {
-      await addPropertyMember(project.id, clean);
+      const r = await addPropertyMember(project.id, clean, as, name.trim());
+      setInvite(r?.invite ? { who: name.trim() || clean, link: `${location.origin}${r.invite.path}` } : null);
+      setName('');
       setEmail('');
       load();
     } catch (err) {
@@ -307,11 +332,11 @@ function ShareDialog({ project, onClose }: { project: Property; onClose: () => v
             {detail?.ownerName ? <>Owned by <b>{detail.ownerName}</b>.</> : 'No owner set — every teammate can already manage it.'}
             {' '}Add someone below to give them access without making them the owner.
           </p>
-          {!!detail?.memberDetails?.length && (
+          {[...(detail?.memberDetails ?? []).map((u) => ({ ...u, staff: false })), ...(detail?.staffDetails ?? []).map((u) => ({ ...u, staff: true }))].length > 0 && (
             <ul className="pl-share-list">
-              {detail.memberDetails.map((u) => (
+              {[...(detail?.memberDetails ?? []).map((u) => ({ ...u, staff: false })), ...(detail?.staffDetails ?? []).map((u) => ({ ...u, staff: true }))].map((u) => (
                 <li key={u.id}>
-                  <span>{u.name} <span className="pl-sub">{u.email}</span></span>
+                  <span>{u.name} <span className="pl-sub">{u.email}</span> {u.staff && <span className="pl-tag">Staff</span>}</span>
                   <button type="button" onClick={() => remove(u.id)} aria-label={`Remove ${u.name}`}>✕</button>
                 </li>
               ))}
@@ -319,11 +344,29 @@ function ShareDialog({ project, onClose }: { project: Property; onClose: () => v
           )}
           <form onSubmit={add} className="pl-share-form">
             <input
-              type="email" required placeholder="teammate@geonova.com.np" value={email}
+              type="email" required placeholder={as === 'staff' ? 'frontdesk@thehotel.com' : 'teammate@geonova.com.np'} value={email}
               onChange={(e) => setEmail(e.target.value)} disabled={busy}
             />
+            {as === 'staff' && <input placeholder="Their name" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} disabled={busy} aria-label="Their name" />}
+            <select value={as} onChange={(e) => setAs(e.target.value as 'member' | 'staff')} aria-label="Access" disabled={busy}>
+              <option value="member">Full access</option>
+              <option value="staff">Client staff</option>
+            </select>
             <button className="pl-btn pl-btn-main" type="submit" disabled={busy}>{busy ? 'Adding…' : 'Add'}</button>
           </form>
+          <p className="pl-sub">
+            {as === 'staff'
+              ? 'Client staff, such as a restaurant’s host or a hotel’s front desk, see only this project’s enquiries, reservations and monthly report. They can confirm and decline bookings, and can’t change anything else.'
+              : 'Full access: they can edit the spaces and the website, but only you can rename, delete or share the project.'}
+            {as === 'staff' ? ' New to the studio? They get an account, and you get a link to send them.' : ' They need an account first.'}
+          </p>
+          {invite && (
+            <div className="pl-invite" role="status">
+              <p>Send <b>{invite.who}</b> this link to set their password (it works once, for 24 hours):</p>
+              <input readOnly value={invite.link} onFocus={(e) => e.target.select()} aria-label="Invite link" />
+              <button type="button" className="pl-btn" onClick={() => navigator.clipboard?.writeText(invite.link)}>Copy</button>
+            </div>
+          )}
           {error && <p className="ed2-warn ed2-fine">{error}</p>}
         </div>
       </div>

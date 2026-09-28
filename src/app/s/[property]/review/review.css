@@ -1,0 +1,38 @@
+/* The client's review of a website draft (review/page.tsx): pins over the page, a bar at the bottom. */
+.rv { position: relative; padding-bottom: 88px; }
+.rv.is-commenting .ws, .rv.is-commenting .ws * { cursor: crosshair !important; }
+.rv-note { padding: 24px; font: 16px system-ui, sans-serif; }
+
+.rv-pins { position: absolute; inset: 0; pointer-events: none; z-index: 30; }
+.rv-pin { position: absolute; pointer-events: auto; translate: -50% -50%; font: 14px/1.4 system-ui, sans-serif; }
+.rv-pin > button, .rv-pin > span {
+  display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 2px solid #fff; border-radius: 50% 50% 50% 4px;
+  background: #e5484d; color: #fff; font: 700 13px system-ui, sans-serif; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35); cursor: pointer;
+}
+.rv-pin.is-resolved > button { background: #8a8f98; opacity: 0.7; }
+.rv-pin.is-new > span { background: #1d1d1f; }
+.rv-bubble {
+  position: absolute; left: 22px; top: 22px; width: min(300px, 78vw); display: grid; gap: 8px; padding: 12px 14px;
+  border-radius: 12px; background: #fff; color: #1d1d1f; box-shadow: 0 12px 36px rgba(0, 0, 0, 0.28);
+}
+.rv-bubble p { margin: 0; white-space: pre-wrap; }
+.rv-bubble small { color: #777; }
+.rv-bubble input, .rv-bubble textarea {
+  width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #d0d0d5; border-radius: 8px; font: inherit; color: inherit; background: #fff;
+}
+.rv-row { display: flex; gap: 8px; justify-content: flex-end; }
+.rv button { font: 600 13px system-ui, sans-serif; }
+.rv-row button, .rv-bar button {
+  padding: 8px 14px; border-radius: 999px; border: 1px solid #c8c8cc; background: #fff; color: #1d1d1f; cursor: pointer;
+}
+.rv .rv-main { background: #1d1d1f; border-color: #1d1d1f; color: #fff; }
+.rv-err { margin: 0; color: #b3261e; font: 13px system-ui, sans-serif; }
+
+.rv-bar {
+  position: fixed; left: 50%; bottom: 16px; translate: -50% 0; z-index: 60; width: min(880px, calc(100vw - 24px)); box-sizing: border-box;
+  display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; padding: 12px 16px; border-radius: 16px;
+  background: rgba(255, 255, 255, 0.96); color: #1d1d1f; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3); font: 14px system-ui, sans-serif;
+}
+.rv-title { flex: 1 1 220px; }
+.rv-title small { display: block; color: #666; }
+.rv-approved { color: #1a7f37; font-weight: 600; }

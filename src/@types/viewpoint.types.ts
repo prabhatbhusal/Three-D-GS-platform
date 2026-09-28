@@ -11,6 +11,9 @@ export interface Viewpoint {
   path: PathWaypoint[];
   thumb?: string;
   fov?: number;
+  /** Narration played on arriving here (an asset path), and its words. */
+  audio?: string;
+  transcript?: string;
   /** Set only on entries saved this session, so the editor knows what's editable. */
   session?: boolean;
 }

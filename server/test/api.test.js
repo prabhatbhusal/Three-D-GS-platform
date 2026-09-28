@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
 import { siteAllowed, siteOf } from '../src/routes/embed.js';
+import { phoneOf } from '../src/notify.js';
 import { startFakeS3 } from './fakeS3.js';
 
 // api-s3.test.js runs this whole suite again with uploads stored in a (fake) S3 bucket.
@@ -41,8 +42,24 @@ const mailServer = http.createServer((req, res) => {
   });
 });
 
+// And for SMS (Sparrow) and WhatsApp (Meta): records each message's path, headers and body.
+const texts = [];
+// ...and Anthropic's Messages API for the concierge: answers with `modelReply`.
+let modelReply = { answer: '' };
+const textServer = http.createServer((req, res) => {
+  let body = '';
+  req.on('data', (c) => { body += c; });
+  req.on('end', () => {
+    texts.push({ url: req.url, auth: req.headers.authorization, key: req.headers['x-api-key'], body: req.headers['content-type']?.includes('json') ? JSON.parse(body) : Object.fromEntries(new URLSearchParams(body)) });
+    const reply = req.url === '/anthropic' ? { content: [{ type: 'tool_use', name: 'reply', input: modelReply }] } : {};
+    res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(reply));
+  });
+});
+
 before(async () => {
   await new Promise((r) => mailServer.listen(0, '127.0.0.1', r));
+  await new Promise((r) => textServer.listen(0, '127.0.0.1', r));
+  const textUrl = `http://127.0.0.1:${textServer.address().port}`;
   PORT = await freePort();
   BASE = `http://127.0.0.1:${PORT}`;
   if (USE_S3) s3 = await startFakeS3(S3);
@@ -60,10 +77,14 @@ before(async () => {
       LEADS_RATE_MAX: '100',
       STATS_RATE_MAX: '1000',
       RESERVE_RATE_MAX: '100',
+      SCHEDULE_TICK_MS: '200', // scheduled websites go live within a fifth of a second
       RESEND_API_KEY: 'test-mail-key',
       RESEND_API_URL: `http://127.0.0.1:${mailServer.address().port}/emails`,
       LEADS_TO: '',
       CLIENT_ORIGIN: 'http://localhost:3000',
+      SMS_TOKEN: 'test-sms-token', SMS_FROM: 'TestHotel', SMS_API_URL: `${textUrl}/sms/`,
+      WHATSAPP_TOKEN: 'test-wa-token', WHATSAPP_PHONE_ID: '1234', WHATSAPP_API_URL: `${textUrl}/wa`, WHATSAPP_TEMPLATE: '',
+      ANTHROPIC_API_KEY: 'test-anthropic-key', ANTHROPIC_API_URL: `${textUrl}/anthropic`, CONCIERGE_MODEL: 'test-model',
       ...(s3 ? {
         ASSET_DRIVER: 's3', S3_ENDPOINT: s3.url, S3_BUCKET: S3.bucket, S3_REGION: 'auto',
         S3_ACCESS_KEY_ID: S3.accessKeyId, S3_SECRET_ACCESS_KEY: S3.secretAccessKey
@@ -86,6 +107,7 @@ before(async () => {
 
 after(() => {
   mailServer.close();
+  textServer.close();
   s3?.close();
   server?.kill();
   rmSync(DATA, { recursive: true, force: true });
@@ -321,6 +343,88 @@ test('sharing a project adds a member who can then see and manage it, until remo
   assert.equal((await api('GET', `/api/properties/${id}`)).status, 404, 'access revoked');
 });
 
+test('a client\'s staff answer enquiries and bookings and read the report, and reach nothing else', async () => {
+  const owner = await signUpUser('Staff Owner', 'staffowner@geonova.com.np');
+
+  cookie = owner.cookie;
+  const pid = (await api('POST', '/api/properties', { title: 'Himal Staff Cafe' })).json.id;
+  await api('PUT', '/api/scenes/himal-hall', sceneDoc('himal-hall', { propertyId: pid }));
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(32, 3)]);
+  const plan = (await api('POST', `/api/sites/${pid}/images`, new Uint8Array(png), { 'Content-Type': 'application/octet-stream' })).json.path;
+  await api('PUT', `/api/sites/${pid}/draft`, {
+    booking: { on: true, plan, timezone: 'UTC', first: '18:00', last: '20:00', tables: [{ id: 't1', label: 'T1', seats: 4, x: 0.5, y: 0.5 }] }
+  });
+  await api('POST', `/api/sites/${pid}/publish`);
+  // invited, not signed up: the team's code is never given to a client. A new email gets a
+  // staff account and a one-time link to set its password.
+  const added = await api('POST', `/api/properties/${pid}/members`, { email: 'host@himalcafe.test', as: 'staff', name: 'Restaurant Host' });
+  assert.equal(added.status, 200);
+  assert.match(added.json.invite.path, /^\/login\?reset=[\w-]{20,}$/);
+  const token = added.json.invite.path.split('reset=')[1];
+  const again = await api('POST', `/api/properties/${pid}/members`, { email: 'host@himalcafe.test', as: 'staff' });
+  assert.equal(again.json.invite, undefined, 'a link only when the account is made');
+  assert.equal((await api('POST', `/api/properties/${pid}/members`, { email: 'host@himalcafe.test' })).status, 400, 'a staff account is never a full member');
+  assert.equal((await api('POST', `/api/properties/${pid}/members`, { email: 'nobody@nowhere.test' })).status, 404, 'full members still need an account');
+  cookie = '';
+  const set = await api('POST', '/api/auth/reset', { token, password: 'host-password-9' });
+  assert.equal(set.status, 200);
+  const host = { user: set.json.user, cookie: set.headers.get('set-cookie').split(';')[0] };
+  assert.equal(host.user.role, 'staff');
+  cookie = owner.cookie;
+  assert.deepEqual([added.json.staff, added.json.members], [[host.user.id], []]);
+  assert.deepEqual((await api('GET', `/api/properties/${pid}`)).json.staffDetails.map((u) => u.email), ['host@himalcafe.test']);
+
+  // a guest books a table and sends an enquiry
+  cookie = '';
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const booked = await api('POST', `/api/sites/${pid}/reservations`, {
+    table: 't1', date: tomorrow, time: '19:00', party: 2, name: 'Guest', phone: '9800000003', formRenderedAt: Date.now() - 5000
+  });
+  assert.equal(booked.status, 201);
+  const asked = await api('POST', '/api/leads', { sceneId: 'himal-hall', name: 'Asker', phone: '9800000004', message: 'Parking?', formRenderedAt: Date.now() - 5000 });
+  assert.ok(asked.json.id, 'the enquiry is stored');
+
+  cookie = host.cookie;
+  const list = (await api('GET', '/api/properties')).json;
+  const mine = list.find((p) => p.id === pid);
+  assert.equal(mine.access, 'staff');
+  assert.deepEqual([mine.members, mine.staff, mine.spaceCount], [[], [], 0], 'no one’s details, no spaces');
+  assert.deepEqual(Object.keys((await api('GET', `/api/properties/${pid}`)).json).sort(), ['access', 'id', 'members', 'ownerId', 'spaceCount', 'staff', 'theme', 'title']);
+  // what they're there for
+  const inbox = await api('GET', `/api/sites/${pid}/reservations`);
+  assert.equal(inbox.status, 200);
+  assert.equal((await api('PATCH', `/api/sites/${pid}/reservations/${inbox.json.reservations[0].id}`, { status: 'confirmed' })).json.status, 'confirmed');
+  assert.equal((await api('GET', `/api/properties/${pid}/leads`)).json.leads.length, 1);
+  assert.equal((await api('GET', `/api/properties/${pid}/leads.csv`)).status, 200);
+  assert.equal((await api('GET', `/api/properties/${pid}/report`)).status, 200);
+  // and nothing else: the spaces, the website, the settings, the log
+  assert.ok(!(await api('GET', '/api/scenes')).json.some((s) => s.id === 'himal-hall'), 'no spaces in their list');
+  for (const [method, url, body] of [
+    ['GET', '/api/scenes/himal-hall'], ['PUT', '/api/scenes/himal-hall', sceneDoc('himal-hall', { propertyId: pid })],
+    ['GET', `/api/sites/${pid}/draft`], ['PUT', `/api/sites/${pid}/draft`, {}], ['POST', `/api/sites/${pid}/publish`],
+    ['GET', `/api/sites/${pid}/preview`], ['GET', `/api/properties/${pid}/activity`],
+    ['PATCH', `/api/properties/${pid}`, { title: 'Mine now' }], ['PUT', `/api/properties/${pid}/theme`, { accent: '#000000' }],
+    ['POST', `/api/properties/${pid}/members`, { email: 'host@himalcafe.test' }], ['DELETE', `/api/properties/${pid}`],
+    // nothing of their own either: no projects, no spaces, no uploads, no claiming
+    ['POST', '/api/properties', { title: 'Host Side Project' }], ['PUT', '/api/scenes/host-space', sceneDoc('host-space')],
+    ['POST', '/api/assets'], ['GET', '/api/team']
+  ]) {
+    const r = await api(method, url, body);
+    assert.ok([403, 404].includes(r.status), `${method} ${url} answered ${r.status}`);
+  }
+  assert.ok(!(await api('GET', '/api/properties')).json.some((p) => p.claimable), 'no projects from before accounts to claim');
+
+  signIn(); // the team's admin can't make a client's staff account a team account
+  assert.equal((await api('PATCH', `/api/team/${host.user.id}/role`, { role: 'admin' })).status, 400);
+
+  // removed: back to nothing
+  cookie = owner.cookie;
+  await api('DELETE', `/api/properties/${pid}/members/${host.user.id}`);
+  cookie = host.cookie;
+  assert.equal((await api('GET', `/api/sites/${pid}/reservations`)).status, 404);
+  assert.ok(!(await api('GET', '/api/properties')).json.some((p) => p.id === pid));
+});
+
 test('a project\'s spaces and their files are only for people who can see the project', async () => {
   const owner = await signUpUser('Space Owner', 'space-owner@geonova.com.np');
   const outsider = await signUpUser('Outsider', 'outsider@geonova.com.np');
@@ -516,7 +620,8 @@ test('an enquiry is filed to its project, emailed to its people, and exports to 
 test('tour visits and time are counted per space, and the monthly report adds enquiries', async () => {
   signIn();
   const pid = (await api('POST', '/api/properties', { title: 'Report Hotel' })).json.id;
-  await api('PUT', '/api/scenes/report-lobby', sceneDoc('report-lobby', { propertyId: pid, title: 'Lobby' }));
+  const hs = (id, label) => ({ id, type: 'text', label, position: [0, 1, 0] });
+  await api('PUT', '/api/scenes/report-lobby', sceneDoc('report-lobby', { propertyId: pid, title: 'Lobby', hotspots: [hs('hs-bar', 'The bar'), hs('hs-pool', 'Pool view')] }));
   await api('PUT', '/api/scenes/report-draft', sceneDoc('report-draft', { propertyId: pid, title: 'Not published' }));
   assert.equal((await api('POST', '/api/scenes/report-lobby/publish')).status, 200);
 
@@ -527,12 +632,20 @@ test('tour visits and time are counted per space, and the monthly report adds en
     beacon({ space: 'report-lobby', seconds: 95 }),
     beacon({ space: 'report-lobby', seconds: 99999 }), // capped at 30 min
     beacon({ space: 'report-draft', visit: true }), // not published: not counted
-    beacon({ space: '../etc', visit: true })
+    beacon({ space: '../etc', visit: true }),
+    // the path to a booking
+    beacon({ space: 'report-lobby', hotspot: 'hs-pool', first: true }),
+    beacon({ space: 'report-lobby', hotspot: 'hs-pool' }),
+    beacon({ space: 'report-lobby', hotspot: 'hs-bar' }),
+    beacon({ space: 'report-lobby', hotspot: 'made-up', first: true }), // not in the space: not counted
+    beacon({ space: 'report-lobby', intent: 'enquire' }),
+    beacon({ space: 'report-lobby', intent: 'room' }),
+    beacon({ space: 'report-lobby', intent: 'teleport' })
   ]);
   assert.ok(all.every((r) => r.status === 204));
   await fetch(`${BASE}/api/leads`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: 'Ravi', phone: '9800000000', sceneId: 'report-lobby', formRenderedAt: Date.now() - 5000 })
+    body: JSON.stringify({ name: 'Ravi', phone: '9800000000', sceneId: 'report-lobby', hotspotId: 'hs-pool', hotspotLabel: 'Pool view', formRenderedAt: Date.now() - 5000 })
   });
   await new Promise((r) => setTimeout(r, 150)); // beacons are counted after the reply
 
@@ -543,6 +656,11 @@ test('tour visits and time are counted per space, and the monthly report adds en
   assert.deepEqual([lobby.title, lobby.visits, lobby.enquiries], ['Lobby', 2, 1]);
   assert.equal(r.spaces.find((s) => s.id === 'report-draft').visits, 0);
   assert.equal(Object.values(r.days).reduce((a, b) => a + b, 0), 2);
+  assert.deepEqual(r.funnel, {
+    visits: 2, engaged: 1, intent: { enquire: 1, room: 1 }, intents: 2, enquiries: 1,
+    requests: { tables: 0, rooms: 0 }, confirmed: { tables: 0, rooms: 0 }
+  });
+  assert.deepEqual(r.hotspots.map((h) => [h.label, h.spaceTitle, h.opens, h.enquiries]), [['Pool view', 'Lobby', 2, 1], ['The bar', 'Lobby', 1, 0]]);
   assert.equal((await api('GET', `/api/properties/${pid}/report?month=2026-13`)).status, 400);
   cookie = '';
   assert.equal((await api('GET', `/api/properties/${pid}/report`)).status, 401);
@@ -682,6 +800,17 @@ test('publish warns when hotspot audio has no transcript', async () => {
   await api('PUT', '/api/scenes/talky', sceneDoc('talky', { hotspots: [hs('Welcome to the bar.')] }));
   r = await api('GET', '/api/scenes/talky/publish');
   assert.doesNotMatch(r.json.warnings.join(' '), /transcript/);
+
+  // narration on a camera track: the same, and it's kept through a save
+  const track = (transcript) => ({ id: 'walk', label: 'Walk in', keyframes: [{ t: 0, position: [0, 1.6, 0], target: [0, 1.6, -1], easing: 'easeInOutCubic' }],
+    cues: [], audio: 'asset://ast_n/walk.m4a', seconds: 4, ...(transcript === undefined ? {} : { transcript }) });
+  await api('PUT', '/api/scenes/talky', sceneDoc('talky', { hotspots: [hs('Welcome to the bar.')], tracks: [track()] }));
+  r = await api('GET', '/api/scenes/talky/publish');
+  assert.match(r.json.warnings.join(' '), /"Walk in" has narration but no transcript/);
+  await api('PUT', '/api/scenes/talky', sceneDoc('talky', { hotspots: [hs('Welcome to the bar.')], tracks: [track('This is the entrance.')] }));
+  const saved = (await api('GET', '/api/scenes/talky')).json.tracks[0];
+  assert.deepEqual([saved.audio, saved.transcript], ['asset://ast_n/walk.m4a', 'This is the entrance.']);
+  assert.doesNotMatch((await api('GET', '/api/scenes/talky/publish')).json.warnings.join(' '), /transcript/);
 });
 
 /* ---------------------------------------------------------------- */
@@ -1047,6 +1176,280 @@ test('table booking: availability, one table per time, any table, the studio con
   signIn();
   assert.equal((await api('PATCH', `/api/sites/${pid}/reservations/${id}`, { status: 'confirmed' })).status, 409);
   assert.equal((await api('PATCH', `/api/sites/${pid}/reservations/${id}`, { status: 'eaten' })).status, 400);
+});
+
+test('room booking: rooms left per night, check-out day free, big parties take more rooms, the studio confirms or declines', async () => {
+  signIn();
+  const pid = (await api('POST', '/api/properties', { title: 'Stay Resort' })).json.id;
+  await api('PUT', `/api/properties/${pid}/lead-emails`, { emails: ['desk@stayresort.test'] });
+  const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const stays = {
+    on: true, timezone: 'UTC', checkin: '14:00', checkout: '11:00', days: 60, minNights: 1, maxNights: 7, maxGuests: 8,
+    rooms: [
+      { id: 'dlx', label: 'Deluxe Room', units: 2, sleeps: 2, price: 'Rs 9,000', per: '/ night' },
+      { id: 'villa', label: 'Pool Villa', units: 1, sleeps: 4, pin: true, x: 0.4, y: 0.6, space: 'not-in-this-project' },
+      { id: 'nameless' },
+      { id: 'bad id!', label: 'dropped' }
+    ]
+  };
+  const saved = await api('PUT', `/api/sites/${pid}/draft`, { stays });
+  assert.deepEqual(saved.json.draft.stays.rooms.map((r) => r.id), ['dlx', 'villa']);
+  assert.equal(saved.json.draft.stays.checkout, '11:00');
+  assert.equal((await api('GET', `/api/sites/${pid}/stays/availability`)).status, 404, 'nothing until published');
+  assert.deepEqual((await api('GET', `/api/sites/${pid}/stays`)).json, { stays: null }, 'the tour just hears "no"');
+  assert.equal((await api('GET', `/api/sites/${pid}/preview/stays/availability`)).status, 200, 'the team can preview it');
+  await api('POST', `/api/sites/${pid}/publish`);
+
+  cookie = ''; // everything a guest does is public
+  const live = (await api('GET', `/api/sites/${pid}/stays`)).json.stays;
+  assert.equal(live.rooms.length, 2);
+  assert.equal(live.rooms[1].space, '', 'a space outside the project is dropped from the public copy');
+  let c = (await api('GET', `/api/sites/${pid}/stays/availability`)).json;
+  const at = (d) => c.dates.indexOf(d);
+  const free = (id, ...days) => days.map((d) => c.free[id][at(d)]);
+  assert.equal(c.dates[0], c.today);
+  assert.equal(c.dates.length, 60 + 7 + 1, 'today to the last check-in plus the longest stay');
+  assert.deepEqual(free('dlx', day(1), day(2), day(3)), [2, 2, 2]);
+
+  const guest = { name: 'Maya', phone: '9800000002', email: 'maya@guest.test', formRenderedAt: Date.now() - 5000 };
+  const stay = (b) => api('POST', `/api/sites/${pid}/stays`, { ...guest, room: 'dlx', checkin: day(2), checkout: day(4), guests: 2, ...b });
+  const first = await stay({ notes: 'Honeymoon' });
+  assert.equal(first.status, 201);
+  assert.deepEqual([first.json.nights, first.json.rooms, first.json.roomLabel], [2, 1, 'Deluxe Room']);
+  c = (await api('GET', `/api/sites/${pid}/stays/availability`)).json;
+  assert.deepEqual(free('dlx', day(1), day(2), day(3), day(4)), [2, 1, 1, 2], 'two nights held; the check-out day is free');
+
+  // Four guests in rooms for two take both Deluxe rooms, so only nights where both are free.
+  assert.equal((await stay({ guests: 4, checkin: day(3), checkout: day(5) })).status, 409, 'one Deluxe left on the 3rd');
+  const both = await stay({ guests: 4, checkin: day(4), checkout: day(6) });
+  assert.equal(both.status, 201);
+  assert.equal(both.json.rooms, 2);
+  c = (await api('GET', `/api/sites/${pid}/stays/availability`)).json;
+  assert.deepEqual(free('dlx', day(4), day(5), day(6)), [0, 0, 2]);
+  assert.deepEqual(free('villa', day(4), day(5)), [1, 1], 'other rooms untouched');
+
+  assert.equal((await stay({ checkin: day(-1), checkout: day(1) })).status, 400, 'in the past');
+  assert.equal((await stay({ checkin: day(8), checkout: day(8) })).status, 400, 'no nights');
+  assert.equal((await stay({ checkin: day(8), checkout: day(17) })).status, 400, 'over the longest stay');
+  assert.equal((await stay({ checkin: day(61), checkout: day(62) })).status, 400, 'too far ahead');
+  assert.equal((await stay({ guests: 9 })).status, 400, 'over the largest party');
+  assert.equal((await stay({ room: 'villa', guests: 5, checkin: day(8), checkout: day(9) })).status, 400, 'the one villa sleeps four');
+  assert.equal((await stay({ room: 'nope' })).status, 400);
+  const trap = await stay({ website: 'http://spam', checkin: day(9), checkout: day(10) });
+  assert.equal(trap.json.id, undefined, 'the honeypot answers like it worked, stores nothing');
+  assert.equal((await api('GET', `/api/sites/${pid}/availability`)).status, 404, 'rooms on, tables still off');
+
+  await new Promise((r) => setTimeout(r, 200)); // the desk's email goes after the reply
+  const toDesk = mailbox.filter((m) => m.to.includes('desk@stayresort.test') && /Room request/.test(m.subject));
+  assert.equal(toDesk.length, 2);
+  assert.match(toDesk[0].text, /Honeymoon/);
+  assert.match(toDesk[1].text, /Deluxe Room × 2/);
+  assert.equal(toDesk[0].reply_to, 'maya@guest.test');
+
+  signIn();
+  const inbox = (await api('GET', `/api/sites/${pid}/reservations`)).json;
+  assert.equal(inbox.stays.rooms.length, 2);
+  assert.deepEqual(inbox.reservations.map((r) => [r.kind, r.date, r.rooms, r.ip]), [['stay', day(2), 1, undefined], ['stay', day(4), 2, undefined]]);
+  const id = inbox.reservations[0].id;
+  assert.equal((await api('PATCH', `/api/sites/${pid}/reservations/${id}`, { status: 'confirmed' })).json.status, 'confirmed');
+  await new Promise((r) => setTimeout(r, 200));
+  assert.ok(mailbox.some((m) => m.to.includes('maya@guest.test') && /stay at .* is confirmed/.test(m.subject)), 'the guest hears it is confirmed');
+
+  // Declined frees the rooms; taking it back is refused once someone else has them.
+  await api('PATCH', `/api/sites/${pid}/reservations/${id}`, { status: 'declined' });
+  cookie = '';
+  assert.equal((await stay({ guests: 4, checkin: day(3), checkout: day(4) })).status, 201, 'its nights are free again');
+  signIn();
+  const again = await api('PATCH', `/api/sites/${pid}/reservations/${id}`, { status: 'confirmed' });
+  assert.equal(again.status, 409);
+  assert.match(again.json.error, /room/);
+});
+
+test('a website scheduled to go live does, as it was when scheduled; a cancelled one doesn\'t', async () => {
+  signIn();
+  const pid = (await api('POST', '/api/properties', { title: 'Midnight Menu' })).json.id;
+  await api('PUT', `/api/sites/${pid}/draft`, { menu: { title: 'Summer menu', items: [{ name: 'Mango lassi', price: 'Rs 250' }] } });
+  await api('POST', `/api/sites/${pid}/publish`);
+  await api('PUT', `/api/sites/${pid}/draft`, { menu: { title: 'Winter menu', items: [{ name: 'Masala chiya', price: 'Rs 80' }] } });
+
+  assert.equal((await api('POST', `/api/sites/${pid}/schedule`, { at: new Date(Date.now() - 60000).toISOString() })).status, 400, 'not in the past');
+  assert.equal((await api('POST', `/api/sites/${pid}/schedule`, { at: 'midnight' })).status, 400);
+  const at = new Date(Date.now() + 1200).toISOString();
+  assert.equal((await api('POST', `/api/sites/${pid}/schedule`, { at })).json.scheduledAt, at);
+  assert.equal((await api('GET', `/api/sites/${pid}/draft`)).json.scheduledAt, at);
+  // edited after scheduling: that waits for the next publish
+  await api('PUT', `/api/sites/${pid}/draft`, { menu: { title: 'Not yet', items: [] } });
+  assert.equal((await api('GET', `/api/sites/${pid}`)).json.site.menu.title, 'Summer menu', 'not before its time');
+
+  await new Promise((r) => setTimeout(r, 2000));
+  assert.equal((await api('GET', `/api/sites/${pid}`)).json.site.menu.title, 'Winter menu', 'live, as it was when scheduled');
+  const after = (await api('GET', `/api/sites/${pid}/draft`)).json;
+  assert.deepEqual([after.scheduledAt, after.draft.menu.title], [null, 'Not yet']);
+  assert.ok((await api('GET', `/api/properties/${pid}/activity`)).json.some((e) => e.action === 'published the website on schedule'));
+
+  // scheduled, then cancelled
+  await api('POST', `/api/sites/${pid}/schedule`, { at: new Date(Date.now() + 800).toISOString() });
+  assert.equal((await api('DELETE', `/api/sites/${pid}/schedule`)).json.scheduledAt, null);
+  await new Promise((r) => setTimeout(r, 1300));
+  assert.equal((await api('GET', `/api/sites/${pid}`)).json.site.menu.title, 'Winter menu');
+  cookie = '';
+  assert.equal((await api('POST', `/api/sites/${pid}/schedule`, { at })).status, 401);
+});
+
+test('a client reviews the draft by a private link: comments pinned to sections, an approval tied to that draft', async () => {
+  signIn();
+  const pid = (await api('POST', '/api/properties', { title: 'Review Lodge' })).json.id;
+  await api('PUT', `/api/sites/${pid}/draft`, { hero: { title: 'First draft' } });
+  const key = (await api('POST', `/api/sites/${pid}/review`)).json.key;
+  assert.match(key, /^[0-9a-f]{48}$/);
+  assert.equal((await api('POST', `/api/sites/${pid}/review`)).json.key, key, 'the same link each time');
+
+  cookie = ''; // the client has no account: the key is the pass
+  assert.equal((await api('GET', `/api/sites/${pid}/review?key=${'0'.repeat(48)}`)).status, 404);
+  assert.equal((await api('GET', `/api/sites/${pid}/review`)).status, 404);
+  const draft = (await api('GET', `/api/sites/${pid}/review?key=${key}`)).json;
+  assert.equal(draft.site.hero.title, 'First draft');
+  assert.equal(draft.preview, true);
+  assert.equal((await api('GET', `/api/sites/${pid}`)).status, 404, 'still nothing public');
+
+  const comment = (b) => api('POST', `/api/sites/${pid}/review/comments?key=${key}`, { name: 'Mr Thapa', text: 'Bigger logo, please', sec: 2, x: 0.25, y: 0.5, where: 'First draft', ...b });
+  const c = await comment();
+  assert.equal(c.status, 201);
+  assert.deepEqual([c.json.sec, c.json.x, c.json.y, c.json.resolved], [2, 0.25, 0.5, false]);
+  assert.equal((await comment({ text: '' })).status, 400);
+  assert.equal((await comment({ name: '' })).status, 400);
+  assert.equal((await comment({ text: '<script>x</script>ok' })).json.text, 'scriptx/scriptok', 'no HTML');
+  assert.equal((await api('POST', `/api/sites/${pid}/review/approve?key=${key}`, { name: 'Mr Thapa' })).json.name, 'Mr Thapa');
+
+  // the draft's table booking shows its free times on the review page too, with the key
+  signIn();
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(32, 3)]);
+  const plan = (await api('POST', `/api/sites/${pid}/images`, new Uint8Array(png), { 'Content-Type': 'application/octet-stream' })).json.path;
+  await api('PUT', `/api/sites/${pid}/draft`, { hero: { title: 'First draft' }, booking: { on: true, plan, timezone: 'UTC', first: '12:00', last: '12:30', tables: [{ id: 't1', label: 'T1', seats: 2, x: 0.5, y: 0.5 }] } });
+  cookie = '';
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  assert.deepEqual((await api('GET', `/api/sites/${pid}/preview/availability?date=${tomorrow}&key=${key}`)).json.slots.map((s) => s.time), ['12:00', '12:30']);
+  assert.equal((await api('GET', `/api/sites/${pid}/preview/availability?key=${'f'.repeat(48)}`)).status, 404);
+  assert.equal((await api('GET', `/api/sites/${pid}/preview/availability`)).status, 401, 'without a key, the studio’s session');
+  assert.equal((await api('PUT', `/api/sites/${pid}/draft?key=${key}`, {})).status, 401, 'the key never edits');
+  signIn();
+  await api('PUT', `/api/sites/${pid}/draft`, { hero: { title: 'First draft' } }); // back as the client approved it
+
+  signIn();
+  let fb = (await api('GET', `/api/sites/${pid}/review/feedback`)).json;
+  assert.equal(fb.comments.length, 2);
+  assert.deepEqual([fb.approval.name, fb.approvedThisDraft], ['Mr Thapa', true]);
+  assert.ok((await api('GET', `/api/properties/${pid}/activity`)).json.some((e) => e.action === 'approved the website draft' && e.who.name === 'Mr Thapa'));
+  assert.equal((await api('PATCH', `/api/sites/${pid}/review/comments/${c.json.id}`, { resolved: true })).json.resolved, true);
+  // a change after the approval: it's an earlier draft that was approved
+  await api('PUT', `/api/sites/${pid}/draft`, { hero: { title: 'Second draft' } });
+  fb = (await api('GET', `/api/sites/${pid}/review/feedback`)).json;
+  assert.equal(fb.approvedThisDraft, false);
+
+  // the link stopped: the client can't get in, the comments stay
+  await api('DELETE', `/api/sites/${pid}/review`);
+  cookie = '';
+  assert.equal((await api('GET', `/api/sites/${pid}/review?key=${key}`)).status, 404);
+  assert.equal((await comment()).status, 404);
+  signIn();
+  assert.equal((await api('GET', `/api/sites/${pid}/review/feedback`)).json.comments.length, 2);
+  assert.notEqual((await api('POST', `/api/sites/${pid}/review`)).json.key, key, 'a new link, not the old one');
+});
+
+test('the concierge answers from what the project published, and only sends visitors to real published places', async () => {
+  signIn();
+  const pid = (await api('POST', '/api/properties', { title: 'Ask Hotel' })).json.id;
+  await api('PUT', `/api/properties/${pid}/info`, { phone: '01-5551234', about: 'A garden hotel in Patan.' });
+  const tr = { id: 'to-pool', label: 'The pool', keyframes: [{ t: 0, position: [0, 1.6, 0], target: [0, 1.6, -1], easing: 'easeInOutCubic' }], cues: [], audio: null, seconds: 4 };
+  const hs = { id: 'hs-spa', type: 'text', label: 'Spa', position: [0, 1, 0], radius: 0.4, payload: { text: 'Open 9 to 6.' }, occludedBy: 'none' };
+  await api('PUT', '/api/scenes/ask-garden', sceneDoc('ask-garden', { propertyId: pid, title: 'Garden', tracks: [tr], hotspots: [hs] }));
+  await api('POST', '/api/scenes/ask-garden/publish');
+  await api('PUT', '/api/scenes/ask-draft', sceneDoc('ask-draft', { propertyId: pid, title: 'Secret draft room' }));
+  await api('PUT', `/api/sites/${pid}/draft`, { menu: { title: 'Menu', items: [{ name: 'Dal bhat', price: 'Rs 450' }] } });
+  await api('POST', `/api/sites/${pid}/publish`);
+
+  cookie = ''; // visitors: public
+  assert.deepEqual((await api('GET', `/api/concierge/${pid}`)).json, { on: true });
+  texts.length = 0;
+  modelReply = { answer: 'The spa is open 9 to 6. Here it is.', space: 'ask-garden', view: 'to-pool', hotspot: 'hs-spa' };
+  const r = await api('POST', `/api/concierge/${pid}`, { question: 'When is the spa open?', space: 'ask-garden', lang: 'ne', history: [{ role: 'assistant', text: 'Hi!' }] });
+  assert.deepEqual(r.json, { answer: 'The spa is open 9 to 6. Here it is.', show: { space: 'ask-garden', view: 'to-pool', hotspot: 'hs-spa' } });
+  const sent = texts.find((t) => t.url === '/anthropic');
+  assert.equal(sent.key, 'test-anthropic-key');
+  assert.equal(sent.body.model, 'test-model');
+  assert.deepEqual(sent.body.tool_choice, { type: 'tool', name: 'reply' });
+  assert.match(sent.body.system, /A garden hotel in Patan/);
+  assert.ok(sent.body.system.includes('Dal bhat (Rs 450)'));
+  assert.ok(sent.body.system.includes('Hotspot "Spa" [hotspot: hs-spa]: Open 9 to 6'));
+  assert.match(sent.body.system, /Reply in Nepali/);
+  assert.doesNotMatch(sent.body.system, /Secret draft room/, 'nothing unpublished goes in');
+  assert.deepEqual(sent.body.messages, [{ role: 'user', content: 'When is the spa open?' }], 'history starts with the visitor');
+
+  // a made-up or unpublished place is dropped; a made-up view in a real space too
+  modelReply = { answer: 'Somewhere.', space: 'ask-draft' };
+  assert.equal((await api('POST', `/api/concierge/${pid}`, { question: 'Secret room?' })).json.show, null);
+  modelReply = { answer: 'The garden.', space: 'ask-garden', view: 'nope' };
+  assert.deepEqual((await api('POST', `/api/concierge/${pid}`, { question: 'Garden?' })).json.show, { space: 'ask-garden' });
+  assert.equal((await api('POST', `/api/concierge/${pid}`, { question: '  ' })).status, 400);
+  assert.equal((await api('POST', '/api/concierge/no-such-place', { question: 'Hi' })).status, 404);
+});
+
+test('phone numbers as guests type them become what SMS and WhatsApp want', () => {
+  assert.deepEqual(phoneOf('9812345678'), { intl: '9779812345678', local: '9812345678' });
+  assert.deepEqual(phoneOf('+977 981-234-5678'), { intl: '9779812345678', local: '9812345678' });
+  assert.deepEqual(phoneOf('00977 9812345678'), { intl: '9779812345678', local: '9812345678' });
+  assert.deepEqual(phoneOf('9779812345678'), { intl: '9779812345678', local: '9812345678' });
+  assert.deepEqual(phoneOf('+44 7700 900123'), { intl: '447700900123', local: null }, 'abroad: WhatsApp only');
+  assert.deepEqual(phoneOf('01-4412345'), { intl: '97714412345', local: null }, 'a landline: no SMS');
+  assert.equal(phoneOf('call me'), null);
+});
+
+test('a full day goes to a waitlist; a place let go tells them by SMS, WhatsApp and email; guests get texts', async () => {
+  signIn();
+  const pid = (await api('POST', '/api/properties', { title: 'Wait Bistro' })).json.id;
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(32, 3)]);
+  const plan = (await api('POST', `/api/sites/${pid}/images`, new Uint8Array(png), { 'Content-Type': 'application/octet-stream' })).json.path;
+  await api('PUT', `/api/sites/${pid}/draft`, {
+    booking: { on: true, plan, timezone: 'UTC', first: '19:00', last: '19:00', tables: [{ id: 't1', label: 'Only table', seats: 2, x: 0.5, y: 0.5 }] }
+  });
+  await api('POST', `/api/sites/${pid}/publish`);
+  cookie = '';
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const guest = { formRenderedAt: Date.now() - 5000 };
+  const booked = await api('POST', `/api/sites/${pid}/reservations`, { ...guest, table: 't1', date: tomorrow, time: '19:00', party: 2, name: 'First', phone: '9811111111' });
+  assert.equal(booked.status, 201);
+  assert.equal((await api('POST', `/api/sites/${pid}/reservations`, { ...guest, table: 'any', date: tomorrow, time: '19:00', party: 2, name: 'Late', phone: '9812345678' })).status, 409, 'full');
+
+  const wait = (b) => api('POST', `/api/sites/${pid}/waitlist`, { ...guest, of: 'table', date: tomorrow, party: 2, name: 'Late', phone: '9812345678', email: 'late@guest.test', ...b });
+  assert.equal((await wait()).status, 201);
+  assert.equal((await wait({ party: 3, name: 'Too many', phone: '9813333333', email: '' })).status, 201, 'three can wait, a table for two won’t fit them');
+  assert.equal((await wait({ time: '20:00' })).status, 400, 'not a time they serve');
+  assert.equal((await wait({ of: 'room', checkin: tomorrow, checkout: tomorrow })).status, 404, 'no room booking here');
+
+  signIn();
+  let inbox = (await api('GET', `/api/sites/${pid}/reservations`)).json.reservations;
+  const waits = inbox.filter((r) => r.kind === 'wait');
+  assert.deepEqual(waits.map((w) => [w.name, w.status, w.of, w.party]), [['Late', 'waiting', 'table', 2], ['Too many', 'waiting', 'table', 3]]);
+
+  texts.length = 0;
+  const declined = await api('PATCH', `/api/sites/${pid}/reservations/${booked.json.id}`, { status: 'declined' });
+  assert.equal(declined.json.waitlistTold, 1, 'the party of two is told; the three still wait');
+  await new Promise((r) => setTimeout(r, 300));
+  inbox = (await api('GET', `/api/sites/${pid}/reservations`)).json.reservations;
+  assert.deepEqual(inbox.filter((r) => r.kind === 'wait').map((w) => w.status), ['notified', 'waiting']);
+
+  const sms = texts.filter((t) => t.url === '/sms/');
+  const wa = texts.filter((t) => t.url === '/wa/1234/messages');
+  assert.ok(sms.some((t) => t.body.to === '9812345678' && /may now be free/.test(t.body.text) && t.body.token === 'test-sms-token' && t.body.from === 'TestHotel'), 'the waiting guest, by SMS');
+  assert.ok(wa.some((t) => t.body.to === '9779812345678' && /may now be free/.test(t.body.text.body) && t.auth === 'Bearer test-wa-token'), 'and WhatsApp');
+  assert.ok(mailbox.some((m) => m.to.includes('late@guest.test') && /may be free/.test(m.subject)), 'and email');
+  assert.ok(sms.some((t) => t.body.to === '9811111111' && /can’t seat you/.test(t.body.text)), 'the declined guest hears by text, with no email given');
+
+  // by hand: remove a waiting guest; a booking can't be "notified"
+  const three = inbox.find((r) => r.name === 'Too many');
+  assert.equal((await api('PATCH', `/api/sites/${pid}/reservations/${three.id}`, { status: 'removed' })).json.status, 'removed');
+  assert.equal((await api('PATCH', `/api/sites/${pid}/reservations/${booked.json.id}`, { status: 'notified' })).status, 400);
+  assert.equal((await api('PATCH', `/api/sites/${pid}/reservations/${three.id}`, { status: 'confirmed' })).status, 400);
 });
 
 test('the website preview shows the saved draft to the team, before and apart from publishing', async () => {

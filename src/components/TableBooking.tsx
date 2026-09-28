@@ -7,6 +7,7 @@ import {
   API_BASE_URL, getAvailability, getPreviewAvailability, reserveTable, type Availability, type SiteBooking, type SiteTable
 } from '../lib/api';
 
+import { WaitlistForm } from './WaitlistForm';
 import './table-booking.css';
 
 gsap.registerPlugin(useGSAP);
@@ -274,6 +275,11 @@ export function TableBooking({ project, booking, tourSpace, preview = false, ini
                 {preview ? 'Preview: bookings open once you publish' : sending ? 'Sending…' : `Request ${chosen ? chosen.label || 'this table' : 'a table'} · ${dayParts(avail!.date).wd} ${pickedTime}`}
               </button>
             </form>
+          )}
+          {/* Every time that day taken for this party: they can wait for one to open up. */}
+          {avail && slots.length > 0 && !slots.some((s) => s.free.some(fits)) && (
+            <WaitlistForm key={`${avail.date}-${party}`} project={project} preview={preview}
+              what={`a table for ${party} on ${dayParts(avail.date).long}`} request={{ of: 'table', date: avail.date, party }} />
           )}
           {error && <p className="tb-err" role="alert">{error}</p>}
           {booking.note && <p className="tb-dim tb-fine">{booking.note}</p>}

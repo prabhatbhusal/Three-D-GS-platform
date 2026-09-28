@@ -1217,3 +1217,54 @@ a.ed2-switch-item:hover { background: var(--ed-raise); }
 }
 .pl-dialog .brand-info textarea { resize: vertical; line-height: 1.5; }
 .pl-dialog .brand-info input:focus, .pl-dialog .brand-info textarea:focus { outline: none; border-color: var(--ed-signal); }
+
+/* A project you're on as the client's staff: its three pages, nothing to edit. */
+.pl-card-staff { flex-wrap: wrap; }
+.pl-card-staff .pl-card-txt { flex: 1; min-width: 0; }
+.pl-card-staff .pl-card-meta { white-space: normal; }
+.pl-staff-links { display: flex; gap: 6px; flex-wrap: wrap; position: relative; z-index: 1; }
+.pl-staff-links .pl-btn { text-decoration: none; }
+.pl-share-form select {
+  flex: none; padding: 0 12px; border-radius: 999px; font: 500 13px var(--sans);
+  color: var(--ed-text); background: var(--ed-well); border: 1px solid var(--ed-line);
+}
+
+/* New project: what kind of place (lib/siteTemplates.ts). */
+.np-kinds { display: flex; flex-wrap: wrap; gap: 6px; }
+.np-kind {
+  padding: 6px 12px; border-radius: 999px; border: 1px solid var(--ed-line); background: var(--ed-well);
+  color: var(--ed-text); font: 500 12px var(--sans); cursor: pointer;
+}
+.np-kind:hover { border-color: var(--ed-signal); }
+.np-kind.is-on { background: var(--ed-signal); border-color: var(--ed-signal); color: var(--ed-signal-ink); }
+.np-field small.np-kind-note { position: static; display: block; margin-top: 6px; text-align: left; white-space: normal; }
+
+/* Building and floor, side by side. */
+.ed2-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+
+/* Undo / redo in the editor's top bar (lib/history.ts). */
+.ed2-undo { display: flex; gap: 2px; margin-left: auto; }
+.ed2-undo + .ed2-save { margin-left: 8px; }
+.ed2-undo button {
+  appearance: none; cursor: pointer; width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--ed-line);
+  background: transparent; color: var(--ed-text); font: 600 15px var(--sans);
+}
+.ed2-undo button:hover:not(:disabled) { border-color: var(--ed-signal); }
+.ed2-undo button:disabled { opacity: 0.35; cursor: default; }
+
+/* Copy hotspots and tracks to other spaces. */
+.ed2-tree-copy { margin-left: auto; }
+.ed2-tree-copy + .ed2-tree-add { margin-left: 4px; }
+.ed2-copy-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.ed2-copy fieldset { display: grid; gap: 6px; align-content: start; max-height: 320px; overflow: auto; margin: 0; padding: 10px 12px; border: 1px solid var(--ed-line); border-radius: 10px; }
+.ed2-copy legend { padding: 0 4px; font: 650 11px var(--sans); text-transform: uppercase; letter-spacing: 0.04em; color: var(--ed-text-dim); }
+.ed2-copy label { display: flex; gap: 8px; align-items: center; font: 500 13px var(--sans); }
+.ed2-copy small { color: var(--ed-text-dim); }
+.ed2-copy > .pl-btn-main { justify-self: end; margin-top: 12px; }
+@media (max-width: 640px) { .ed2-copy-cols { grid-template-columns: 1fr; } }
+
+/* The invite link for new client staff (Share dialog). */
+.pl-invite { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; padding: 12px; border-radius: 10px; border: 1px solid var(--ed-signal); }
+.pl-invite p { flex: 1 1 100%; margin: 0; font: 500 13px var(--sans); }
+.pl-invite input { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--ed-line); background: var(--ed-well); color: var(--ed-text); font: 500 12px var(--sans); }
+.pl-share-form input + input { flex: 0 1 160px; }
