@@ -214,7 +214,11 @@ async function renderSite(p, site, publishedAt) {
   return {
     project: { id: p.id, title: p.title, theme: p.theme ?? {}, info: p.info ?? {} },
     site: { ...site, rooms, booking: liveBooking(site), stays: await publicStays(p.id, site) },
-    tour: tour && embed ? { space: tour.id, title: tour.title, key: embedKey(tour.id, embed.version) } : null,
+    tour: tour && embed ? {
+      space: tour.id, title: tour.title, key: embedKey(tour.id, embed.version),
+      // its picture for link previews, when it has one (scenes.js galleryRouter)
+      thumb: tour.tracks?.some((t) => t.thumb) ? `/api/gallery/${tour.id}/thumb.jpg?v=${tour.publishedVersion}` : null
+    } : null,
     plan,
     publishedAt
   };

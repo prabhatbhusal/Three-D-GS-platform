@@ -136,7 +136,9 @@ export function useSceneManager({ dev = false, appKey = null }: { dev?: boolean;
       setProgress(0);
 
       const tier = tierRef.current;
-      camera.position.set(...spawnFor(sceneId).spawn);
+      // The same space again is the tier monitor's reload at a lower quality
+      // (below): the visitor stays where they are (App.tsx keeps them there too).
+      if (prev?.id !== sceneId) camera.position.set(...spawnFor(sceneId).spawn);
       tuneCameraForRoom(camera, { outdoor: !!conf.outdoor, tier });
 
       const onLoaded = (mesh: THREE.Object3D) => {

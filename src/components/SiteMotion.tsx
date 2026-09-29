@@ -15,7 +15,7 @@ export function MediaFill({ m, lazy = false }: { m: Media; lazy?: boolean }) {
   return (
     <>
       {m.image && (
-        // Plain <img>: static footage from /public, no optimiser in the static export.
+        // Plain <img>: static footage from /public.
         // eslint-disable-next-line @next/next/no-img-element
         <img className="lp-fill" src={m.image} alt="" loading={lazy ? 'lazy' : 'eager'} decoding="async" />
       )}
@@ -157,7 +157,7 @@ export function FlyThrough({ images, captions, label }: { images: string[]; capt
         <div className="lp-fly-stage" aria-hidden>
           <div className="lp-fly-floor" />
           {images.map((src, i) => (
-            // Plain <img>: static stills from /public, no optimiser in the static export.
+            // Plain <img>: static stills from /public.
             // eslint-disable-next-line @next/next/no-img-element
             <img key={src} src={src} alt="" decoding="async" loading={i ? 'lazy' : 'eager'}
               className={`lp-fly-card${Math.round(step * (images.length - 1) / Math.max(1, captions.length - 1)) === i ? ' is-on' : ''}`}
@@ -199,7 +199,7 @@ export function ImageTabs({ items, alt }: { items: { label: string; body: string
       <p className="lp-tabs-body" aria-live="polite">{items[on].body}</p>
       <div className="lp-tabs-media">
         {items.map((it, i) => (
-          // Plain <img>: static stills from /public, no optimiser in the static export.
+          // Plain <img>: static stills from /public.
           // eslint-disable-next-line @next/next/no-img-element
           <img key={it.label} src={it.image} alt={i === on ? alt : ''} aria-hidden={i !== on}
             className={i === on ? 'is-on' : undefined} loading="lazy" decoding="async" />

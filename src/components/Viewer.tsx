@@ -6,7 +6,7 @@ import { useUiConfig, setUiConfig } from '../lib/uiConfig';
 import { useNavMode, setVisitorMode, visitorMode } from '../lib/navMode';
 import { zoomOrbit, scaleFlySpeed, walkerCfg } from '../lib/walkerConfig';
 import { bookingFor, sceneHasAudio, subscribeDoc } from '../lib/sceneDoc';
-import { safeUrl, getSiteBooking, getSitePreview, getSiteStays, conciergeOn, type ConciergeShow, type SiteBooking, type SiteStays, type SiteTable, type StayRoom } from '../lib/api';
+import { apiUrl, safeUrl, getSiteBooking, getSitePreview, getSiteStays, conciergeOn, type ConciergeShow, type SiteBooking, type SiteStays, type SiteTable, type StayRoom } from '../lib/api';
 import { ConciergePanel } from './ConciergePanel';
 import { TableBooking } from './TableBooking';
 import { TableCard } from './TableCard';
@@ -690,7 +690,7 @@ function BottomChrome({ state, showLabels, mode, trayOpen, onToggleTray }: {
             <button key={vp.id} role="listitem" className={`vw-card ${i === idx ? 'on' : ''}`}
               aria-current={i === idx ? 'true' : undefined} onClick={() => go(i)} title={vp.label}>
               {vp.thumb
-                ? <img className="vw-card-img" src={vp.thumb} alt="" />
+                ? <img className="vw-card-img" src={apiUrl(vp.thumb)!} alt="" loading="lazy" />
                 : <span className="vw-card-ph" aria-hidden>{Icon.views}</span>}
               {showLabels && <span className="vw-card-nm">{vp.label}</span>}
             </button>

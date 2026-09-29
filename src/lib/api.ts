@@ -173,7 +173,7 @@ export interface SiteDraft { draft: SiteDoc; publishedAt: string | null; schedul
 export interface PublicSite {
   project: { id: string; title: string; theme: ProjectTheme; info?: ProjectInfo };
   site: Omit<SiteDoc, 'booking' | 'stays'> & { booking: SiteBooking | null; stays: SiteStays | null };
-  tour: { space: string; title: string; key: string } | null;
+  tour: { space: string; title: string; key: string; thumb?: string | null } | null;
   plan: string | null;
   publishedAt: string;
 }
@@ -467,6 +467,10 @@ export function safeUrl(u: string | undefined | null): string | null {
   const s = (u ?? '').trim();
   return /^https?:\/\/\S+$/i.test(s) ? s : null;
 }
+
+/** A path on the API (a gallery or view picture) as a full URL. Data URLs
+ *  (the studio's own thumbnails) and full URLs pass through. */
+export const apiUrl = (path: string | null | undefined) => (path ? (path.startsWith('/') ? `${API_BASE}${path}` : path) : null);
 
 /** A WhatsApp chat with the visitor's first line already typed. */
 export const whatsappHref = (number: string, text: string) =>

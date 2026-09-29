@@ -2,11 +2,11 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
-import { API_BASE_URL, withoutNightVersions, type GalleryItem } from '../../../lib/api';
+import { API_BASE_URL, apiUrl, withoutNightVersions, type GalleryItem } from '../../../lib/api';
 import { EnquiryPanel } from '../../../components/EnquiryPanel';
 import type { BrandFont, ProjectTheme } from '../../../@types/config.types';
 import { inkOn } from '../../../lib/brandColor';
-import { apiUrl, shareMeta } from '../../../lib/shareMeta';
+import { shareMeta } from '../../../lib/shareMeta';
 import '../../../components/viewer.css';
 import './hub.css';
 
@@ -16,10 +16,8 @@ import './hub.css';
  * card that walks into the tour, and the enquiry form. Server-rendered, so
  * it's fast and indexable, and it works with no 3D at all (the tour only
  * loads when a visitor picks a space). Rendered per request so a publish or
- * a branding change shows at once; the static export build has no requests
- * to render, so it prerenders the projects it can see at build time.
+ * a branding change shows at once.
  */
-const isStaticExport = !!process.env.NEXT_OUTPUT_EXPORT;
 
 const FACES: Record<BrandFont, string> = {
   serif: "'Georgia', 'Times New Roman', serif",
@@ -30,7 +28,7 @@ const FACES: Record<BrandFont, string> = {
 type Hub = { title: string; theme: ProjectTheme; whatsapp: string | null; spaces: GalleryItem[] };
 
 async function load(id: string): Promise<Hub | null> {
-  const opts = { cache: isStaticExport ? 'force-cache' : 'no-store' } as const;
+  const opts = { cache: 'no-store' } as const;
   try {
     const t = await fetch(`${API_BASE_URL}/api/properties/${encodeURIComponent(id)}/theme`, opts);
     if (!t.ok) return null;
@@ -39,16 +37,6 @@ async function load(id: string): Promise<Hub | null> {
     return { title, theme: theme ?? {}, whatsapp: whatsapp ?? null, spaces: g.ok ? withoutNightVersions(await g.json()) : [] };
   } catch {
     return null;
-  }
-}
-
-export async function generateStaticParams() {
-  if (!isStaticExport) return [];
-  try {
-    const all: (GalleryItem & { propertyId?: string | null })[] = await (await fetch(`${API_BASE_URL}/api/gallery`)).json();
-    return [...new Set(all.map((g) => g.propertyId).filter(Boolean))].map((property) => ({ property: property as string }));
-  } catch {
-    return [];
   }
 }
 
@@ -65,7 +53,7 @@ export async function generateMetadata({ params }: { params: Promise<{ property:
 }
 
 export default async function HubPage({ params }: { params: Promise<{ property: string }> }) {
-  if (!isStaticExport) await connection();
+  await connection();
   const { property } = await params;
   const hub = await load(property);
   if (!hub) notFound();

@@ -1077,6 +1077,13 @@ test('a published space’s picture is a real image link, for lists and link pre
   assert.equal(img.headers.get('content-type'), 'image/jpeg');
   assert.deepEqual(Buffer.from(await img.arrayBuffer()), jpeg);
   assert.equal((await fetch(`${BASE}/api/gallery/og-bare/thumb.jpg`)).status, 404);
+
+  // the tour's copy of the space carries its view pictures as links, not inline
+  const pub = (await api('GET', '/api/scenes/og-lobby/published')).json;
+  assert.equal(pub.tracks[0].thumb, null);
+  assert.match(pub.tracks[1].thumb, /^\/api\/scenes\/og-lobby\/published\/thumbs\/vp-b\.jpg\?v=\d+$/);
+  assert.deepEqual(Buffer.from(await (await fetch(BASE + pub.tracks[1].thumb)).arrayBuffer()), jpeg);
+  assert.equal((await fetch(`${BASE}/api/scenes/og-lobby/published/thumbs/nope.jpg`)).status, 404);
 });
 
 test('a project website: draft, photos, publish, and a public page that only shows its own spaces', async () => {

@@ -248,7 +248,13 @@ function Stage({ onState, viewerMode }: StageProps) {
   // viewpoints mode (CLAUDE.md §6.1 — walk must never carry over from the
   // space before it, or become the default by accident). Fly is the one
   // exception: browsing floors from above (the layers rail) stays aerial.
+  // The space it last settled in: loading that same space again is the tier
+  // monitor's reload at a lower quality (useSceneManager), not a visit, so
+  // the visitor keeps their place, their mode and any flight.
+  const settledIn = useRef<string | null>(null);
   useEffect(() => {
+    if (settledIn.current === mgr.activeId) return;
+    if (mgr.ready) settledIn.current = mgr.activeId;
     stop();
     setFlying(false);
     const stayAerial = viewerMode && (navMode.flyEnabled || navMode.orbitEnabled);

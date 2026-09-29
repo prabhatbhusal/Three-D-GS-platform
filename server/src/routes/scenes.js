@@ -25,16 +25,29 @@ galleryRouter.get('/', wrap(async (req, res) => {
 // data URL in the doc) as a real image, for the gallery and link previews.
 galleryRouter.get('/:id/thumb.jpg', wrap(async (req, res) => {
   const snap = await getPublishedScene(req.params.id);
-  const m = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(snap?.tracks?.find((t) => t.thumb)?.thumb ?? '');
-  if (!m) return res.status(404).end();
-  res.type(m[1]).set('Cache-Control', 'public, max-age=86400').send(Buffer.from(m[2], 'base64'));
+  sendDataImage(res, snap?.tracks?.find((t) => t.thumb)?.thumb);
 }));
 
-// Public: what visitors see. Never the draft (§7.5, constraint 6).
+/** A view thumbnail, which the doc keeps as a data URL, sent as the image it is. */
+function sendDataImage(res, dataUrl) {
+  const m = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(dataUrl ?? '');
+  if (!m) return res.status(404).end();
+  res.type(m[1]).set('Cache-Control', 'public, max-age=86400').send(Buffer.from(m[2], 'base64'));
+}
+
+// Public: what visitors see. Never the draft (§7.5, constraint 6). Its view
+// thumbnails go as links (below), not the data URLs the doc keeps: ten of
+// them are ~700 KB the tour would fetch before its first frame.
 scenesRouter.get('/:id/published', wrap(async (req, res) => {
   const doc = await getPublishedScene(req.params.id);
   if (!doc) return res.status(404).json({ error: 'This space is not published.' });
-  res.json(doc);
+  const link = (t) => `/api/scenes/${encodeURIComponent(doc.id)}/published/thumbs/${encodeURIComponent(t.id)}.jpg?v=${doc.publishedVersion}`;
+  res.json({ ...doc, tracks: (doc.tracks ?? []).map((t) => (t.thumb?.startsWith?.('data:') ? { ...t, thumb: link(t) } : t)) });
+}));
+
+scenesRouter.get('/:id/published/thumbs/:track.jpg', wrap(async (req, res) => {
+  const doc = await getPublishedScene(req.params.id);
+  sendDataImage(res, doc?.tracks?.find((t) => t.id === req.params.track)?.thumb);
 }));
 
 // Studio: publish state + what would block or warn, without publishing.

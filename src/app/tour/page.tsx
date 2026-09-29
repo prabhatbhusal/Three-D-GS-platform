@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import { API_BASE_URL, type GalleryItem } from '../../lib/api';
-import { apiUrl, shareMeta } from '../../lib/shareMeta';
+import { API_BASE_URL, apiUrl, type GalleryItem } from '../../lib/api';
+import { shareMeta } from '../../lib/shareMeta';
 import TourClient from './TourClient';
 
 /**

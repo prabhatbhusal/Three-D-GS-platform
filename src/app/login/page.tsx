@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: 'Sign in' };
 
 /** Fully static now — AuthPanel reads ?mode=/?next= itself via
  *  useSearchParams(), which is what lets this page prerender at build time
- *  (needed for the static export build, NEXT_OUTPUT_EXPORT) instead of
+ *  instead of
  *  requiring the request's query string up front. useSearchParams() requires
  *  a Suspense boundary; the fallback only shows for the instant before
  *  hydration reads the real URL. */

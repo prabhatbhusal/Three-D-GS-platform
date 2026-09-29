@@ -13,8 +13,8 @@ function safeNext(v: string | null): string {
 }
 
 /** Reads ?mode= and ?next= itself via useSearchParams() rather than as a
- *  server-passed prop: the static export build (next.config.ts,
- *  NEXT_OUTPUT_EXPORT) can't read the request's query string at build time,
+ *  server-passed prop, so the login page prerenders at build time: a
+ *  prerendered page can't read the request's query string,
  *  and this is the client-side, hydrate-after-the-fact equivalent (see the
  *  Suspense boundary in app/login/page.tsx, which useSearchParams requires). */
 export function AuthPanel() {

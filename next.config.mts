@@ -30,12 +30,6 @@ const nextConfig: NextConfig = {
   // .next, then swaps them, so a deploy never serves a half-written build.
   distDir: process.env.NEXT_DIST_DIR || '.next',
 
-  // Static export (NEXT_OUTPUT_EXPORT=1) no longer builds: the /studio/[property]
-  // routes can't be exported ("missing generateStaticParams"), and GitHub Pages
-  // can't run /server anyway. Production is a Node host (deploy/README.md).
-  // The isStaticExport branches in the pages are leftovers from that demo.
-  ...(process.env.NEXT_OUTPUT_EXPORT ? { output: 'export' } : {}),
-
   // LCCRender (src/vendor/sdk/lcc-web-sdk.js) is a module-level singleton.
   // React's Strict Mode double-invokes effects in dev, which tears the live
   // renderer down mid-mount — same reason main.jsx never used <StrictMode>.

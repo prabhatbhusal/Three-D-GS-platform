@@ -22,7 +22,9 @@ updates §4 in the same change. New work lands in "Working", "Needs fixing" or
 | One client test file | `node --test test/client.test.mjs` (Node 24 runs `.ts` imports directly) |
 
 CI (`.github/workflows/ci.yml`) runs lint, types, tests and build on every
-push and PR, then deploys `main` to the VPS. See `deploy/README.md`.
+push and PR. **Hosting is postponed (2026-09-29):** everything runs on this PC
+for now. The VPS deploy job in CI stays skipped until the `DEPLOY_*` settings
+exist, and `deploy/` is ready for when hosting is picked up again.
 
 ## 2. Map
 
@@ -74,12 +76,13 @@ Terms: **Property/project** = one client. **Space** = one captured room/scene do
   - **Photos:** originals up to 25 MB (PNG/JPEG/WebP), stored untouched. The server reads each photo's size, EXIF turn included (`imageSize` in `routes/assets.js`), into its name (`img-<ts>-<w>x<h>.jpg`), and the page serves resized WebP through next/image (`next.config.mts images`). Photos uploaded before this have no size in their name and get a 3:2 placeholder until they load.
 - **Embeds:** per-space key, optional allowed-sites list, enforced in `/tour`.
 - **Reports:** monthly visitor report (visits, time per space, average visit, enquiry rate, the funnel from visit to confirmed booking, and hotspot opens with enquiries after each) and auto floor plans from the collision mesh, printable. Staff accounts can see it.
-- **Tour start:** `/tour` reads only the opened project's published docs, not every client's.
+- **Tour start:** `/tour` reads only the opened project's published docs, not every client's. Their view thumbnails come as links (`/api/scenes/:id/published/thumbs/<track>.jpg`), not inline base64: the Basera lobby is 1 KB before its first frame, down from 470 KB. Drafts, and so the studio, keep the data URLs, because the studio saves them back.
+- **Quality downgrade mid-visit:** when the tier monitor reloads the same space at a lower quality, the visitor keeps their place, mode and flight (`useSceneManager` load, `App.tsx settledIn`). It used to teleport them back to the start view.
 - **AI concierge** (needs `ANTHROPIC_API_KEY`): answers from published info only.
 - **Storage:** local disk or S3/R2 (`ASSET_DRIVER=s3`), `npm run assets:push` to migrate. Scan files are served with a 1-year immutable cache.
 
 ### Needs fixing
-- **GitHub Pages must be switched off** (Settings → Pages → Source: None). It publishes the repo as a static page, never the app. Static export can't build (`/studio/[property]` routes). The `isStaticExport` branches in `gallery`, `s/[property]` and `t/[property]` pages are dead leftovers.
+- **GitHub Pages must be switched off** (Settings → Pages → Source: None). It publishes the repo as a static page, never the app. The static-export code was removed on 2026-09-29.
 - **Repo weight:** `.git` is ~760 MB (a 100 MB mp4 and an FBX were committed, now moved to `media-src/`). They remain in history, so shrinking it needs a history rewrite (`git filter-repo`), which is a team decision.
 - **The API proxies every scan byte** from R2 through the VPS. Fine to start. Put Cloudflare in front with a cache rule for `/api/assets/*` before traffic grows.
 - **Collision boxes:** no click-to-select in the 3D view (select from the tree), yaw-only rotation (no ramps), a box doesn't follow the model if the model is moved later (same as hotspots).
@@ -88,8 +91,6 @@ Terms: **Property/project** = one client. **Space** = one captured room/scene do
 - No self-service password reset by email. Only the admin one-time link exists.
 - **No events module:** hotels and banquet venues can't list halls (capacity, layouts) or take event-date requests into the inbox. Only an enquiry exists.
 - **One dining outlet per site:** a hotel's restaurant and café share one table plan, one set of hours and one menu. Workaround: label tables by `area` ("Café") and tag menu items.
-- Scene docs still inline every track thumbnail as base64 (~70 KB each), so a space with 10 views ships ~700 KB of JSON before its first frame. Serve them like the gallery picture.
-- A website's link preview falls back to the tour's picture URL even when that space has no thumbnail (a 404 image, so no picture shows).
 - Lint warnings: `react-hooks/exhaustive-deps` in `App.tsx`, `<img>` vs `next/image`, and a few unused vars.
 
 ### Next up (candidates for the production build, in order)
@@ -97,9 +98,9 @@ Terms: **Property/project** = one client. **Space** = one captured room/scene do
    - A client with their own website and booking engine gets the tour embedded on their site, with Book now linking to their engine.
    - The `/s/` website, with its room and table booking, is an add-on only for clients without a site. Don't grow it.
    - Never publish both for one client: two sites and two booking channels mean duplicate content and double-booked rooms.
-1. Launch on the VPS (`deploy/README.md`), with daily backup of `DATA_DIR` and an uptime monitor.
+1. ~~Launch on the VPS~~ **postponed** by the owner (2026-09-29). When it's picked up: `deploy/README.md`, daily backup of `DATA_DIR`, and an uptime monitor.
 2. Events module, shared by the Hotel and Banquet kinds: halls (name, seated/standing capacity, area, photo, 3D space) plus an event request (date, guests, event type, hall) into the reservations inbox, confirm/decline, and counted in the report. Awaiting the go-ahead.
-3. Measure first frame on a low-end Android over 4G (target < 5 s) and fix what the numbers show, starting with the inline track thumbnails.
+3. Measure first frame on a low-end Android over 4G (target < 5 s) and fix what the numbers show.
 4. Separate dining outlets (own hours, plan, menu), only when a client's café and restaurant keep different hours.
 
 ### Not now (don't start without a decision)
