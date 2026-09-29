@@ -5,9 +5,10 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useSceneManager } from '../lib/useSceneManager';
 import { Gizmo, useSceneTransform } from './Gizmo';
+import { ColliderBoxes } from './ColliderBoxes';
 import { transformFor, setTransform, IDENTITY } from '../lib/transform';
 import { walkerCfg } from '../lib/walkerConfig';
-import { findFloorBelow, findStandingSpot } from '../lib/collision';
+import { clearOrbitDistance, findFloorBelow, findStandingSpot } from '../lib/collision';
 import { useCameraDirector } from '../lib/useCameraDirector';
 import { useLccWalker } from '../lib/useLccWalker';
 import { spawnFor, setSessionSpawn, hydrateScenes, SCENE_BY_ID, firstScene, isPublicTour } from '../lib/scenes';
@@ -19,11 +20,11 @@ import './viewer.css';
 import {
   liveViewpoints, subscribeViewpoints, exportViewpoints, poseWaypoint,
   newSessionViewpoint, updateSessionViewpoint, removeSessionViewpoint,
-  appendWaypoint, removeWaypointFrom
+  appendWaypoint, removeWaypointFrom, setWaypointAt
 } from '../lib/viewpoints';
 import {
   hotspotsFor, addHotspot, updateHotspot, removeHotspot,
-  placeHotspotAtCamera, exportSceneJSON, loadSceneDoc
+  placeHotspotAtCamera, exportSceneJSON, loadSceneDoc, addCollider, placeColliderAtCamera
 } from '../lib/sceneDoc';
 import { projected } from '../lib/hotspotProjector';
 import { resetNavMode, navMode, useNavMode } from '../lib/navMode';
@@ -212,6 +213,37 @@ function Stage({ onState, viewerMode }: StageProps) {
   // A day/night switch: the same place in another scan, so the view carries over.
   const carry = useRef<{ p: THREE.Vector3; q: THREE.Quaternion } | null>(null);
 
+  /**
+   * The tour's arrival (Viewer.tsx): each space is first seen from a step
+   * back and up from its start view, looking at the same spot. That's what
+   * streams in behind the start screen. arrive() then glides into the start
+   * view. The step back stops at the first wall behind (collision.ts), so it
+   * never looks at the room from outside. A 360 video has one point of view
+   * and reduced motion means no glide: those just start where they start.
+   */
+  const arrival = useRef<Viewpoint | null>(null);
+  const standBack = () => {
+    const u = walkerCfg.unitScale || 1;
+    const yaw = walkerRef.current?.yaw() ?? 0;
+    const at = camera.position.clone();
+    const fwd = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
+    const look = at.clone().addScaledVector(fwd, 3 * u);
+    arrival.current = { id: 'arrive', label: '', seconds: 2.6, path: [{ pos: at.toArray(), look: look.toArray() }] };
+    if (SCENE_BY_ID[mgr.activeId]?.format === 'video360' || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      arrival.current = null;
+      return;
+    }
+    // Mostly back, barely up: a splat looks its best near where the scanner
+    // walked, and streaky from well above it.
+    const back = fwd.clone().negate().add(new THREE.Vector3(0, 0.18, 0)).normalize();
+    const r = mgr.renderer;
+    const room = r?.hasCollision?.() ? clearOrbitDistance(r, at, back.clone().negate(), 2.4 * u, walkerCfg.radius, 0) : 2.4 * u;
+    camera.position.addScaledVector(back, room * 0.85);
+    camera.lookAt(look);
+    camera.updateMatrixWorld();
+    walkerRef.current?.adoptCameraOrientation();
+  };
+
   // New scene -> cancel flight, drop the walker at its spawn, and reopen in
   // viewpoints mode (CLAUDE.md §6.1 — walk must never carry over from the
   // space before it, or become the default by accident). Fly is the one
@@ -223,6 +255,7 @@ function Stage({ onState, viewerMode }: StageProps) {
     const kept = carry.current;
     if (!stayAerial && !kept) resetNavMode();
     preFly.current = null; // the old space's pose means nothing here
+    arrival.current = null;
     if (mgr.ready && kept) {
       carry.current = null;
       walkerRef.current?.reset([kept.p.x, kept.p.y, kept.p.z]);
@@ -233,6 +266,7 @@ function Stage({ onState, viewerMode }: StageProps) {
       const { spawn, yaw } = spawnFor(mgr.activeId);
       walkerRef.current?.reset(spawn, yaw);
       if (stayAerial && navMode.orbitEnabled) frameAerial();
+      else if (viewerMode && !stayAerial) standBack();
     }
   }, [mgr.activeId, mgr.ready, stop]); // eslint-disable-line react-hooks/exhaustive-deps -- frameAerial follows activeId
 
@@ -268,6 +302,22 @@ function Stage({ onState, viewerMode }: StageProps) {
         updateSessionViewpoint(mgr.activeId, id, { path: [poseWaypoint(camera)], thumb: snapshot() }),
       appendWpTo: (id) => appendWaypoint(mgr.activeId, id, camera),
       removeWpFrom: (id, i) => removeWaypointFrom(mgr.activeId, id, i),
+      setWpTo: (id, i) => {
+        setWaypointAt(mgr.activeId, id, i, camera);
+        // the last waypoint is where the view arrives: its thumbnail follows it
+        if (i === (liveViewpoints(mgr.activeId).find((v) => v.id === id)?.path.length ?? 0) - 1) {
+          updateSessionViewpoint(mgr.activeId, id, { thumb: snapshot() });
+        }
+      },
+      goToWp: (id, i) => {
+        const w = liveViewpoints(mgr.activeId).find((v) => v.id === id)?.path[i];
+        if (!w) return;
+        stop();
+        camera.position.set(...w.pos);
+        camera.lookAt(...w.look);
+        camera.updateMatrixWorld();
+        walkerRef.current?.adoptCameraOrientation();
+      },
       renameView: (id, label) => updateSessionViewpoint(mgr.activeId, id, { label }),
       setViewSeconds: (id, s) => updateSessionViewpoint(mgr.activeId, id, { seconds: Number(s) || 3 }),
       removeViewpoint: (id) => removeSessionViewpoint(mgr.activeId, id),
@@ -276,10 +326,10 @@ function Stage({ onState, viewerMode }: StageProps) {
       stopSequence: () => { seq.current = null; stop(); setFlying(false); endSeq(); },
       exportAll: () => exportViewpoints(),
       // --- hotspots ---
-      addHotspot: (type) => addHotspot(mgr.activeId, camera, type),
+      addHotspot: (type) => addHotspot(mgr.activeId, camera, type, mgr.renderer),
       updateHotspot: (id, patch) => updateHotspot(mgr.activeId, id, patch),
       removeHotspot: (id) => removeHotspot(mgr.activeId, id),
-      placeHotspotAtCamera: (id) => placeHotspotAtCamera(mgr.activeId, id, camera),
+      placeHotspotAtCamera: (id) => placeHotspotAtCamera(mgr.activeId, id, camera, mgr.renderer),
       lookAtHotspot: (id) => {
         const h = hotspotsFor(mgr.activeId).find((x) => x.id === id);
         if (!h) return;
@@ -287,6 +337,8 @@ function Stage({ onState, viewerMode }: StageProps) {
         camera.updateMatrixWorld();
         walkerRef.current?.adoptCameraOrientation();
       },
+      addCollider: () => addCollider(mgr.activeId, camera),
+      placeColliderAtCamera: (id) => placeColliderAtCamera(mgr.activeId, id, camera),
       exportScene: () => exportSceneJSON(mgr.activeId),
       // --- model placement (§7.2) ---
       resetTransform: () => setTransform(mgr.activeId, IDENTITY),
@@ -303,7 +355,7 @@ function Stage({ onState, viewerMode }: StageProps) {
         return `Floor moved to 0 m (it was at ${floorY.toFixed(2)} m).`;
       }
     };
-  }, [camera, gl, scene, mgr.activeId, play, playViewport, playSequence, stop]);
+  }, [camera, gl, scene, mgr.activeId, mgr.renderer, play, playViewport, playSequence, stop]);
 
   useEffect(() => {
     onState({
@@ -323,6 +375,7 @@ function Stage({ onState, viewerMode }: StageProps) {
         mgr.select(id);
       },
       playViewport,
+      arrive: () => { const a = arrival.current; arrival.current = null; if (a) playViewport(a); },
       stopFly,
       flyReset: () => {
         if (navMode.orbitEnabled) { frameAerial(); return; }
@@ -349,6 +402,7 @@ function Stage({ onState, viewerMode }: StageProps) {
     <>
       <HotspotProjector sceneId={mgr.activeId} />
       {!viewerMode && <Gizmo sceneId={mgr.activeId} />}
+      {!viewerMode && <ColliderBoxes sceneId={mgr.activeId} />}
     </>
   );
 }

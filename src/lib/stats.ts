@@ -40,8 +40,8 @@ export function useVisitBeacon(space: string) {
   }, [space]);
 }
 
-/** A booking or enquiry card: 'enquire' (Ask about this space), 'book' (Book now), 'table', 'room'. */
-export type Intent = 'enquire' | 'book' | 'table' | 'room';
+/** A booking or enquiry card: 'enquire' (Ask about this space), 'book' (Book now), 'table', 'room'; or 'whatsapp', its chat button. */
+export type Intent = 'enquire' | 'book' | 'table' | 'room' | 'whatsapp';
 
 // The path to a booking, counted per space visit like the visits themselves:
 // the first hotspot opened in a space marks that visit "engaged", and each

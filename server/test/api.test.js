@@ -558,10 +558,10 @@ test('a project carries its own branding: name, accent, font and logo', async ()
   assert.equal((await fetch(`${BASE}/api/assets/brand_${pid}/logo.png`)).headers.get('content-type'), 'image/png');
   assert.equal((await api('PUT', `/api/properties/${pid}/logo`, new Uint8Array(Buffer.from('<svg/>')), { 'Content-Type': 'application/octet-stream' })).status, 415);
 
-  // public, for the tour: just the branding
+  // public, for the tour: just the branding, and the WhatsApp number visitors are shown anyway
   cookie = '';
   const pub = await api('GET', `/api/properties/${pid}/theme`);
-  assert.deepEqual(Object.keys(pub.json).sort(), ['theme', 'title']);
+  assert.deepEqual(Object.keys(pub.json).sort(), ['theme', 'title', 'whatsapp']);
   assert.equal(pub.json.theme.accent, '#1f6feb');
   assert.equal((await api('PUT', `/api/properties/${pid}/theme`, { accent: '#000000' })).status, 401);
 
@@ -1060,6 +1060,25 @@ test('a space keeps its night version through save and publish, and the lists re
   assert.equal(gallery.night, 'dn-lobby-night');
 });
 
+test('a published space’s picture is a real image link, for lists and link previews', async () => {
+  signIn();
+  const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 0xff, 0xd9]);
+  await api('PUT', '/api/scenes/og-lobby', sceneDoc('og-lobby', {
+    tracks: [{ id: 'vp-a', label: 'A', keyframes: [], thumb: null }, { id: 'vp-b', label: 'B', keyframes: [], thumb: `data:image/jpeg;base64,${jpeg.toString('base64')}` }]
+  }));
+  await api('PUT', '/api/scenes/og-bare', sceneDoc('og-bare'));
+  for (const s of ['og-lobby', 'og-bare']) assert.equal((await api('POST', `/api/scenes/${s}/publish`)).status, 200);
+  cookie = '';
+  const list = (await api('GET', '/api/gallery')).json;
+  const thumb = list.find((g) => g.id === 'og-lobby').thumb;
+  assert.match(thumb, /^\/api\/gallery\/og-lobby\/thumb\.jpg\?v=\d+$/, 'a link, not a data URL');
+  assert.equal(list.find((g) => g.id === 'og-bare').thumb, null);
+  const img = await fetch(BASE + thumb);
+  assert.equal(img.headers.get('content-type'), 'image/jpeg');
+  assert.deepEqual(Buffer.from(await img.arrayBuffer()), jpeg);
+  assert.equal((await fetch(`${BASE}/api/gallery/og-bare/thumb.jpg`)).status, 404);
+});
+
 test('a project website: draft, photos, publish, and a public page that only shows its own spaces', async () => {
   signIn();
   const pid = (await api('POST', '/api/properties', { title: 'Site Hotel' })).json.id;
@@ -1076,9 +1095,16 @@ test('a project website: draft, photos, publish, and a public page that only sho
   const photo = (await api('POST', `/api/sites/${pid}/images`, new Uint8Array(png), { 'Content-Type': 'application/octet-stream' })).json.path;
   assert.ok(photo.startsWith(`site_${pid}/img-`) && /^img-\d+\.png$/.test(photo.split('/')[1]), photo);
   assert.equal((await api('POST', `/api/sites/${pid}/images`, new Uint8Array([1, 2, 3]), { 'Content-Type': 'application/octet-stream' })).status, 415);
+  const ihdr = Buffer.alloc(33);
+  ihdr.writeUInt32BE(0x89504e47, 0); ihdr.writeUInt32BE(0x0d0a1a0a, 4); ihdr.write('IHDR', 12, 'latin1');
+  ihdr.writeUInt32BE(2400, 16); ihdr.writeUInt32BE(1600, 20);
+  const wide = (await api('POST', `/api/sites/${pid}/images`, new Uint8Array(ihdr), { 'Content-Type': 'application/octet-stream' })).json.path;
+  assert.match(wide, /\/img-\d+-2400x1600\.png$/, 'its size in the name, for the page to hold its place');
+  assert.equal(draft.draft.style, 'heritage', 'the default look');
 
   const saved = await api('PUT', `/api/sites/${pid}/draft`, {
-    hero: { title: '  Site Hotel  ', space: 'site-lobby', junk: 'dropped' },
+    style: 'night',
+    hero: { title: '  Site Hotel  ', space: 'site-lobby', image: wide, junk: 'dropped' },
     rooms: [
       { title: 'Lobby', image: photo, space: 'site-lobby', view: 'vp-door' },
       { title: 'Borrowed', space: 'site-theirs', view: 'x' },
@@ -1090,6 +1116,10 @@ test('a project website: draft, photos, publish, and a public page that only sho
   assert.equal(saved.status, 200);
   assert.equal(saved.json.draft.hero.title, 'Site Hotel');
   assert.equal(saved.json.draft.hero.junk, undefined);
+  assert.equal(saved.json.draft.hero.image, wide);
+  assert.equal(saved.json.draft.style, 'night');
+  assert.equal((await api('PUT', `/api/sites/${pid}/draft`, { ...saved.json.draft, style: 'neon' })).json.draft.style, 'heritage', 'an unknown look falls back');
+  await api('PUT', `/api/sites/${pid}/draft`, saved.json.draft);
   assert.equal(saved.json.draft.rooms[2].image, '', 'only this site’s own photos');
   assert.deepEqual(saved.json.draft.gallery, [photo]);
   assert.equal(saved.json.draft.menu.items.length, 1);
@@ -1504,11 +1534,14 @@ test('a project carries its brand information, checked, and its website shows it
   assert.equal((await api('PUT', `/api/properties/${pid}/info`, { email: 'not-an-email' })).status, 400);
   assert.equal((await api('PUT', `/api/properties/${pid}/info`, { facebook: 'javascript:alert(1)' })).status, 400);
   assert.equal((await api('PUT', `/api/properties/${pid}/info`, { about: '' })).json.info.about, undefined, 'empty removes it');
+  assert.equal((await api('PUT', `/api/properties/${pid}/info`, { whatsapp: '980-1234567' })).json.info.whatsapp, '9779801234567', 'as wa.me wants it');
+  assert.equal((await api('PUT', `/api/properties/${pid}/info`, { whatsapp: 'call us' })).status, 400);
 
   await api('PUT', `/api/sites/${pid}/draft`, { hero: { title: 'Himal Cafe' } });
   await api('POST', `/api/sites/${pid}/publish`);
   cookie = '';
   assert.equal((await api('GET', `/api/sites/${pid}`)).json.project.info.phone, '+977 1 5550000');
+  assert.equal((await api('GET', `/api/properties/${pid}/theme`)).json.whatsapp, '9779801234567', 'the tour’s WhatsApp button reads it');
   cookie = other.cookie;
   assert.equal((await api('PUT', `/api/properties/${pid}/info`, { phone: '1' })).status, 404, 'not someone else’s');
 });

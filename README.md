@@ -228,6 +228,8 @@ cd server
 npm start
 ```
 
+Hosting on a VPS (pm2 + nginx + HTTPS, auto-deploy from `main`): see [deploy/README.md](deploy/README.md).
+
 ## 📍 Typical use cases
 
 This platform is ideal for:

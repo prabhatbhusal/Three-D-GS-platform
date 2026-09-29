@@ -13,8 +13,10 @@ import { spawnFor, SCENE_BY_ID } from './scenes';
 import { getScene, getPublishedScene } from './api';
 import { liveViewpoints, loadTracks } from './viewpoints';
 import { transformFor, loadTransform } from './transform';
+import { walkerCfg } from './walkerConfig';
+import { surfaceDistance } from './collision';
 import type { Hotspot, HotspotPayload, HotspotType } from '../@types/hotspot.types';
-import type { Booking, ModelFormat, SceneDoc, SplatVariant, Track } from '../@types/scene.types';
+import type { Booking, Collider, ModelFormat, SceneDoc, SplatVariant, Track } from '../@types/scene.types';
 
 const doc: Record<string, { hotspots: Hotspot[] }> = {};
 /** Book now per space (§7.6). Loaded with the doc, so the public tour reads
@@ -51,14 +53,30 @@ const blankPayload = (type: HotspotType): HotspotPayload =>
             : type === 'table' ? { tableId: '', text: '' }
             : { text: '' };
 
-/** Drop a hotspot ~2 units in front of the camera. */
-export function addHotspot(sceneId: string, camera: THREE.Camera, type: HotspotType = 'text'): Hotspot {
+/**
+ * Where a hotspot goes: on whatever the middle of the view rests on (a
+ * wall, the bar, a painting), just in front of it, so it stays on that
+ * thing as you walk around it. Placed in mid-air it floats in front of the
+ * room and seems to slide about as the camera moves. Nothing in view
+ * (outdoors, a 360 video, no scene renderer): 2 units ahead, as before.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- vendor SDK renderer handle
+function spotInView(camera: THREE.Camera, renderer: any): [number, number, number] {
+  const u = walkerCfg.unitScale || 1;
   const p = camera.position;
   camera.getWorldDirection(_f);
+  const d = renderer ? surfaceDistance(renderer, p, _f, 30 * u, 0.04 * u) : null;
+  const k = d === null ? 2 : Math.max(0.2 * u, d - 0.05 * u);
+  return [r3(p.x + _f.x * k), r3(p.y + _f.y * k), r3(p.z + _f.z * k)];
+}
+
+/** A new hotspot, on what the middle of the view rests on (spotInView). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- vendor SDK renderer handle
+export function addHotspot(sceneId: string, camera: THREE.Camera, type: HotspotType = 'text', renderer: any = null): Hotspot {
   const hs: Hotspot = {
     id: `hs-${sceneId}-${Date.now().toString(36)}${(++hsSeq).toString(36)}`,
     type,
-    position: [r3(p.x + _f.x * 2), r3(p.y + _f.y * 2), r3(p.z + _f.z * 2)],
+    position: spotInView(camera, renderer),
     radius: 0.4,
     label: 'New hotspot',
     payload: blankPayload(type),
@@ -102,12 +120,95 @@ export function setBookingOutright(sceneId: string, b: Booking | null) {
 /** A new id for a copy of a hotspot in another space. */
 export const copyHotspotId = (sceneId: string) => `hs-${sceneId}-${Date.now().toString(36)}${(++hsSeq).toString(36)}`;
 
-export function placeHotspotAtCamera(sceneId: string, id: string, camera: THREE.Camera) {
-  const p = camera.position;
+/** "Set to current view": the hotspot moves onto what the middle of the view rests on. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- vendor SDK renderer handle
+export function placeHotspotAtCamera(sceneId: string, id: string, camera: THREE.Camera, renderer: any = null) {
+  updateHotspot(sceneId, id, { position: spotInView(camera, renderer) });
+}
+
+/* ------------------------------------------------------------------ */
+/* Collision boxes (scene.types Collider)                             */
+/* ------------------------------------------------------------------ */
+
+const colliders: Record<string, Collider[]> = {};
+export const collidersFor = (sceneId: string): Collider[] => colliders[sceneId] ?? [];
+
+/** Which box the studio has selected, for the move handle in the view (ColliderBoxes). */
+export const colliderUi: { selected: string | null } = { selected: null };
+export function selectCollider(id: string | null) {
+  if (colliderUi.selected === id) return;
+  colliderUi.selected = id;
+  emit();
+}
+
+const finite = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+const vec = (v: unknown, d: number, min = -Infinity) =>
+  [0, 1, 2].map((i) => Math.max(min, finite((v as number[] | undefined)?.[i], d))) as [number, number, number];
+
+/** A saved box made safe to collide with: a NaN here would put the visitor's camera at NaN. */
+const cleanCollider = (c: Partial<Collider>, i: number): Collider => ({
+  id: typeof c.id === 'string' && c.id ? c.id : `col-${i}`,
+  label: typeof c.label === 'string' ? c.label : `Collision box ${i + 1}`,
+  position: vec(c.position, 0),
+  size: vec(c.size, 1, 0.01),
+  yaw: finite(c.yaw, 0),
+  color: typeof c.color === 'string' && /^#[0-9a-f]{6}$/i.test(c.color) ? c.color : '#ff3b6b'
+});
+
+const DEG = Math.PI / 180;
+/** The camera's facing, level, into _f. */
+function flatForward(camera: THREE.Camera) {
   camera.getWorldDirection(_f);
-  updateHotspot(sceneId, id, {
-    position: [r3(p.x + _f.x * 2), r3(p.y + _f.y * 2), r3(p.z + _f.z * 2)]
-  });
+  _f.y = 0;
+  if (_f.lengthSq() < 1e-6) _f.set(0, 0, -1);
+  _f.normalize();
+}
+
+/** A wall 2 wide, 2.5 tall, standing on the floor ~2 units ahead and facing the camera. */
+export function addCollider(sceneId: string, camera: THREE.Camera): Collider {
+  const u = walkerCfg.unitScale || 1;
+  flatForward(camera);
+  const p = camera.position;
+  const list = (colliders[sceneId] ??= []);
+  const c: Collider = {
+    id: `col-${sceneId}-${Date.now().toString(36)}${(++hsSeq).toString(36)}`,
+    label: `Collision box ${list.length + 1}`,
+    position: [r3(p.x + _f.x * 2 * u), r3(p.y - walkerCfg.eyeHeight + 1.25 * u), r3(p.z + _f.z * 2 * u)],
+    size: [r3(2 * u), r3(2.5 * u), r3(0.2 * u)],
+    yaw: r3(Math.atan2(_f.x, _f.z) / DEG),
+    color: '#ff3b6b'
+  };
+  list.push(c);
+  emit();
+  return c;
+}
+
+export function updateCollider(sceneId: string, id: string, patch: Partial<Collider>) {
+  const c = colliders[sceneId]?.find((x) => x.id === id);
+  if (!c) return;
+  Object.assign(c, patch);
+  emit();
+}
+
+export function removeCollider(sceneId: string, id: string) {
+  colliders[sceneId] = collidersFor(sceneId).filter((c) => c.id !== id);
+  emit();
+}
+
+/** Set outright: undo/redo (history.ts). */
+export function setColliders(sceneId: string, list: Collider[]) {
+  colliders[sceneId] = structuredClone(list);
+  emit();
+}
+
+export function placeColliderAtCamera(sceneId: string, id: string, camera: THREE.Camera) {
+  const c = collidersFor(sceneId).find((x) => x.id === id);
+  if (!c) return;
+  const u = walkerCfg.unitScale || 1;
+  flatForward(camera);
+  const p = camera.position;
+  // keep it standing on whatever it stood on: only x/z follow the camera
+  updateCollider(sceneId, id, { position: [r3(p.x + _f.x * 2 * u), c.position[1], r3(p.z + _f.z * 2 * u)] });
 }
 
 /* ------------------------------------------------------------------ */
@@ -144,6 +245,7 @@ export function loadSceneDoc(
       const localOnly = force ? [] : hotspotsFor(sceneId).filter((h) => !ids.has(h.id));
       doc[sceneId] = { hotspots: [...(saved.hotspots ?? []), ...localOnly] };
       booking[sceneId] = saved.booking ?? null;
+      colliders[sceneId] = (Array.isArray(saved.colliders) ? saved.colliders : []).map(cleanCollider);
       if (source === 'draft') {
         serverDocs[sceneId] = saved as SavedDoc;
         savedJson[sceneId] = JSON.stringify(sceneDocFor(sceneId));
@@ -242,6 +344,7 @@ export function sceneDocFor(sceneId: string): SceneDoc {
       yaw: r3(yaw)
     },
     hotspots: hotspotsFor(sceneId),
+    colliders: collidersFor(sceneId),
     tracks,
     booking: bookingFor(sceneId),
     night: conf?.night ?? null,

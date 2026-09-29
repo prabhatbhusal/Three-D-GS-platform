@@ -14,6 +14,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { migrateScene, CURRENT_VERSION } from './migrate.js';
 import { DATA_DIR } from './dataDir.js';
+import { phoneOf } from './notify.js';
 
 const SCENES_DIR = path.join(DATA_DIR, 'scenes');
 const PROPERTIES_DIR = path.join(DATA_DIR, 'properties');
@@ -474,7 +475,7 @@ export async function setPropertyTheme(id, patch) {
  *  "about", and how to reach it. Public by nature — its website shows it — so
  *  checked here: lengths capped, a real email, and web addresses only. An
  *  empty field removes it. */
-export const INFO_FIELDS = { tagline: 120, about: 1200, phone: 40, email: 200, address: 300, website: 300, facebook: 300, instagram: 300 };
+export const INFO_FIELDS = { tagline: 120, about: 1200, phone: 40, whatsapp: 40, email: 200, address: 300, website: 300, facebook: 300, instagram: 300 };
 const URL_FIELDS = ['website', 'facebook', 'instagram'];
 export async function setPropertyInfo(id, patch) {
   const p = await getProperty(id);
@@ -486,6 +487,13 @@ export async function setPropertyInfo(id, patch) {
     if (!v) { delete info[k]; continue; }
     if (v.length > max) throw badRequest(`${k} is too long — keep it under ${max} characters.`);
     if (k === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) throw badRequest('That email address doesn’t look right.');
+    if (k === 'whatsapp') {
+      // stored as wa.me wants it: country code and digits, no +
+      const p = phoneOf(v);
+      if (!p) throw badRequest('That WhatsApp number doesn’t look right. Include the country code, like +977 98…');
+      info[k] = p.intl;
+      continue;
+    }
     if (URL_FIELDS.includes(k)) {
       const url = /^https?:\/\//i.test(v) ? v : `https://${v}`;
       let ok = false;
@@ -556,7 +564,8 @@ export async function listPublished() {
       publishedAt: snap.publishedAt,
       version: snap.publishedVersion,
       trackCount: snap.tracks?.length ?? 0,
-      thumb: snap.tracks?.find((t) => t.thumb)?.thumb ?? null,
+      // A link, not the data URL: lists stay small, and link previews need a real image.
+      thumb: snap.tracks?.some((t) => t.thumb) ? `/api/gallery/${id}/thumb.jpg?v=${snap.publishedVersion}` : null,
       propertyId: snap.propertyId ?? null,
       night: snap.night ?? null
     });

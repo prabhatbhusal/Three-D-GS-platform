@@ -491,6 +491,9 @@ assetsRouter.get('/:assetId/*', async (req, res, next) => {
     res.setHeader('Accept-Ranges', 'bytes');
     res.setHeader('Content-Type', contentType);
     res.setHeader('Vary', 'Accept-Encoding');
+    // A scan's files are written once, at upload, so browsers and a CDN may
+    // keep them for good; only the floor plan is redrawn in place.
+    res.setHeader('Cache-Control', relPath.startsWith('floorplan/') ? 'no-cache' : 'public, max-age=31536000, immutable');
 
     // A whole-file read of a model: send the gzipped copy finalizeGlb made.
     // Byte ranges (the LCC SDK's tiles) always get the raw file.
@@ -570,6 +573,45 @@ const PLAN_KINDS = [
 ];
 /** 'png' | 'jpg' | 'webp' from an image's first bytes, or undefined. */
 export const imageKind = (buf) => PLAN_KINDS.find(([, is]) => is(buf))?.[0];
+
+/** [width, height] as the image shows (a phone photo's EXIF turn applied),
+ *  read from its header, or null. `kind` is imageKind's answer. */
+export function imageSize(b, kind) {
+  try {
+    if (kind === 'png') return b.toString('latin1', 12, 16) === 'IHDR' ? [b.readUInt32BE(16), b.readUInt32BE(20)] : null;
+    if (kind === 'webp') {
+      const f = b.toString('latin1', 12, 16);
+      if (f === 'VP8 ') return [b.readUInt16LE(26) & 0x3fff, b.readUInt16LE(28) & 0x3fff];
+      if (f === 'VP8L') return [1 + (((b[22] & 0x3f) << 8) | b[21]), 1 + (((b[24] & 0x0f) << 10) | (b[23] << 2) | ((b[22] & 0xc0) >> 6))];
+      if (f === 'VP8X') return [1 + b.readUIntLE(24, 3), 1 + b.readUIntLE(27, 3)];
+      return null;
+    }
+    let turned = false;
+    for (let i = 2; i + 9 < b.length;) {
+      if (b[i] !== 0xff || b[i + 1] === 0xff) { i++; continue; }
+      const m = b[i + 1];
+      if (m === 0xe1 && b.toString('latin1', i + 4, i + 10) === 'Exif\0\0') turned = exifTurned(b, i + 10);
+      if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) {
+        const w = b.readUInt16BE(i + 7), h = b.readUInt16BE(i + 5);
+        return turned ? [h, w] : [w, h];
+      }
+      i += 2 + b.readUInt16BE(i + 2);
+    }
+  } catch { /* a truncated header */ }
+  return null;
+}
+
+/** True when the EXIF orientation (tag 0x0112) turns the photo a quarter (5–8). */
+function exifTurned(b, tiff) {
+  const le = b.toString('latin1', tiff, tiff + 2) === 'II';
+  const u16 = (o) => (le ? b.readUInt16LE(o) : b.readUInt16BE(o));
+  const ifd = tiff + (le ? b.readUInt32LE(tiff + 4) : b.readUInt32BE(tiff + 4));
+  for (let k = 0, n = u16(ifd); k < n; k++) {
+    const e = ifd + 2 + k * 12;
+    if (u16(e) === 0x0112) return u16(e + 8) >= 5;
+  }
+  return false;
+}
 
 const clearUploadedPlan = (assetId) =>
   Promise.all(PLAN_KINDS.map(([ext]) => storage.remove(assetId, `floorplan/uploaded.${ext}`)));

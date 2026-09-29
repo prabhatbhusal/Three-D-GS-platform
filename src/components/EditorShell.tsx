@@ -9,9 +9,11 @@ import { walkerCfg } from '../lib/walkerConfig';
 import { subscribeViewpoints, loadTracks, updateSessionViewpoint } from '../lib/viewpoints';
 import { canRedo, canUndo, redo, subscribeHistory, undo, watchHistory } from '../lib/history';
 import {
-  hotspotsFor, subscribeDoc, sceneDocFor, loadSceneDoc, markSaved, hasUnsavedChanges, bookingFor, setBooking, setHotspots, copyHotspotId
+  hotspotsFor, subscribeDoc, sceneDocFor, loadSceneDoc, markSaved, hasUnsavedChanges, bookingFor, setBooking, setHotspots, copyHotspotId,
+  collidersFor, updateCollider, removeCollider, selectCollider
 } from '../lib/sceneDoc';
 import { uploadAudio } from '../lib/upload';
+import { isTypingTarget } from '../lib/useLccWalker';
 import { playClip, setMuted, stopClip, useSound } from '../lib/audio';
 import { uiConfig, setUiConfig, useUiConfig } from '../lib/uiConfig';
 import {
@@ -26,14 +28,14 @@ import { Uploader } from './Uploader';
 import { ThemeToggle } from './ThemeToggle';
 import type { ViewerState, EditorApi } from '../@types/app.types';
 import type { Hotspot, HotspotType } from '../@types/hotspot.types';
-import type { Property, Scene, SceneDoc } from '../@types/scene.types';
+import type { Collider, Property, Scene, SceneDoc } from '../@types/scene.types';
 import type { Viewpoint } from '../@types/viewpoint.types';
 import './editor.css';
 
 const HS_TYPES: HotspotType[] = ['text', 'image', 'video', 'audio', 'link', 'portal', 'table'];
 const HS_ICON: Record<HotspotType, string> = { image: '▣', video: '▶', text: 'i', link: '↗', portal: '⤢', audio: '♪', table: '◎' };
 
-type Selection = { type: 'hotspot' | 'track'; id: string };
+type Selection = { type: 'hotspot' | 'track' | 'collider'; id: string };
 interface Pose { x: number; y: number; z: number; yaw: number; }
 
 /* ================================================================= */
@@ -67,9 +69,25 @@ export function EditorShell({ state, property, onPreview }: {
   useEffect(() => {
     if (!state || !sel) return;
     const inTracks = (state.viewpoints || []).some((v) => v.id === sel.id);
-    const inHs = hotspotsFor(state.activeId).some((h) => h.id === sel.id);
+    const inHs = hotspotsFor(state.activeId).some((h) => h.id === sel.id)
+      || collidersFor(state.activeId).some((c) => c.id === sel.id);
     if (!inTracks && !inHs) setSel(null);
   }, [state, sel]);
+
+  // The view's move arrows follow the selected collision box; the model's
+  // own gizmo steps aside so the two sets of handles never overlap.
+  useEffect(() => {
+    const id = sel?.type === 'collider' ? sel.id : null;
+    selectCollider(id);
+    if (id && gizmo.mode !== 'off') setGizmoMode('off');
+  }, [sel]);
+
+  // Esc (outside a text box) goes back to the Scene/Look panes.
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape' && !isTypingTarget(e.target)) setSel(null); };
+    window.addEventListener('keydown', esc);
+    return () => window.removeEventListener('keydown', esc);
+  }, []);
 
   if (!state) return <div className="ed2-boot">Loading editor…</div>;
 
@@ -77,8 +95,10 @@ export function EditorShell({ state, property, onPreview }: {
   const dirty = hasUnsavedChanges(state.activeId);
   const tracks = state.viewpoints || [];
   const hotspots = hotspotsFor(state.activeId);
+  const colliders = collidersFor(state.activeId);
   const selHotspot = sel?.type === 'hotspot' ? hotspots.find((h) => h.id === sel.id) : null;
   const selTrack = sel?.type === 'track' ? tracks.find((t) => t.id === sel.id) : null;
+  const selCollider = sel?.type === 'collider' ? colliders.find((c) => c.id === sel.id) : null;
 
   const addTrack = () => {
     const v = ed.newViewFromPose(`Track ${tracks.length + 1}`);
@@ -100,8 +120,9 @@ export function EditorShell({ state, property, onPreview }: {
       <TopBar onPreview={onPreview} sceneId={state.activeId} property={property} />
 
       <SceneTree
-        state={state} tracks={tracks} hotspots={hotspots} sel={sel}
+        state={state} tracks={tracks} hotspots={hotspots} colliders={colliders} sel={sel}
         onSelect={setSel} onAddTrack={addTrack} onAddHotspot={addHotspot}
+        onAddCollider={() => setSel({ type: 'collider', id: ed.addCollider().id })}
         onNewSpace={() => setUploaderOpen(true)} onRename={doRename}
         onCopy={hotspots.length || tracks.length ? () => setCopying(true) : undefined}
       />
@@ -116,10 +137,20 @@ export function EditorShell({ state, property, onPreview }: {
       )}
 
       <div className="ed2-inspector">
+        {sel && (
+          <div className="ed2-row">
+            <button onClick={() => setSel(null)} title="Esc">← Back to scene</button>
+          </div>
+        )}
         {selHotspot ? (
           <HotspotInspector
             ed={ed} hs={selHotspot} activeId={state.activeId}
             onDelete={() => { ed.removeHotspot(selHotspot.id); setSel(null); }}
+          />
+        ) : selCollider ? (
+          <ColliderInspector
+            ed={ed} c={selCollider} sceneId={state.activeId}
+            onDelete={() => { removeCollider(state.activeId, selCollider.id); setSel(null); }}
           />
         ) : selTrack ? (
           <TrackInspector
@@ -154,8 +185,9 @@ export function EditorShell({ state, property, onPreview }: {
         onSelect={(id) => setSel({ type: 'hotspot', id })}
       />
 
+      <div className="ed2-aim" aria-hidden />
       <div className="ed2-hint-strip">
-        drag 3D to look · <b>WASD</b> move · <b>H</b> hotspot · <b>N</b> fly · scroll = dolly
+        drag 3D to look · <b>WASD</b> move · <b>H</b> hotspot where the dot is · <b>N</b> fly · scroll = dolly
       </div>
     </div>
   );
@@ -712,17 +744,19 @@ interface SceneTreeProps {
   state: ViewerState;
   tracks: Viewpoint[];
   hotspots: Hotspot[];
+  colliders: Collider[];
   sel: Selection | null;
   onSelect: (sel: Selection) => void;
   onAddTrack: () => void;
   onAddHotspot: (type: HotspotType) => void;
+  onAddCollider: () => void;
   onNewSpace: () => void;
   onRename: (sceneId: string, name: string) => void;
   /** Copy hotspots and tracks to other spaces (CopyToSpaces). */
   onCopy?: () => void;
 }
 
-function SceneTree({ state, tracks, hotspots, sel, onSelect, onAddTrack, onAddHotspot, onNewSpace, onRename, onCopy }: SceneTreeProps) {
+function SceneTree({ state, tracks, hotspots, colliders, sel, onSelect, onAddTrack, onAddHotspot, onAddCollider, onNewSpace, onRename, onCopy }: SceneTreeProps) {
   const [addOpen, setAddOpen] = useState(false);
   return (
     <div className="ed2-left">
@@ -765,6 +799,22 @@ function SceneTree({ state, tracks, hotspots, sel, onSelect, onAddTrack, onAddHo
         </button>
       ))}
       {!hotspots.length && <div className="ed2-tree-empty">press <b>H</b> to place one</div>}
+
+      <div className="ed2-tree-grp">
+        Collision boxes <span className="ed2-tree-n">{colliders.length}</span>
+        <span className="ed2-tree-add" onClick={onAddCollider} title="Add an invisible wall or floor">＋</span>
+      </div>
+      {colliders.map((c) => (
+        <button
+          key={c.id}
+          className={`ed2-tree-row ${sel?.id === c.id ? 'on' : ''}`}
+          onClick={() => onSelect({ type: 'collider', id: c.id })}
+        >
+          <span className="ed2-tree-ic" style={{ color: c.color }}>■</span>
+          <span className="ed2-tree-nm">{c.label}</span>
+        </button>
+      ))}
+      {!colliders.length && <div className="ed2-tree-empty">block holes in the scan</div>}
 
       <div className="ed2-tree-grp">
         Camera tracks <span className="ed2-tree-n">{tracks.length}</span>
@@ -977,7 +1027,7 @@ function SaveToServerButton({ sceneId }: { sceneId: string }) {
       const n = (k: number, one: string) => `${k} ${one}${k === 1 ? '' : 's'}`;
       setLastSaved({
         at: new Date(),
-        summary: `"${sent.title}": ${n(sent.tracks.length, 'camera track')}, ${n(sent.hotspots.length, 'hotspot')}, start view, name`
+        summary: `"${sent.title}": ${n(sent.tracks.length, 'camera track')}, ${n(sent.hotspots.length, 'hotspot')}, ${n(sent.colliders?.length ?? 0, 'collision box').replace(/xs$/, 'xes')}, start view, name`
       });
       setStatus('idle');
     } catch (err) {
@@ -1038,9 +1088,10 @@ function HotspotInspector({ ed, hs, activeId, onDelete }: HotspotInspectorProps)
       <Section title="Placement">
         <p className="ed2-pose">[{hs.position.map((n) => n.toFixed(2)).join(', ')}]</p>
         <div className="ed2-row">
-          <button onClick={() => ed.placeHotspotAtCamera(hs.id)}>Place at camera</button>
+          <button onClick={() => ed.placeHotspotAtCamera(hs.id)} title="Moves it onto what the dot in the middle of the view rests on">Set to current view</button>
           <button onClick={() => ed.lookAtHotspot(hs.id)}>Look at</button>
         </div>
+        <p className="ed2-muted ed2-fine">Aim the dot in the middle of the view at the wall or object it&apos;s about, then Set to current view. It sits on that surface, so it stays put as visitors walk around.</p>
         <Slider label="Trigger radius" value={hs.radius} min={0.1} max={3} step={0.05}
           display={`${hs.radius.toFixed(2)} m`} onChange={(x) => set({ radius: x })} />
       </Section>
@@ -1103,6 +1154,64 @@ function HotspotInspector({ ed, hs, activeId, onDelete }: HotspotInspectorProps)
 
       <div className="ed2-row ed2-viewactions">
         <button className="ed2-del" onClick={onDelete}>🗑 Delete hotspot</button>
+      </div>
+    </>
+  );
+}
+
+/* --------------------------- Collision box inspector ------------- */
+
+/** An invisible wall or floor for where the scan has holes: visitors walk
+ *  into it or stand on it, and never see it. The colour is the studio's only. */
+function ColliderInspector({ ed, c, sceneId, onDelete }: {
+  ed: EditorApi; c: Collider; sceneId: string; onDelete: () => void;
+}) {
+  const [step, setStep] = useState<number>(0.1);
+  const set = (patch: Partial<Collider>) => updateCollider(sceneId, c.id, patch);
+  const setAxis = (key: 'position' | 'size', i: number, v: number) => {
+    const next = [...c[key]] as [number, number, number];
+    next[i] = key === 'size' ? Math.max(0.05, v) : v;
+    set({ [key]: next });
+  };
+
+  return (
+    <>
+      <Section title="Collision box">
+        <input className="ed2-name" value={c.label} onChange={(e) => set({ label: e.target.value })} />
+        <div className="ed2-row" style={{ marginTop: 6 }}>
+          <input type="color" value={c.color} onChange={(e) => set({ color: e.target.value })} />
+          <span className="ed2-muted">colour in the studio · invisible in the tour</span>
+        </div>
+        <p className="ed2-muted ed2-fine">
+          Visitors can&apos;t walk through it and can stand on it. Use it where the scan has holes: a missing wall, a gap in the floor.
+        </p>
+      </Section>
+
+      <Section title="Placement">
+        <p className="ed2-muted ed2-fine">Drag the arrows in the view to move it.</p>
+        <div className="ed2-row">
+          <button onClick={() => ed.placeColliderAtCamera(c.id)}>Move in front of me</button>
+        </div>
+        <div className="ed2-xform-head">
+          <span>Position</span>
+          <StepSize value={step} options={MOVE_STEPS} unit="m" onChange={setStep} />
+        </div>
+        {(['X', 'Y', 'Z'] as const).map((axis, i) => (
+          <Stepper key={axis} axis={axis} value={c.position[i]} step={step} digits={3} unit="m"
+            onChange={(v) => setAxis('position', i, v)} />
+        ))}
+        <div className="ed2-xform-head"><span>Size (width, height, depth)</span></div>
+        {(['X', 'Y', 'Z'] as const).map((axis, i) => (
+          <Stepper key={axis} axis={axis} value={c.size[i]} step={step} digits={3} unit="m"
+            onChange={(v) => setAxis('size', i, v)} />
+        ))}
+        <div className="ed2-xform-head"><span>Turn</span></div>
+        <Stepper axis="Y" value={c.yaw} step={15} digits={1} unit="°"
+          onChange={(v) => set({ yaw: v })} />
+      </Section>
+
+      <div className="ed2-row ed2-viewactions">
+        <button className="ed2-del" onClick={onDelete}>🗑 Delete collision box</button>
       </div>
     </>
   );
@@ -1570,20 +1679,25 @@ function TrackInspector({ ed, track, sceneId, onDelete, onBump }: TrackInspector
       <Section title={`Path — ${track.path?.length || 0} waypoint(s)`}>
         {editable && (
           <div className="ed2-row">
-            <button onClick={() => ed.updateViewToCurrent(track.id)}>Set to current</button>
+            <button onClick={() => ed.updateViewToCurrent(track.id)} title="Replaces the whole path with where you are now">Set to current</button>
             <button onClick={() => ed.appendWpTo(track.id)}>＋ Waypoint</button>
           </div>
         )}
         <ol className="ed2-wps">
           {(track.path || []).map((w, i) => (
             <li key={i}>
-              <span>#{i + 1} [{w.pos.map((n) => n.toFixed(1)).join(', ')}]</span>
-              {editable && track.path.length > 1 && (
-                <button onClick={() => ed.removeWpFrom(track.id, i)}>✕</button>
-              )}
+              <span>{i === track.path.length - 1 ? 'View' : `#${i + 1}`} [{w.pos.map((n) => n.toFixed(1)).join(', ')}]</span>
+              <span className="ed2-wp-tools">
+                <button onClick={() => ed.goToWp(track.id, i)} title="Take the camera there">Go</button>
+                {editable && <button onClick={() => ed.setWpTo(track.id, i)} title="Move this waypoint to where you are now">Set here</button>}
+                {editable && track.path.length > 1 && (
+                  <button onClick={() => ed.removeWpFrom(track.id, i)} aria-label={`Remove waypoint ${i + 1}`}>✕</button>
+                )}
+              </span>
             </li>
           ))}
         </ol>
+        {editable && <p className="ed2-muted ed2-fine">To move a viewpoint: Go, adjust the view (WASD, drag to look), then Set here. The last one is where visitors arrive.</p>}
       </Section>
 
       {editable && <NarrationSection sceneId={sceneId} track={track} />}

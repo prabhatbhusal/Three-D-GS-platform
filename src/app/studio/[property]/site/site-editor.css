@@ -50,12 +50,20 @@
 .se-item-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .se-split { display: grid; grid-template-columns: 220px 1fr; gap: 16px; }
 .se-photo { display: flex; flex-direction: column; gap: 8px; }
-.se-photo img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; }
+.se-photo img { width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; }
+.se-photo-wide img { aspect-ratio: 21 / 9; }
 
 .se-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; align-items: start; }
 .se-gallery figure { position: relative; margin: 0; }
-.se-gallery figure img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; display: block; }
+.se-gallery figure img { width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; border-radius: 8px; display: block; }
 .se .se-gallery figure button { position: absolute; top: 6px; right: 6px; padding: 2px 7px; }
+
+/* The website's look: three cards, each a swatch of its paper and ink */
+.se-looks { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.se .se-look { display: grid; grid-template-columns: 48px 1fr; gap: 2px 12px; align-items: center; padding: 10px; text-align: left; }
+.se .se-look.is-on { border-color: var(--ed-signal); box-shadow: 0 0 0 1px var(--ed-signal); }
+.se-look-swatch { grid-row: span 2; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 8px; border: 1px solid var(--ed-line); font: 400 20px/1 Georgia, serif; }
+.se-look small { color: var(--ed-text-dim); }
 
 @media (max-width: 640px) {
   .se-split { grid-template-columns: 1fr; }

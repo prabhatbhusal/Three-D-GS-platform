@@ -10,7 +10,7 @@
  * opened each booking or enquiry card ("intent"). Enquiries and booking
  * requests themselves are counted from what was saved, not from here.
  */
-export const INTENTS = ['enquire', 'book', 'table', 'room'];
+export const INTENTS = ['enquire', 'book', 'table', 'room', 'whatsapp'];
 import { promises as fs } from 'fs';
 import path from 'path';
 import { DATA_DIR } from './dataDir.js';

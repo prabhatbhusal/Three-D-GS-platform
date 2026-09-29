@@ -34,6 +34,8 @@ export interface UiConfig {
   /** The project's branding (uiConfig.ts applyTheme): logo URL and heading font. */
   logo?: string | null;
   font?: BrandFont;
+  /** The project's WhatsApp number (applyTheme): the enquiry sheet's Chat on WhatsApp. */
+  whatsapp?: string | null;
 }
 
 export type BrandFont = 'serif' | 'sans' | 'classic';
@@ -42,6 +44,8 @@ export interface ProjectTheme { brand?: string; accent?: string; font?: BrandFon
 /** What a project says about its brand (server/src/store.js setPropertyInfo); its website shows it. */
 export interface ProjectInfo {
   tagline?: string; about?: string; phone?: string; email?: string; address?: string;
+  /** Country code and digits, no + (the server normalises it): what wa.me wants. */
+  whatsapp?: string;
   website?: string; facebook?: string; instagram?: string;
 }
 

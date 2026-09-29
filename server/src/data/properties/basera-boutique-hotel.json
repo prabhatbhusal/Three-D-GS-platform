@@ -1,0 +1,26 @@
+{
+  "ownerId": "44d97664-14c0-4473-82e8-a0089a8219cd",
+  "members": [],
+  "staff": [],
+  "id": "basera-boutique-hotel",
+  "version": 1,
+  "title": "Basera Boutique hotel",
+  "createdAt": "2026-09-29T06:42:49.746Z",
+  "theme": {
+    "brand": "Basera Boutique Hotel",
+    "accent": "#d6b97d",
+    "font": "classic",
+    "logo": "brand_basera-boutique-hotel/logo.jpg?v=1790664169778"
+  },
+  "info": {
+    "tagline": "Where Heritage Meets Luxury",
+    "about": "Come home to the heart of Kathmandu.\n\nStep into a world where Nepal’s timeless heritage meets contemporary comfort. At Basera Boutique Hotel, traditional architecture, warm hospitality, authentic flavors, and refined spaces come together to create more than a stay — they create memories you’ll carry with you.\n\nStay in heritage. Feel at home. Experience Kathmandu.",
+    "phone": "+977 1 5705626",
+    "whatsapp": "9779851234862",
+    "email": "info@baseraboutiquehotel.com.np",
+    "address": "Singh Durbar, Babar Mahal, Kathmandu, Nepal",
+    "website": "https://baseraboutiquehotel.com.np",
+    "facebook": "https://www.facebook.com/BaseraBoutiqueHotel/",
+    "instagram": "https://www.instagram.com/basera_boutique_hotel/"
+  }
+}

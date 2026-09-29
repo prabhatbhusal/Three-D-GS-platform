@@ -1,9 +1,10 @@
 {
   "ownerId": "44d97664-14c0-4473-82e8-a0089a8219cd",
   "members": [],
+  "staff": [],
   "id": "demo-project",
   "version": 1,
-  "title": "Demo project",
+  "title": "Madan Ashrit College",
   "createdAt": "2026-09-21T05:58:21.077Z",
   "theme": {
     "font": "serif"

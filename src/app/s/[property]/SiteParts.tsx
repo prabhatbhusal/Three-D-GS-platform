@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import Image from 'next/image';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { EnquiryPanel } from '../../../components/EnquiryPanel';
@@ -40,8 +41,46 @@ export function BookThisRoom({ room }: { room: string }) {
   );
 }
 
+type Photo = { src: string; width: number; height: number };
+
+/**
+ * The photos: the client's own, in a masonry, each opening full size in a
+ * lightbox. The browser's <dialog> does the hard parts (Esc closes it, focus
+ * goes back to the photo); arrows and a click outside the photo do the rest.
+ */
+export function SiteGallery({ photos, name }: { photos: Photo[]; name: string }) {
+  const box = useRef<HTMLDialogElement>(null);
+  const [at, setAt] = useState(0);
+  const step = (d: number) => setAt((i) => (i + d + photos.length) % photos.length);
+  const shown = photos[at];
+  return (
+    <>
+      <div className="ws-gallery">
+        {photos.map((p, i) => (
+          <button key={p.src} type="button" onClick={() => { setAt(i); box.current?.showModal(); }} aria-label={`Open photo ${i + 1} of ${photos.length}`}>
+            <Image {...p} alt="" sizes="(max-width: 760px) 100vw, (max-width: 1240px) 50vw, 420px" />
+          </button>
+        ))}
+      </div>
+      <dialog ref={box} className="ws-lightbox" aria-label={`${name}: photos`}
+        onKeyDown={(e) => { if (e.key === 'ArrowRight') step(1); else if (e.key === 'ArrowLeft') step(-1); }}
+        onClick={(e) => { if (e.target === e.currentTarget) box.current?.close(); }}>
+        {shown && <Image key={shown.src} {...shown} alt={`Photo ${at + 1} of ${photos.length}`} sizes="100vw" />}
+        {photos.length > 1 && (
+          <>
+            <button type="button" className="ws-lb-prev" onClick={() => step(-1)} aria-label="Previous photo">‹</button>
+            <button type="button" className="ws-lb-next" onClick={() => step(1)} aria-label="Next photo">›</button>
+          </>
+        )}
+        <button type="button" className="ws-lb-x" onClick={() => box.current?.close()} aria-label="Close">✕</button>
+        <p className="ws-lb-count" aria-live="polite">{at + 1} / {photos.length}</p>
+      </dialog>
+    </>
+  );
+}
+
 /** The contact section's button and the enquiry sheet (the tour's own form). */
-export function SiteEnquire({ project, name, preview = false }: { project: string; name: string; preview?: boolean }) {
+export function SiteEnquire({ project, name, preview = false, whatsapp }: { project: string; name: string; preview?: boolean; whatsapp?: string }) {
   const [open, setOpen] = useState(false);
   // In the studio's preview no enquiry is sent: the form waits for Publish.
   if (preview) return <button type="button" className="ws-btn" disabled title="Works once the website is published">Send an enquiry</button>;
@@ -49,7 +88,7 @@ export function SiteEnquire({ project, name, preview = false }: { project: strin
     <>
       <button type="button" className="ws-btn" onClick={() => setOpen(true)}>Send an enquiry</button>
       <EnquiryPanel sceneId="hub" sceneName={`${name} (website)`} propertyId={project}
-        label="Enquire" open={open} onOpenChange={setOpen} />
+        label="Enquire" whatsapp={whatsapp} open={open} onOpenChange={setOpen} />
     </>
   );
 }

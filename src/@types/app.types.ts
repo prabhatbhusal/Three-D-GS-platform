@@ -1,5 +1,6 @@
 import type { Viewpoint } from './viewpoint.types';
 import type { Hotspot, HotspotType } from './hotspot.types';
+import type { Collider } from './scene.types';
 
 /** Editor commands exposed by App.jsx's <Stage>, consumed by EditorShell and
  *  the viewer's own preview path. Kept loose (return types vary by call site)
@@ -14,6 +15,10 @@ export interface EditorApi {
   updateViewToCurrent: (id: string) => void;
   appendWpTo: (id: string) => void;
   removeWpFrom: (id: string, i: number) => void;
+  /** Put waypoint i where the camera is now (the rest of the path stays). */
+  setWpTo: (id: string, i: number) => void;
+  /** Take the camera to waypoint i, looking where it looks. */
+  goToWp: (id: string, i: number) => void;
   renameView: (id: string, label: string) => void;
   setViewSeconds: (id: string, seconds: number) => void;
   removeViewpoint: (id: string) => void;
@@ -28,6 +33,9 @@ export interface EditorApi {
   removeHotspot: (id: string) => void;
   placeHotspotAtCamera: (id: string) => void;
   lookAtHotspot: (id: string) => void;
+  /** Collision boxes: the ones that need the camera. Edits go straight to sceneDoc. */
+  addCollider: () => Collider;
+  placeColliderAtCamera: (id: string) => void;
   exportScene: () => string;
   resetTransform: () => void;
   /** Moves the model so the floor under the camera sits at y = 0. Returns a
@@ -55,5 +63,7 @@ export interface ViewerState {
   stopFly: () => void;
   /** Fly mode: re-frame the aerial view on the middle of the space. */
   flyReset: () => void;
+  /** Glide into the open space's start view from where it was first seen (App.tsx standBack). Once per space load; a no-op after. */
+  arrive: () => void;
   editor: EditorApi;
 }

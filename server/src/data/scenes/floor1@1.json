@@ -1,0 +1,60 @@
+{
+  "id": "floor1",
+  "version": 2,
+  "propertyId": "demo-project",
+  "title": "Floor1",
+  "splat": {
+    "format": "lcc2",
+    "variants": {
+      "high": {
+        "assetId": "ast_d38761d22e70",
+        "meta": "Floor3_Madan/Floor3_Madan.lcc2"
+      }
+    }
+  },
+  "transform": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "scale": 1
+  },
+  "unitScale": 1,
+  "spawn": {
+    "position": [
+      3.64,
+      1.27,
+      -1.65
+    ],
+    "yaw": 8.28,
+    "eyeHeight": 1.65
+  },
+  "camera": {
+    "fov": 60,
+    "near": 0.25,
+    "far": 300,
+    "mode": "viewpoint"
+  },
+  "viewpoints": [],
+  "hotspots": [],
+  "tracks": [],
+  "audio": null,
+  "cta": null,
+  "theme": null,
+  "neighbours": [],
+  "status": "published",
+  "booking": null,
+  "colliders": [],
+  "night": null,
+  "building": "",
+  "floor": "",
+  "ownerId": null,
+  "publishedVersion": 1,
+  "publishedAt": "2026-09-29T05:30:55.899Z"
+}

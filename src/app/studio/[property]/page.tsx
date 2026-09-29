@@ -41,7 +41,7 @@ export default function PropertyStudioPage({ params }: { params: Promise<{ prope
       if (p.access === 'staff') { location.replace(`/studio/${encodeURIComponent(p.id)}/reservations`); return; }
       // So the project list can show which one you were working in.
       try { localStorage.setItem(LAST_PROJECT_KEY, p.id); } catch { /* private mode */ }
-      applyTheme(p.theme, p.title); // so Preview shows the project's own branding
+      applyTheme(p.theme, p.title, p.info?.whatsapp ?? null); // so Preview shows the project's own branding
       hydrateScenes(await getScenes());
       setGate(scopeToProperty(p.id) ? { kind: 'ready', property: p } : { kind: 'empty', property: p });
     })().catch((e: unknown) =>

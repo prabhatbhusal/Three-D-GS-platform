@@ -6,6 +6,7 @@ import type { NextConfig } from 'next';
 // to the same value for both the Next router and src/lib/scenes.ts's asset
 // root — Next does not rewrite hand-written `/public` asset paths itself.
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+const api = new URL(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000');
 
 const nextConfig: NextConfig = {
   basePath,
@@ -14,12 +15,25 @@ const nextConfig: NextConfig = {
   // this machine otherwise makes Next guess (and warn about) the wrong one.
   outputFileTracingRoot: path.dirname(fileURLToPath(import.meta.url)),
 
-  // Static export for the GitHub Pages demo workflow only (.github/workflows/
-  // deploy.yml sets NEXT_OUTPUT_EXPORT=1). GitHub Pages can't run the Node API
-  // in /server, so that build ships the viewer alone — it degrades gracefully
-  // (lib/scenes.js falls back to its baked-in list) exactly as it does today
-  // whenever the API is unreachable. The real deploy target is a Node host
-  // (`next start`) plus the API server, per CLAUDE.md.
+  // Client websites upload original photos (up to 25 MB, server/src/routes/
+  // sites.js); next/image serves each screen a resized WebP of them from the
+  // API's asset store, cached in <distDir>/cache/images.
+  images: {
+    remotePatterns: [{ protocol: api.protocol.slice(0, -1) as 'http' | 'https', hostname: api.hostname, port: api.port, pathname: '/api/assets/**' }],
+    qualities: [80],
+    // In development the API is on localhost, which Next 16 won't fetch from
+    // by default (an SSRF guard). Production points at the public domain.
+    dangerouslyAllowLocalIP: process.env.NODE_ENV !== 'production'
+  },
+
+  // deploy/deploy.sh builds into .next-new while the live site keeps serving
+  // .next, then swaps them, so a deploy never serves a half-written build.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
+
+  // Static export (NEXT_OUTPUT_EXPORT=1) no longer builds: the /studio/[property]
+  // routes can't be exported ("missing generateStaticParams"), and GitHub Pages
+  // can't run /server anyway. Production is a Node host (deploy/README.md).
+  // The isStaticExport branches in the pages are leftovers from that demo.
   ...(process.env.NEXT_OUTPUT_EXPORT ? { output: 'export' } : {}),
 
   // LCCRender (src/vendor/sdk/lcc-web-sdk.js) is a module-level singleton.

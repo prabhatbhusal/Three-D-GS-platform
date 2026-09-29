@@ -2,19 +2,19 @@
  * Step-by-step undo and redo in the scene editor (2026-09-28), next to the
  * version history's save points. After each change settles (0.4 s: a whole
  * gizmo drag is one step), a snapshot of what the studio edits in the open
- * space — hotspots, camera tracks, the model's placement, the start view,
+ * space — hotspots, collision boxes, camera tracks, the model's placement, the start view,
  * Book now — goes on its undo stack. Undo puts the one before back into the
  * stores; nothing is saved until "Save space", as with any other edit.
  * Per space, up to 100 steps, for as long as the tab is open.
  */
-import { bookingFor, docLoaded, hotspotsFor, sceneDocFor, setBookingOutright, setHotspots, subscribeDoc } from './sceneDoc';
+import { bookingFor, collidersFor, docLoaded, hotspotsFor, sceneDocFor, setBookingOutright, setColliders, setHotspots, subscribeDoc } from './sceneDoc';
 import { loadTracks, subscribeViewpoints } from './viewpoints';
 import { loadTransform, subscribeTransform, transformFor } from './transform';
 import { setSessionSpawn, spawnFor, subscribeSpawn } from './scenes';
 import type { Hotspot } from '../@types/hotspot.types';
-import type { Booking, Track } from '../@types/scene.types';
+import type { Booking, Collider, Track } from '../@types/scene.types';
 
-interface Snap { hotspots: Hotspot[]; tracks: Track[]; transform: ReturnType<typeof transformFor>; spawn: ReturnType<typeof spawnFor>; booking: Booking | null }
+interface Snap { hotspots: Hotspot[]; colliders: Collider[]; tracks: Track[]; transform: ReturnType<typeof transformFor>; spawn: ReturnType<typeof spawnFor>; booking: Booking | null }
 
 const MAX = 100;
 const past: Record<string, string[]> = {};
@@ -24,7 +24,7 @@ const emit = () => listeners.forEach((f) => f());
 export const subscribeHistory = (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn); }; };
 
 const snapOf = (sceneId: string) => JSON.stringify({
-  hotspots: hotspotsFor(sceneId), tracks: sceneDocFor(sceneId).tracks, transform: transformFor(sceneId),
+  hotspots: hotspotsFor(sceneId), colliders: collidersFor(sceneId), tracks: sceneDocFor(sceneId).tracks, transform: transformFor(sceneId),
   spawn: spawnFor(sceneId), booking: bookingFor(sceneId)
 } satisfies Snap);
 
@@ -43,6 +43,7 @@ export function record(sceneId: string) {
 function apply(sceneId: string, json: string) {
   const s = JSON.parse(json) as Snap;
   setHotspots(sceneId, s.hotspots);
+  setColliders(sceneId, s.colliders ?? []);
   loadTracks(sceneId, s.tracks, { replace: true });
   loadTransform(sceneId, s.transform);
   setSessionSpawn(sceneId, s.spawn.spawn, s.spawn.yaw);

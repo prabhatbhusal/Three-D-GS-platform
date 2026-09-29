@@ -80,7 +80,7 @@ export const removePropertyMember = (id: string, userId: string) =>
 
 /** A project's branding. Public: the tour reads it. */
 export const getProjectTheme = (id: string) =>
-  request<{ title: string; theme: ProjectTheme }>(`/api/properties/${encodeURIComponent(id)}/theme`);
+  request<{ title: string; theme: ProjectTheme; whatsapp?: string | null }>(`/api/properties/${encodeURIComponent(id)}/theme`);
 /** Owner or admin. `accent: null` goes back to the default. */
 export const setProjectTheme = (id: string, patch: { brand?: string; accent?: string | null; font?: BrandFont }) =>
   request<Property>(`/api/properties/${encodeURIComponent(id)}/theme`, { method: 'PUT', body: JSON.stringify(patch) });
@@ -114,7 +114,7 @@ export interface ProjectReport {
   spaces: { id: string; title: string; visits: number; seconds: number; enquiries: number }[];
   /** The path to a booking: tour counts (space visits, those that opened a hotspot or a card), then what was saved. */
   funnel: {
-    visits: number; engaged: number; intent: Partial<Record<'enquire' | 'book' | 'table' | 'room', number>>; intents: number;
+    visits: number; engaged: number; intent: Partial<Record<'enquire' | 'book' | 'table' | 'room' | 'whatsapp', number>>; intents: number;
     enquiries: number; requests: { tables: number; rooms: number }; confirmed: { tables: number; rooms: number };
   };
   /** The most-opened hotspots, with the enquiries sent after looking at each. */
@@ -126,8 +126,17 @@ export const getProjectReport = (id: string, month: string) =>
 /** A project's website (/s/<project>, server/src/routes/sites.js). Photos are asset paths. */
 export interface SiteRoom { title: string; body: string; features: string; image: string; space: string; view: string }
 export interface SiteMenuItem { name: string; desc: string; price: string; tag: string }
+/** The website's look (website.css [data-style]). */
+export type SiteStyle = 'heritage' | 'modern' | 'night';
+/** A photo's [width, height] from its name (`img-<ts>-<w>x<h>.jpg`, sites.js). Photos from before 2026-09-29 have none. */
+export const photoSize = (path: string): [number, number] | null => {
+  const m = /-(\d+)x(\d+)\.\w+$/.exec(path);
+  return m ? [Number(m[1]), Number(m[2])] : null;
+};
 export interface SiteDoc {
-  hero: { eyebrow: string; title: string; lede: string; space: string };
+  style: SiteStyle;
+  /** `image`: a full-width photo behind the opening words; empty = words only. */
+  hero: { eyebrow: string; title: string; lede: string; space: string; image: string };
   facts: { n: string; k: string }[];
   story: { title: string; body: string };
   rooms: SiteRoom[];
@@ -317,6 +326,7 @@ export interface GalleryItem {
   publishedAt: string;
   version: number;
   trackCount: number;
+  /** A path on the API (`/api/gallery/<id>/thumb.jpg?v=…`): prefix API_BASE_URL. */
   thumb: string | null;
   /** The project it's in (the hub page lists one project's). */
   propertyId?: string | null;
@@ -457,6 +467,10 @@ export function safeUrl(u: string | undefined | null): string | null {
   const s = (u ?? '').trim();
   return /^https?:\/\/\S+$/i.test(s) ? s : null;
 }
+
+/** A WhatsApp chat with the visitor's first line already typed. */
+export const whatsappHref = (number: string, text: string) =>
+  `https://wa.me/${number.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`;
 
 /** Scene documents address uploads as `asset://<assetId>/<relPath>` (§9);
  *  this turns one into a URL the browser can fetch. Plain http(s) passes

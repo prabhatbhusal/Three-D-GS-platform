@@ -94,6 +94,40 @@
   background: var(--gold); transition: width 0.3s ease;
 }
 
+/* ---- opening: the room streams in behind the start screen, then arrives ---- */
+/* On a mouse-driven screen it streams in behind frosted glass; phones keep
+ * the plain veil (a live blur costs them frames, §10.2). While it streams, a
+ * soft light sweeps the glass, then stops once the space is ready. */
+@media (pointer: fine) {
+  .vw-enter { backdrop-filter: blur(14px) saturate(1.15); }
+}
+.vw-enter.is-loading::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, 0.07) 50%, transparent 65%);
+  animation: vw-sweep 2.6s linear infinite;
+}
+@keyframes vw-sweep { from { translate: -100% 0; } to { translate: 100% 0; } }
+.vw-enter-prog { width: min(280px, 100%); }
+/* Start: the words lift away and the glass dissolves while the view glides in (App.tsx arrive). */
+.vw-enter.is-leaving { pointer-events: none; animation: vw-leave 0.7s var(--ease) both; }
+.vw-enter.is-leaving .vw-enter-in { animation: vw-leave-in 0.6s var(--ease) both; }
+@keyframes vw-leave { to { opacity: 0; } }
+@keyframes vw-leave-in { to { opacity: 0; translate: 0 -18px; filter: blur(6px); } }
+/* Each arrival (a new space too): the room pulls into focus, from dark on a phone. */
+.vw-arrive { position: fixed; inset: 0; z-index: 13; pointer-events: none; animation: vw-arrive 1.6s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@keyframes vw-arrive { from { background: rgba(8, 6, 5, 0.7); } to { background: rgba(8, 6, 5, 0); } }
+@media (pointer: fine) {
+  .vw-arrive { animation-name: vw-arrive-focus; }
+  @keyframes vw-arrive-focus {
+    from { backdrop-filter: blur(14px) saturate(1.15); background: rgba(8, 6, 5, 0.4); }
+    to { backdrop-filter: blur(0) saturate(1); background: rgba(8, 6, 5, 0); }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vw-enter.is-loading::after { animation: none; }
+  .vw-arrive { animation-duration: 0.4s; }
+}
+
 /* ---- chrome: icon buttons ---------------------------------- */
 /* Dark, round and translucent over the room — the room stays the subject.
  * No backdrop blur: it costs frames on the phones that matter (§10.2). */
@@ -554,6 +588,9 @@ button.vw-book { border: 0; cursor: pointer; }
 .vw-sheet-go:disabled { opacity: 0.45; cursor: default; }
 .vw-sheet-go-quiet { color: var(--ink); background: rgba(29, 24, 20, 0.07); }
 .vw-sheet-go-quiet:hover:not(:disabled) { background: rgba(29, 24, 20, 0.12); }
+/* WhatsApp's dark teal: white on it reads (its bright green doesn't, 2:1) */
+.vw-sheet-wa { margin: 0 0 16px; gap: 8px; background: #075e54; }
+.vw-sheet-wa:hover:not(:disabled) { background: #0a6e62; }
 .vw-sheet-fine { margin: 8px 0 0; font: 400 12px/1.45 var(--sans); color: var(--ink-dim); }
 .vw-sheet-center { text-align: center; }
 .vw-sheet-done { text-align: center; padding: 12px 0 2px; }

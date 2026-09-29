@@ -6,6 +6,8 @@ import { SCENE_BY_ID, metaPath, spawnFor, firstScene } from './scenes';
 import { buildLoadOptions, tuneCameraForRoom, resolveTier } from './lccConfig';
 import { persistMeasuredTier, createFpsMonitor, logTierLine } from './deviceTier';
 import { walkerCfg, scaleWalkerCfg } from './walkerConfig';
+import { withColliders } from './collision';
+import { collidersFor } from './sceneDoc';
 
 /** The SDK's per-scene renderer handle (collision, raycast, bounds — untyped,
  *  see @types/vendor.d.ts) plus our own load bookkeeping. */
@@ -201,7 +203,8 @@ export function useSceneManager({ dev = false, appKey = null }: { dev?: boolean;
         }
         setProgress(1);
         setUnitScale(u);
-        setRenderer(entry.renderer);
+        // The author's collision boxes join the scan's own collision here, once.
+        setRenderer(withColliders(entry.renderer, () => collidersFor(sceneId)));
         setReady(true);
         setLoading(false);
       };

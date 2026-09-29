@@ -6,6 +6,7 @@ import { API_BASE_URL, withoutNightVersions, type GalleryItem } from '../../../l
 import { EnquiryPanel } from '../../../components/EnquiryPanel';
 import type { BrandFont, ProjectTheme } from '../../../@types/config.types';
 import { inkOn } from '../../../lib/brandColor';
+import { apiUrl, shareMeta } from '../../../lib/shareMeta';
 import '../../../components/viewer.css';
 import './hub.css';
 
@@ -26,16 +27,16 @@ const FACES: Record<BrandFont, string> = {
   classic: "'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', serif"
 };
 
-type Hub = { title: string; theme: ProjectTheme; spaces: GalleryItem[] };
+type Hub = { title: string; theme: ProjectTheme; whatsapp: string | null; spaces: GalleryItem[] };
 
 async function load(id: string): Promise<Hub | null> {
   const opts = { cache: isStaticExport ? 'force-cache' : 'no-store' } as const;
   try {
     const t = await fetch(`${API_BASE_URL}/api/properties/${encodeURIComponent(id)}/theme`, opts);
     if (!t.ok) return null;
-    const { title, theme } = await t.json();
+    const { title, theme, whatsapp } = await t.json();
     const g = await fetch(`${API_BASE_URL}/api/gallery?property=${encodeURIComponent(id)}`, opts);
-    return { title, theme: theme ?? {}, spaces: g.ok ? withoutNightVersions(await g.json()) : [] };
+    return { title, theme: theme ?? {}, whatsapp: whatsapp ?? null, spaces: g.ok ? withoutNightVersions(await g.json()) : [] };
   } catch {
     return null;
   }
@@ -56,10 +57,11 @@ export async function generateMetadata({ params }: { params: Promise<{ property:
   const hub = await load(property);
   if (!hub) return { title: 'Not found' };
   const name = hub.theme.brand || hub.title;
-  return {
-    title: { absolute: `${name} — virtual tour` },
-    description: `Walk ${name} in 3D: ${hub.spaces.map((s) => s.title).join(', ')}. Send an enquiry from inside the room.`
-  };
+  return shareMeta(
+    `${name} — virtual tour`,
+    `Walk ${name} in 3D: ${hub.spaces.map((s) => s.title).join(', ')}. Send an enquiry from inside the room.`,
+    apiUrl(hub.spaces.find((s) => s.thumb)?.thumb) ?? (hub.theme.logo ? `${API_BASE_URL}/api/assets/${hub.theme.logo}` : null)
+  );
 }
 
 export default async function HubPage({ params }: { params: Promise<{ property: string }> }) {
@@ -88,7 +90,7 @@ export default async function HubPage({ params }: { params: Promise<{ property: 
 
       <section className="hub-hero">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        {first?.thumb && <img className="hub-hero-img" src={first.thumb} alt="" />}
+        {first?.thumb && <img className="hub-hero-img" src={apiUrl(first.thumb)!} alt="" />}
         <div className="hub-hero-shade" aria-hidden />
         <div className="hub-hero-text">
           <p className="hub-kicker">Virtual tour</p>
@@ -111,7 +113,7 @@ export default async function HubPage({ params }: { params: Promise<{ property: 
                 <a href={walk(s.id)} className="hub-card">
                   <span className="hub-card-img">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    {s.thumb ? <img src={s.thumb} alt="" loading="lazy" /> : <span aria-hidden>{s.title.trim()[0]}</span>}
+                    {s.thumb ? <img src={apiUrl(s.thumb)!} alt="" loading="lazy" /> : <span aria-hidden>{s.title.trim()[0]}</span>}
                   </span>
                   <span className="hub-card-txt">
                     <span className="hub-card-title">{s.title}</span>
@@ -130,7 +132,7 @@ export default async function HubPage({ params }: { params: Promise<{ property: 
       </footer>
 
       {/* the enquiry form, working with no 3D on the page at all */}
-      <EnquiryPanel sceneId="hub" sceneName={`${name} (project page)`} propertyId={property} label={`Ask ${name}`} />
+      <EnquiryPanel sceneId="hub" sceneName={`${name} (project page)`} propertyId={property} label={`Ask ${name}`} whatsapp={hub.whatsapp} />
     </div>
   );
 }

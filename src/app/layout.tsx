@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
-import { Curtain } from '../components/Curtain';
 import './globals.css';
 
 // Exposed as a CSS variable only (no `className` on <body>) so it is opt-in
@@ -39,8 +38,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <div id="root">{children}</div>
-        {/* here, not in a page: it stays drawn while the page under it changes */}
-        <Curtain />
       </body>
     </html>
   );

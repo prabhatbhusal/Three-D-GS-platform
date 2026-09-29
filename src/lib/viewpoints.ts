@@ -206,6 +206,14 @@ export function appendWaypoint(sceneId: string, id: string, camera: THREE.Camera
   emit();
 }
 
+/** Move one waypoint to where the camera is now, keeping the rest of the path. */
+export function setWaypointAt(sceneId: string, id: string, i: number, camera: THREE.Camera) {
+  const vp = sessionVPs[sceneId]?.find((v) => v.id === id);
+  if (!vp || !vp.path[i]) return;
+  vp.path[i] = poseWaypoint(camera);
+  emit();
+}
+
 export function removeWaypointFrom(sceneId: string, id: string, i: number) {
   const vp = sessionVPs[sceneId]?.find((v) => v.id === id);
   if (!vp || !vp.path[i]) return;

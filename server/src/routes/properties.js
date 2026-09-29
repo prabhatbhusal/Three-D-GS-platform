@@ -39,11 +39,11 @@ const freshSession = async (req) => (await fresh(req.session)) ?? { sub: req.ses
 
 const NOT_FOUND = { error: 'That project does not exist.' };
 
-/** Public: a project's branding, for its tours. Nothing else about it. */
+/** Public: a project's branding and WhatsApp number, for its tours. Nothing else about it. */
 propertiesRouter.get('/:id/theme', wrap(async (req, res) => {
   const p = await getProperty(req.params.id);
   if (!p) return res.status(404).json(NOT_FOUND);
-  res.json({ title: p.title, theme: p.theme ?? {} });
+  res.json({ title: p.title, theme: p.theme ?? {}, whatsapp: p.info?.whatsapp ?? null });
 }));
 
 /** Owner or admin: the project, or the reason they can't change it. */

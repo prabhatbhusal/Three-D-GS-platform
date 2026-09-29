@@ -569,6 +569,7 @@
   font: 400 10.5px var(--mono, monospace); font-variant-numeric: tabular-nums;
 }
 .ed2-wps li button { padding: 2px 7px !important; }
+.ed2-wp-tools { display: flex; gap: 4px; flex: none; }
 
 /* --------------------------- filmstrip ------------------------ */
 /* Floats between the two side panes — offsets track their widths + gutters. */
@@ -1273,3 +1274,11 @@ a.ed2-switch-item:hover { background: var(--ed-raise); }
 .pl-share-form { flex-wrap: wrap; }
 .pl-share-form input[type=email] { flex: 1 1 220px; }
 .pl-share-form input + input { flex: 1 1 140px; }
+
+/* The middle of the view: where "Set to current view" and H put a hotspot
+ * (sceneDoc.ts spotInView). A ring, so it never hides what it points at. */
+.ed2-aim {
+  position: fixed; left: 50%; top: 50%; width: 12px; height: 12px; translate: -50% -50%;
+  border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}

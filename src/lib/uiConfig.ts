@@ -51,8 +51,9 @@ const FONTS: Record<BrandFont, string> = {
 /** A project's branding (its theme, else its title and the defaults) onto
  *  the tour. Called by /tour for the project it opens, and by the studio for
  *  the project it edits, so Preview shows what visitors will. */
-export function applyTheme(theme: ProjectTheme | undefined, fallbackBrand: string) {
+export function applyTheme(theme: ProjectTheme | undefined, fallbackBrand: string, whatsapp: string | null = null) {
   setUiConfig({
+    whatsapp,
     brand: theme?.brand || fallbackBrand,
     accent: theme?.accent || '#b08d57',
     font: theme?.font || 'serif',

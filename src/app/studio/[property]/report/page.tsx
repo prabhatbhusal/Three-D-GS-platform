@@ -20,12 +20,12 @@ function Funnel({ report }: { report: ProjectReport }) {
   const requests = f.requests.tables + f.requests.rooms;
   const confirmed = f.confirmed.tables + f.confirmed.rooms;
   const split = (t: number, r: number) => [t && `${t} table${t === 1 ? '' : 's'}`, r && `${r} room${r === 1 ? '' : 's'}`].filter(Boolean).join(', ');
-  const cards = ([['enquire', 'Ask'], ['book', 'Book now'], ['table', 'Reserve a table'], ['room', 'Book a room']] as const)
+  const cards = ([['enquire', 'Ask'], ['book', 'Book now'], ['table', 'Reserve a table'], ['room', 'Book a room'], ['whatsapp', 'WhatsApp']] as const)
     .filter(([k]) => f.intent[k]).map(([k, label]) => `${label} ${f.intent[k]}`).join(' · ');
   const steps: [string, number, string][] = [
     ['Space visits', f.visits, ''],
     ['Opened a hotspot', f.engaged, ''],
-    ['Opened a booking or enquiry card', f.intents, cards],
+    ['Opened a booking card, enquiry or WhatsApp', f.intents, cards],
     ['Sent an enquiry', f.enquiries, ''],
     ['Asked to book', requests, split(f.requests.tables, f.requests.rooms)],
     ['Confirmed', confirmed, split(f.confirmed.tables, f.confirmed.rooms)]
@@ -114,6 +114,7 @@ export default function ReportPage({ params }: { params: Promise<{ property: str
           <div><b>{duration(report.seconds)}</b><span>time in the tour</span></div>
           <div><b>{report.visits ? duration(Math.round(report.seconds / report.visits)) : '—'}</b><span>average per visit</span></div>
           <div><b>{report.enquiries}</b><span>enquiries{report.fromProjectPage ? ` (${report.fromProjectPage} from the project page)` : ''}</span></div>
+          <div><b>{pct(report.enquiries, report.visits)}</b><span>enquiry rate (enquiries per space visit)</span></div>
         </section>
 
         <section>

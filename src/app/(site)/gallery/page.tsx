@@ -61,9 +61,9 @@ export default async function GalleryPage() {
                 <Link href={`/tour?space=${encodeURIComponent(g.id)}`} className="gallery-card">
                   <span className="gallery-thumb">
                     {g.thumb
-                      // Data-URL thumbnails from the studio; next/image can't optimise those.
+                      // Pictures from the API, not this site: next/image isn't set up for them.
                       // eslint-disable-next-line @next/next/no-img-element
-                      ? <img src={g.thumb} alt="" />
+                      ? <img src={`${API_BASE_URL}${g.thumb}`} alt="" loading="lazy" />
                       : <span className="gallery-ph" aria-hidden>{g.title.trim()[0]}</span>}
                     <span className="gallery-open">Open tour</span>
                   </span>

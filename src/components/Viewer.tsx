@@ -14,7 +14,6 @@ import { RoomBooking } from './RoomBooking';
 import { RoomCard } from './RoomCard';
 import { setMuted, unlockAudio, useSound } from '../lib/audio';
 import { countHotspot, countIntent, type Intent } from '../lib/stats';
-import { closeCurtain, openCurtain } from './Curtain';
 import { FloorMap } from './FloorMap';
 import { TouchControls } from './TouchControls';
 import { HotspotMarkers, HotspotPanel } from './HotspotMarkers';
@@ -119,13 +118,33 @@ export function Viewer({ state, isTouch, autoStart = false, tour = false }: View
   const enter = () => {
     if (entering) return;
     unlockAudio(); // §6.3: the enter tap is the gesture — resume the context here, synchronously
+    // On a client's own website (this tour in their iframe), starting takes
+    // it full screen, like a video: their page stays theirs, the 3D gets the
+    // whole screen, and Esc or the full-screen button brings them back. Only
+    // on a real tap (a message from the page has none), and only where the
+    // browser can (not iPhone Safari: there it plays in place).
+    if (window.self !== window.top && navigator.userActivation?.isActive) {
+      document.documentElement.requestFullscreen?.().catch(() => {});
+    }
     setEntering(true);
-    // a curtain closes over the start screen and opens on the room
-    closeCurtain().then(() => {
-      setEnteredByUser(true);
-      requestAnimationFrame(openCurtain);
-    });
+    // The start screen dissolves (viewer.css .vw-enter.is-leaving) while the
+    // arrival below is already under way, then it goes.
+    setTimeout(() => setEnteredByUser(true), matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 700);
   };
+
+  // Every space opens with an arrival: the view glides in from a step back
+  // (App.tsx standBack/arrive) while the room pulls into focus (.vw-arrive).
+  // On the first space it starts with the Start tap; after that, whenever a
+  // new space is ready. A day/night switch keeps its view, so only focuses.
+  const [arrivals, bumpArrivals] = useReducer((n: number) => n + 1, 0);
+  const [arrived, setArrived] = useState(0); // the last arrival whose focus pull has finished
+  const going = entering || entered;
+  useEffect(() => {
+    if (!going || !ready || !state) return;
+    state.arrive();
+    bumpArrivals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per space load, not per state object
+  }, [going, ready, state?.activeId]);
 
   // A project's website (/s/<project>) embeds this tour and can send it to a
   // room: { type: 'rcaas:view', space?, view? }. Only our own pages may. It
@@ -160,6 +179,7 @@ export function Viewer({ state, isTouch, autoStart = false, tour = false }: View
   return (
     <div className="vw" data-touch={isTouch ? '' : undefined} data-tour={tour ? '' : undefined}>
       {state?.loading && entered && <LoadingGate progress={state.progress} />}
+      {arrivals > arrived && <div key={arrivals} className="vw-arrive" aria-hidden onAnimationEnd={() => setArrived(arrivals)} />}
 
       {!entered && (
         <EnterGate
@@ -280,7 +300,7 @@ export function Viewer({ state, isTouch, autoStart = false, tour = false }: View
        *  App.tsx sets from lib/scenes.ts before the SDK even starts loading. */}
       {state?.activeId && (
         <EnquiryPanel sceneId={state.activeId} sceneName={state.activeName}
-          hotspot={lastHs?.sceneId === state.activeId ? lastHs : null}
+          hotspot={lastHs?.sceneId === state.activeId ? lastHs : null} whatsapp={ui.whatsapp}
           open={sheet === 'ask'} onOpenChange={(o) => setSheet(o ? 'ask' : null)} />
       )}
     </div>
@@ -307,16 +327,16 @@ interface EnterGateProps {
   entering: boolean;
 }
 
-/** A hero over the room itself: the scene streams in behind it, so by the
- *  time the button is live the visitor is already looking at the space. */
+/** A hero over the room itself: the scene streams in behind frosted glass
+ *  (seen from a step back, App.tsx standBack), so by the time the button is
+ *  live the visitor is already looking at the space. On Start the glass
+ *  dissolves as the view glides in. */
 function EnterGate({ brand, place, tagline, ready, progress, onEnter, entering }: EnterGateProps) {
   const pct = Math.round((progress ?? 0) * 100);
   const { logo } = useUiConfig(); // the project's own (per-project branding)
   const t = useT();
-  // arrived behind the home page's curtain: open it on this screen
-  useEffect(() => { openCurtain(); }, []);
   return (
-    <div className="vw-enter">
+    <div className={`vw-enter${entering ? ' is-leaving' : ready ? '' : ' is-loading'}`}>
       <div className="vw-enter-in">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {logo && <img className="vw-enter-logo" src={logo} alt="" />}
@@ -327,6 +347,10 @@ function EnterGate({ brand, place, tagline, ready, progress, onEnter, entering }
           <span className="vw-enter-play" aria-hidden>{Icon.play}</span>
           <span>{ready ? t('Start virtual tour') : t('Preparing the space {pct}%', { pct })}</span>
         </button>
+        {!ready && (
+          <span className="vw-enter-prog" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}
+            style={{ '--p': pct } as React.CSSProperties}><span /></span>
+        )}
         <LangPicker className="vw-enter-lang" />
       </div>
     </div>

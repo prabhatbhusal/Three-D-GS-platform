@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { submitLead } from '../lib/api';
+import { submitLead, whatsappHref } from '../lib/api';
 import { useT } from '../lib/i18n';
+import { countIntent } from '../lib/stats';
 
 /**
  * The persistent CTA + enquiry panel (CLAUDE.md §6.4) — this is the product,
@@ -46,11 +47,14 @@ interface EnquiryPanelProps {
   /** The last hotspot the visitor opened in this space, sent with the
    *  enquiry: what they were looking at when they decided to ask. */
   hotspot?: { id: string; label: string } | null;
+  /** The project's WhatsApp number: a chat button above the form. Many
+   *  visitors would rather message than fill one in. */
+  whatsapp?: string | null;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
 
-export function EnquiryPanel({ sceneId, sceneName, propertyId, label, hotspot, open: openProp, onOpenChange }: EnquiryPanelProps) {
+export function EnquiryPanel({ sceneId, sceneName, propertyId, label, hotspot, whatsapp, open: openProp, onOpenChange }: EnquiryPanelProps) {
   const t = useT();
   // Asked from inside a space, the enquiry is about that space unless they
   // say otherwise: it's chosen for them. (The project page's form isn't.)
@@ -112,6 +116,18 @@ export function EnquiryPanel({ sceneId, sceneName, propertyId, label, hotspot, o
               <form onSubmit={submit} noValidate>
                 <h2>{label ?? t('Ask about this space')}</h2>
                 <p className="vw-sheet-sub">{sceneName ? t('About {place}', { place: sceneName }) : t('Send an enquiry')}</p>
+
+                {whatsapp && (
+                  <a
+                    className="vw-sheet-go vw-sheet-wa" target="_blank" rel="noopener noreferrer"
+                    href={whatsappHref(whatsapp, sceneId !== 'hub' && sceneName
+                      ? t('Hi! I’m looking at {place} in your virtual tour.', { place: sceneName })
+                      : t('Hi! I found you through your virtual tour.'))}
+                    onClick={() => countIntent(sceneId, 'whatsapp')}
+                  >
+                    {t('Chat on WhatsApp')}
+                  </a>
+                )}
 
                 <div className="vw-sheet-grid">
                   <label className="vw-sheet-input vw-span-2">

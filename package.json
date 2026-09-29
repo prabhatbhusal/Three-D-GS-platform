@@ -8,7 +8,7 @@
     "dev:web": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "test": "node --test test/*.test.mjs && cd server && npm test"
   },
   "dependencies": {

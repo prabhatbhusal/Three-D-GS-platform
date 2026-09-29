@@ -8,6 +8,7 @@ const FIELDS: [keyof ProjectInfo, string, string, number, ('text' | 'email' | 't
   ['tagline', 'Tagline', 'Boutique rooms in the heart of Patan', 120, 'text'],
   ['about', 'About the brand', 'A few lines about the place, its story and what makes it special.', 1200, 'area'],
   ['phone', 'Phone', '+977 1 5550000', 40, 'tel'],
+  ['whatsapp', 'WhatsApp', '+977 98XXXXXXXX: adds Chat on WhatsApp to the tour', 40, 'tel'],
   ['email', 'Email', 'hello@example.com', 200, 'email'],
   ['website', 'Website', 'example.com', 300, 'url'],
   ['address', 'Address', 'Mangal Bazar, Lalitpur', 300, 'text'],

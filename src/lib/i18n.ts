@@ -200,6 +200,9 @@ const NE: Record<string, string> = {
   'Send an enquiry': 'जिज्ञासा पठाउनुहोस्',
   'Sending…': 'पठाउँदै…',
   'Send enquiry': 'जिज्ञासा पठाउनुहोस्',
+  'Chat on WhatsApp': 'WhatsApp मा कुरा गर्नुहोस्',
+  'Hi! I’m looking at {place} in your virtual tour.': 'नमस्ते! म तपाईंको भर्चुअल टुरमा {place} हेर्दैछु।',
+  'Hi! I found you through your virtual tour.': 'नमस्ते! मैले तपाईंलाई भर्चुअल टुरबाट भेटें।',
   'Name and phone are all we need.': 'नाम र फोन मात्र चाहिन्छ।'
 };
 
@@ -387,6 +390,9 @@ const ZH: Record<string, string> = {
   'Send an enquiry': '发送咨询',
   'Sending…': '发送中…',
   'Send enquiry': '发送咨询',
+  'Chat on WhatsApp': '在 WhatsApp 上聊天',
+  'Hi! I’m looking at {place} in your virtual tour.': '您好！我正在您的虚拟导览中查看{place}。',
+  'Hi! I found you through your virtual tour.': '您好！我是通过您的虚拟导览找到您的。',
   'Name and phone are all we need.': '只需姓名和电话。'
 };
 

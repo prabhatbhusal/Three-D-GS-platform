@@ -131,6 +131,131 @@ function touches(r: SceneRenderer, x: number, y: number, z: number, radius: numb
   }
 }
 
+/* ---------------------------------------------------------------- */
+/* Collision boxes (scene.types Collider)                           */
+/* ---------------------------------------------------------------- */
+
+type XYZ = { x: number; y: number; z: number };
+interface Capsule { start: XYZ; end: XYZ; radius: number }
+/** What collision needs of a Collider. */
+interface Box { position: number[]; size: number[]; yaw: number }
+
+const DEG = Math.PI / 180;
+
+/**
+ * The push that moves a capsule clear of one box, or null when they don't
+ * touch: the same contract as the SDK's `intersectsCapsule` delta. Works in
+ * the box's own frame (it turns about Y only), then turns the push back.
+ */
+export function capsuleBoxPush(q: Capsule, b: Box): XYZ | null {
+  const r = q.radius;
+  const h = [b.size[0] / 2, b.size[1] / 2, b.size[2] / 2];
+  const cos = Math.cos(b.yaw * DEG), sin = Math.sin(b.yaw * DEG);
+  const toBox = (p: XYZ) => {
+    const x = p.x - b.position[0], z = p.z - b.position[2];
+    return [x * cos - z * sin, p.y - b.position[1], x * sin + z * cos];
+  };
+  const a = toBox(q.start), e = toBox(q.end);
+
+  // Apart along any face axis = apart (and the cheap reject for far boxes).
+  for (let i = 0; i < 3; i++) {
+    if (Math.min(a[i], e[i]) - r > h[i] || Math.max(a[i], e[i]) + r < -h[i]) return null;
+  }
+
+  // The segment's distance to the box is convex in t, so a ternary search
+  // finds its closest point.
+  const gap = (t: number) => [0, 1, 2].map((i) => {
+    const p = a[i] + (e[i] - a[i]) * t;
+    return p - Math.max(-h[i], Math.min(h[i], p));
+  });
+  const len = (v: number[]) => Math.hypot(v[0], v[1], v[2]);
+  let lo = 0, hi = 1;
+  for (let k = 0; k < 30; k++) {
+    const m1 = lo + (hi - lo) / 3, m2 = hi - (hi - lo) / 3;
+    if (len(gap(m1)) < len(gap(m2))) hi = m2; else lo = m1;
+  }
+  const g = gap((lo + hi) / 2);
+  const dist = len(g);
+  if (dist >= r) return null;
+
+  let push = [0, 0, 0];
+  if (dist > 1e-6) {
+    push = g.map((v) => (v * (r - dist)) / dist);
+  } else {
+    // The segment itself is inside: out by the shortest face.
+    let best = Infinity;
+    for (let i = 0; i < 3; i++) {
+      const up = h[i] - (Math.min(a[i], e[i]) - r);
+      const down = Math.max(a[i], e[i]) + r + h[i];
+      if (up < best) { best = up; push = [0, 0, 0]; push[i] = up; }
+      if (down < best) { best = down; push = [0, 0, 0]; push[i] = -down; }
+    }
+  }
+  return { x: push[0] * cos + push[2] * sin, y: push[1], z: -push[0] * sin + push[2] * cos };
+}
+
+/**
+ * The scene renderer, with the author's collision boxes added to the two
+ * methods the walker and the probes above call. Everything else passes
+ * straight through, so the gizmo, bounds and transform see the real thing.
+ * useSceneManager wraps each loaded space once.
+ */
+export function withColliders<T extends object>(renderer: T, boxes: () => Box[]): T {
+  const r = renderer as SceneRenderer;
+  const intersectsCapsule = (q: Capsule) => {
+    const list = boxes();
+    const h: CapsuleHit | undefined = r.intersectsCapsule?.(q);
+    if (!list.length) return h ?? { hit: false };
+    let hit = !!h?.hit;
+    const d = { x: 0, y: 0, z: 0, ...(hit ? h?.delta : null) };
+    for (const b of list) {
+      // each box sees the capsule where the pushes so far have left it
+      const p = capsuleBoxPush({
+        start: { x: q.start.x + d.x, y: q.start.y + d.y, z: q.start.z + d.z },
+        end: { x: q.end.x + d.x, y: q.end.y + d.y, z: q.end.z + d.z },
+        radius: q.radius
+      }, b);
+      if (p) { d.x += p.x; d.y += p.y; d.z += p.z; hit = true; }
+    }
+    return hit ? { hit, delta: d } : { hit: false };
+  };
+  const hasCollision = () => !!r.hasCollision?.() || boxes().length > 0;
+  return new Proxy(renderer, {
+    get(target, key) {
+      if (key === 'intersectsCapsule') return intersectsCapsule;
+      if (key === 'hasCollision') return hasCollision;
+      const v = Reflect.get(target, key);
+      return typeof v === 'function' ? v.bind(target) : v;
+    }
+  });
+}
+
+/**
+ * How far along `dir` from `from` the first surface is (a wall, a table, a
+ * collision box), or null when nothing is within `max`. A small ball is
+ * stepped out, then the hit is narrowed down, so thin things aren't missed.
+ * The studio pins hotspots there, so they stay on the thing they're about
+ * instead of floating in the air in front of it.
+ */
+export function surfaceDistance(
+  r: SceneRenderer,
+  from: { x: number; y: number; z: number },
+  dir: { x: number; y: number; z: number },
+  max: number,
+  radius: number
+): number | null {
+  if (!r?.intersectsCapsule) return null;
+  const hit = (s: number) => touches(r, from.x + dir.x * s, from.y + dir.y * s, from.z + dir.z * s, radius);
+  const step = Math.max(radius * 1.5, max / 800);
+  for (let s = radius * 2; s <= max; s += step) {
+    if (!hit(s)) continue;
+    let lo = Math.max(0, s - step), hi = s;
+    for (let k = 0; k < 12; k++) { const m = (lo + hi) / 2; if (hit(m)) hi = m; else lo = m; }
+    return hi;
+  }
+  return null;
+}
+
 /**
  * Fly mode's line of sight. Walks out from `target` along `-dir` (the way a
  * camera orbiting at distance `dist` sits) and returns how far it can go

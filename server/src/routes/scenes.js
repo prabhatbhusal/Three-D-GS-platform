@@ -21,6 +21,15 @@ galleryRouter.get('/', wrap(async (req, res) => {
   res.json(want ? all.filter((g) => g.propertyId === want) : all);
 }));
 
+// Public: a published space's picture (its first view's thumbnail, kept as a
+// data URL in the doc) as a real image, for the gallery and link previews.
+galleryRouter.get('/:id/thumb.jpg', wrap(async (req, res) => {
+  const snap = await getPublishedScene(req.params.id);
+  const m = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(snap?.tracks?.find((t) => t.thumb)?.thumb ?? '');
+  if (!m) return res.status(404).end();
+  res.type(m[1]).set('Cache-Control', 'public, max-age=86400').send(Buffer.from(m[2], 'base64'));
+}));
+
 // Public: what visitors see. Never the draft (§7.5, constraint 6).
 scenesRouter.get('/:id/published', wrap(async (req, res) => {
   const doc = await getPublishedScene(req.params.id);

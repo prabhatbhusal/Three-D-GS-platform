@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import { API_BASE_URL, type GalleryItem, type PublicSite } from '../../../lib/api';
 import { SiteView } from './SiteView';
+import { shareMeta } from '../../../lib/shareMeta';
 
 /**
  * A project's website (/s/<project>): the editorial page the studio writes
@@ -37,7 +38,13 @@ export async function generateMetadata({ params }: { params: Promise<{ property:
   const s = await load(property);
   if (!s) return { title: 'Not found' };
   const name = s.project.theme.brand || s.project.title;
-  return { title: { absolute: s.site.hero.title || name }, description: s.site.hero.lede || `${name}, in 3D.` };
+  // The site's first photo, else its tour's picture, else the logo.
+  const photo = s.site.gallery?.[0] ?? s.site.rooms?.find((r) => r.image)?.image ?? (s.project.theme.logo || null);
+  return shareMeta(
+    s.site.hero.title || name,
+    s.site.hero.lede || `${name}, in 3D.`,
+    photo ? `${API_BASE_URL}/api/assets/${photo}` : s.tour ? `${API_BASE_URL}/api/gallery/${encodeURIComponent(s.tour.space)}/thumb.jpg` : null
+  );
 }
 
 export default async function WebsitePage({ params }: { params: Promise<{ property: string }> }) {

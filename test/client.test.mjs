@@ -354,3 +354,43 @@ test('a logo’s colours: the brand colour, not its background, outline or edges
   assert.equal(inkOn('#ffd166'), '#14110e', 'yellow: dark text');
   assert.equal(inkOn('#b08d57'), '#14110e', 'the default gold keeps its dark text');
 });
+
+test('collision boxes: stand on one, get pushed off a turned wall, and pass untouched beside it', async () => {
+  const { capsuleBoxPush, withColliders } = await import('../src/lib/collision.ts');
+  const cap = (x, bottom, z, r = 0.3) => ({ start: { x, y: bottom + r, z }, end: { x, y: bottom + 1.65 - r, z }, radius: r });
+  const close = (p, x, y, z) => assert.ok(p && Math.abs(p.x - x) < 1e-3 && Math.abs(p.y - y) < 1e-3 && Math.abs(p.z - z) < 1e-3, JSON.stringify(p));
+
+  const floor = { position: [0, -0.5, 0], size: [10, 1, 10], yaw: 0 }; // top at y = 0
+  close(capsuleBoxPush(cap(0, -0.1, 0), floor), 0, 0.1, 0); // sunk 0.1: up by 0.1
+  close(capsuleBoxPush(cap(0, -0.8, 0), floor), 0, 0.8, 0); // segment inside: out the top
+  assert.equal(capsuleBoxPush(cap(0, 0.05, 0), floor), null, 'standing clear above');
+
+  // 2 wide, 3 tall, 0.2 thick, turned 90°: it runs along z at x = 5
+  const wall = { position: [5, 1.5, 0], size: [2, 3, 0.2], yaw: 90 };
+  close(capsuleBoxPush(cap(4.7, 0, 0), wall), -0.1, 0, 0);
+  close(capsuleBoxPush(cap(5.3, 0, 0), wall), 0.1, 0, 0);
+  assert.equal(capsuleBoxPush(cap(4.5, 0, 0), wall), null);
+  assert.equal(capsuleBoxPush(cap(4.7, 0, 1.4), wall), null, 'past its end');
+
+  // the wrapper adds boxes to the scan's own collision and passes the rest through
+  const scan = { intersectsCapsule: () => ({ hit: false }), hasCollision: () => false, root: 'root', getBounds() { return this.root; } };
+  let boxes = [];
+  const r = withColliders(scan, () => boxes);
+  assert.equal(r.hasCollision(), false);
+  assert.equal(r.getBounds(), 'root');
+  boxes = [wall];
+  assert.equal(r.hasCollision(), true);
+  const h = r.intersectsCapsule(cap(4.7, 0, 0));
+  assert.ok(h.hit);
+  close(h.delta, -0.1, 0, 0);
+});
+
+test('a hotspot lands on the surface in the middle of the view, not in the air', async () => {
+  const { surfaceDistance } = await import('../src/lib/collision.ts');
+  // a wall across the view at z = -5: a ball touches it once its front reaches the wall
+  const wall = { intersectsCapsule: ({ start, radius }) => ({ hit: start.z - radius <= -5 }) };
+  const d = surfaceDistance(wall, { x: 0, y: 1.6, z: 0 }, { x: 0, y: 0, z: -1 }, 30, 0.04);
+  assert.ok(Math.abs(d - 4.96) < 0.01, `stops at the wall: ${d}`);
+  assert.equal(surfaceDistance(wall, { x: 0, y: 1.6, z: 0 }, { x: 0, y: 0, z: 1 }, 30, 0.04), null, 'nothing that way');
+  assert.equal(surfaceDistance(null, { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: -1 }, 30, 0.04), null, 'no scene: no answer');
+});

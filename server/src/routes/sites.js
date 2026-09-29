@@ -36,7 +36,7 @@ import * as storage from '../storage.js';
 import { getProperty, getPublishedScene, getEmbed, listScenes, listPublished } from '../store.js';
 import { requireEditorSession } from '../middleware/auth.js';
 import { visibleProject } from './properties.js';
-import { imageKind } from './assets.js';
+import { imageKind, imageSize } from './assets.js';
 import { embedKey } from './embed.js';
 import { record } from '../activity.js';
 import { removeReservations } from '../reservations.js';
@@ -59,15 +59,19 @@ export const removeSite = async (pid) => {
   await storage.remove(`site_${pid}`);
 };
 
+/** The website's looks (website.css [data-style]); the first is the default. */
+const STYLES = ['heritage', 'modern', 'night'];
+
 /** Only the fields the page knows, trimmed and capped: the draft is whatever the studio sent. */
 export function cleanSite(d, pid) {
   const s = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
   const list = (a, n, f) => (Array.isArray(a) ? a : []).slice(0, n).map(f);
-  const img = (v) => (typeof v === 'string' && new RegExp(`^site_${pid}/img-\\d+\\.(png|jpg|webp)$`).test(v) ? v : '');
+  const img = (v) => (typeof v === 'string' && new RegExp(`^site_${pid}/img-\\d+(-\\d+x\\d+)?\\.(png|jpg|webp)$`).test(v) ? v : '');
   const id = (v) => (typeof v === 'string' && /^[\w-]{1,80}$/.test(v) ? v : '');
   d = d && typeof d === 'object' ? d : {};
   return {
-    hero: { eyebrow: s(d.hero?.eyebrow, 80), title: s(d.hero?.title, 120), lede: s(d.hero?.lede, 400), space: id(d.hero?.space) },
+    style: STYLES.includes(d.style) ? d.style : STYLES[0],
+    hero: { eyebrow: s(d.hero?.eyebrow, 80), title: s(d.hero?.title, 120), lede: s(d.hero?.lede, 400), space: id(d.hero?.space), image: img(d.hero?.image) },
     facts: list(d.facts, 6, (f) => ({ n: s(f?.n, 20), k: s(f?.k, 60) })).filter((f) => f.n || f.k),
     story: { title: s(d.story?.title, 120), body: s(d.story?.body, 2000) },
     rooms: list(d.rooms, 12, (r) => ({
@@ -416,16 +420,19 @@ sitesRouter.post('/:id/review/approve', wrap(async (req, res) => {
   res.json(approval);
 }));
 
-const IMAGE_MAX = 8 * 1024 * 1024;
+// Originals, straight from the camera: the website serves each screen a resized copy (next/image).
+const IMAGE_MAX = 25 * 1024 * 1024;
 sitesRouter.post('/:id/images', requireEditorSession, express.raw({ type: () => true, limit: IMAGE_MAX }), wrap(async (req, res) => {
   const p = await visibleProject(req, res);
   if (!p) return;
   const kind = Buffer.isBuffer(req.body) && req.body.length ? imageKind(req.body) : undefined;
   if (!kind) return res.status(415).json({ error: 'Use a PNG, JPEG or WebP photo.' });
-  const rel = `img-${Date.now()}.${kind}`;
+  // Its size goes in the name, so the page can hold its place before it loads.
+  const size = imageSize(req.body, kind);
+  const rel = `img-${Date.now()}${size ? `-${size[0]}x${size[1]}` : ''}.${kind}`;
   await storage.put(`site_${p.id}`, rel, Readable.from([req.body]));
   res.json({ path: `site_${p.id}/${rel}` });
 }), (err, req, res, next) => {
-  if (err.type === 'entity.too.large') return res.status(413).json({ error: 'That photo is over 8 MB. Export it smaller.' });
+  if (err.type === 'entity.too.large') return res.status(413).json({ error: 'That photo is over 25 MB. Export it smaller.' });
   next(err);
 });

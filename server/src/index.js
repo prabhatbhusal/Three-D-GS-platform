@@ -20,6 +20,14 @@ const app = express();
 const PORT = Number(process.env.PORT) || 4000;
 const DEV = process.env.NODE_ENV !== 'production';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
+
+// Live on the example secrets, anyone could sign themselves a studio session.
+for (const k of ['SESSION_SECRET', 'EMBED_TOKEN_SECRET', 'EDITOR_PASSWORD']) {
+  if (!DEV && (!process.env[k] || process.env[k].startsWith('change-me'))) {
+    console.error(`[server] ${k} is unset or still the example value; set it in server/.env (openssl rand -hex 32)`);
+    process.exit(1);
+  }
+}
 // The Next app's own origin, so the editor's session cookie survives a
 // cross-origin fetch (dev: Next on 3000, API on 4000). In development any
 // localhost port is the site too: Next moves to 3001 by itself when 3000 is
@@ -28,6 +36,10 @@ const ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:3000';
 const LOCALHOST = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 const allowed = (origin) => !origin || origin === ORIGIN || (DEV && LOCALHOST.test(origin));
 
+// Behind nginx on the same machine (deploy/nginx.conf), req.ip is the
+// visitor's, not 127.0.0.1 — or every rate limit would be one bucket shared
+// by everybody. Only a proxy on loopback is believed, so it can't be spoofed.
+app.set('trust proxy', 'loopback');
 app.use(cors({ origin: (origin, done) => done(null, allowed(origin)), credentials: true }));
 app.use(cookieParser());
 app.use(express.json({ limit: '2mb' })); // scene JSON docs are small; thumbs are data URLs, so give this some room

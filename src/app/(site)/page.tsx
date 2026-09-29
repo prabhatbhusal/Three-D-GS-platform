@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Fragment } from 'react';
 import { FlyThrough, FrameScrub, ImageTabs, MediaFill } from '../../components/SiteMotion';
-import { CurtainLink } from '../../components/Curtain';
 import { SitePage } from '../../components/SitePage';
 import { frames, media } from '../../lib/media';
 import { MODES, SECTORS, SPECS, STEPS, WINS } from '../../lib/siteContent';
@@ -53,11 +52,11 @@ export default function HomePage() {
         </p>
         <div className="lp-cta">
           <Link href="/contact" transitionTypes={['nav-forward']} className="lp-pill lp-pill-solid">Book a capture</Link>
-          {/* straight into a tour, behind a curtain (the newest published space) */}
-          <CurtainLink href="/tour" className="lp-pill">
+          {/* straight into a tour (the newest published space); a plain <a>: the tour wants a full page load */}
+          <a href="/tour" className="lp-pill">
             Walk a live tour
             <svg className="lp-pill-ic" viewBox="0 0 24 24" aria-hidden><path d="M8 5.5v13l10.5-6.5z" /></svg>
-          </CurtainLink>
+          </a>
         </div>
       </section>
 

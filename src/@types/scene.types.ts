@@ -139,6 +139,21 @@ export interface SplatVariant {
   bytes?: number;
 }
 
+/** A collision box (2026-09-29): an invisible wall or floor where the scan
+ *  has none, e.g. a hole the scanner never covered. World units, like
+ *  hotspots, so moving the model later doesn't move it. Turns about Y only.
+ *  `color` is how the studio draws it; the tour never draws it at all. */
+export interface Collider {
+  id: string;
+  label: string;
+  position: [number, number, number];
+  /** Full width, height, depth. */
+  size: [number, number, number];
+  /** Degrees about Y. */
+  yaw: number;
+  color: string;
+}
+
 export interface SceneDoc {
   id: string;
   version: 2;
@@ -156,6 +171,8 @@ export interface SceneDoc {
   camera: { fov: number; near: number; far: number; mode: 'viewpoint' };
   viewpoints: unknown[];
   hotspots: import('./hotspot.types').Hotspot[];
+  /** Absent on docs saved before 2026-09-29 -> none. */
+  colliders?: Collider[];
   tracks: Track[];
   audio: null;
   cta: null;

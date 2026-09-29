@@ -1,16 +1,23 @@
 'use client';
 
 import { use, useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 import {
   API_BASE_URL, cancelSiteSchedule, getProperty, getReviewFeedback, getSiteDraft, publishSite, resolveReviewComment, saveSiteDraft,
   scheduleSite, shareSiteForReview, stopSiteReview, uploadSiteImage, type ReviewFeedback,
-  type SiteBooking, type SiteDoc, type SiteSpace, type SiteStays, type SiteTable, type StayRoom
+  type SiteBooking, type SiteDoc, type SiteSpace, type SiteStays, type SiteStyle, type SiteTable, type StayRoom
 } from '../../../../lib/api';
 import { useStudioSession } from '../../../../lib/useStudioSession';
 import '../../../../components/editor.css';
 import './site-editor.css';
 
 const asset = (p: string) => `${API_BASE_URL}/api/assets/${p}`;
+/** The website's looks (website.css [data-style]): key, name, what it is, paper, ink. */
+const LOOKS: [SiteStyle, string, string, string, string][] = [
+  ['heritage', 'Heritage', 'Warm paper, ornaments, framed photos', '#f7f1e7', '#2a1f17'],
+  ['modern', 'Modern', 'White, crisp, square corners', '#fbfbf9', '#151515'],
+  ['night', 'Night', 'Warm dark, your colour glowing', '#11100e', '#f2ece2']
+];
 const move = <T,>(list: T[], i: number, by: number) => {
   const j = i + by;
   if (j < 0 || j >= list.length) return list;
@@ -167,7 +174,25 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
           <p className="se-warn">None of this project’s spaces is published yet. The website shows the live tour of a published space, so publish one in the studio first.</p>
         )}
 
+        <Card title="Look" hint="How the whole website feels. Every look uses your brand colour and heading font.">
+          <div className="se-looks" role="radiogroup" aria-label="Look">
+            {LOOKS.map(([k, label, note, bg, ink]) => (
+              <button key={k} type="button" role="radio" aria-checked={doc.style === k}
+                className={`se-look${doc.style === k ? ' is-on' : ''}`} onClick={() => change({ style: k })}>
+                <span className="se-look-swatch" style={{ background: bg, color: ink }} aria-hidden>Aa</span>
+                <b>{label}</b>
+                <small>{note}</small>
+              </button>
+            ))}
+          </div>
+        </Card>
+
         <Card title="Opening" hint="The first thing visitors read, above the live tour.">
+          <div className="se-photo-wide">
+            <Photo project={id} value={doc.hero.image} label="Add a photo behind the title…" wide
+              onChange={(image) => change({ hero: { ...doc.hero, image } })} onError={setError} />
+          </div>
+          <p className="se-hint">A wide, bright landscape photo, at least 2400 px across, with no words on it. Without one, the opening is words only.</p>
           <Text label="Small line above the title" value={doc.hero.eyebrow} max={80} placeholder="e.g. Boutique hotel · Patan Durbar Square"
             onChange={(v) => change({ hero: { ...doc.hero, eyebrow: v } })} />
           <Text label="Title" value={doc.hero.title} max={120} placeholder={title}
@@ -254,12 +279,12 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
           </label>
         </Card>
 
-        <Card title="Photos" hint="A gallery near the end of the page. PNG, JPEG or WebP, up to 8 MB each.">
+        <Card title="Photos" hint="A gallery near the end of the page; each opens full size. Upload the originals (PNG, JPEG or WebP, up to 25 MB each), not screenshots: the site makes the right size for each screen.">
           <div className="se-gallery">
             {doc.gallery.map((g, i) => (
               <figure key={g}>
-                {/* eslint-disable-next-line @next/next/no-img-element -- an uploaded photo */}
-                <img src={asset(g)} alt="" />
+                {/* a resized preview: the upload itself may be a 25 MB original */}
+                <Image src={asset(g)} alt="" width={300} height={300} sizes="160px" />
                 <button aria-label="Remove photo" onClick={() => change({ gallery: doc.gallery.filter((_, j) => j !== i) })}>✕</button>
               </figure>
             ))}
@@ -731,8 +756,8 @@ function Tools({ onUp, onDown, onRemove }: { onUp: () => void; onDown: () => voi
 }
 
 /** A photo: shows it, uploads a new one (several at once with `multiple`). */
-function Photo({ project, value, onChange, onError, label = 'Upload a photo…', multiple = false }: {
-  project: string; value: string; onChange: (path: string) => void; onError: (m: string) => void; label?: string; multiple?: boolean;
+function Photo({ project, value, onChange, onError, label = 'Upload a photo…', multiple = false, wide = false }: {
+  project: string; value: string; onChange: (path: string) => void; onError: (m: string) => void; label?: string; multiple?: boolean; wide?: boolean;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [sending, setSending] = useState(false);
@@ -748,8 +773,8 @@ function Photo({ project, value, onChange, onError, label = 'Upload a photo…',
   };
   return (
     <div className="se-photo">
-      {/* eslint-disable-next-line @next/next/no-img-element -- an uploaded photo */}
-      {value && <img src={asset(value)} alt="" />}
+      {/* a resized preview: the upload itself may be a 25 MB original */}
+      {value && <Image src={asset(value)} alt="" width={1200} height={900} sizes={wide ? "(max-width: 900px) 100vw, 840px" : "220px"} />}
       <input ref={input} type="file" accept="image/png,image/jpeg,image/webp" hidden multiple={multiple}
         onChange={(e) => { pick(e.target.files); e.target.value = ''; }} />
       <button onClick={() => input.current?.click()} disabled={sending}>{sending ? 'Uploading…' : value ? 'Replace photo…' : label}</button>

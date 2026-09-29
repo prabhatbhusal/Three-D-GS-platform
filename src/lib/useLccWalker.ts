@@ -125,7 +125,7 @@ export function useLccWalker({
       if (e.code === 'Space') e.preventDefault();
 
       if (e.code === 'KeyB') dropWaypoint(camera);
-      if (e.code === 'KeyH') addHotspot(sceneRef.current, camera, 'text');
+      if (e.code === 'KeyH') addHotspot(sceneRef.current, camera, 'text', rendererRef.current);
       if (e.code === 'KeyV') {
         if (e.shiftKey) exportViewpoints();
         else closeViewpoint(sceneRef.current, camera);

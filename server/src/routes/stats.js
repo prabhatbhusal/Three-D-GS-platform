@@ -7,7 +7,7 @@
  *
  *   POST /api/stats   { space, visit?: true, seconds?: number }
  *                     { space, hotspot: id, first?: true }   a hotspot opened (the first of the visit: first)
- *                     { space, intent: 'enquire' | 'book' | 'table' | 'room' }   a card opened, once per visit
+ *                     { space, intent: 'enquire' | 'book' | 'table' | 'room' | 'whatsapp' }   a card (or WhatsApp) opened, once per visit
  */
 import { Router } from 'express';
 import express from 'express';
