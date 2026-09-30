@@ -1,5 +1,5 @@
 
- # Three-D-GS Platform
+ <div align="center"># Three-D-GS Platform</div>
 <div align="center">
  
   <img src="https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white" alt="Next.js 16" />
