@@ -67,7 +67,7 @@ export function TableBooking({ project, booking, tourSpace, preview = false, ini
   const [done, setDone] = useState<{ label: string; date: string; time: string; party: number; email: boolean } | null>(null);
 
   const load = (date?: string) =>
-    (preview ? getPreviewAvailability : getAvailability)(project, date).then((a) => { if (a) setAvail(a); }).catch((e: Error) => setError(e.message));
+    (preview ? getPreviewAvailability : getAvailability)(project, date, booking.outlet).then((a) => { if (a) setAvail(a); }).catch((e: Error) => setError(e.message));
   useEffect(() => { load(); }, [project]); // eslint-disable-line react-hooks/exhaustive-deps -- once per project
 
   const byId = (id: string) => booking.tables.find((t) => t.id === id);
@@ -169,7 +169,7 @@ export function TableBooking({ project, booking, tourSpace, preview = false, ini
     setSending(true);
     setError('');
     try {
-      const r = await reserveTable(project, {
+      const r = await reserveTable(project, { outlet: booking.outlet,
         table: pickedTable, date: avail.date, time: pickedTime, party, formRenderedAt: renderedAt, ...form
       });
       setDone({ label: r?.tableLabel || chosen?.label || 'a table', date: avail.date, time: pickedTime, party, email: !!form.email.trim() });
@@ -279,7 +279,7 @@ export function TableBooking({ project, booking, tourSpace, preview = false, ini
           {/* Every time that day taken for this party: they can wait for one to open up. */}
           {avail && slots.length > 0 && !slots.some((s) => s.free.some(fits)) && (
             <WaitlistForm key={`${avail.date}-${party}`} project={project} preview={preview}
-              what={`a table for ${party} on ${dayParts(avail.date).long}`} request={{ of: 'table', date: avail.date, party }} />
+              what={`a table for ${party} on ${dayParts(avail.date).long}`} request={{ of: 'table', date: avail.date, party, outlet: booking.outlet }} />
           )}
           {error && <p className="tb-err" role="alert">{error}</p>}
           {booking.note && <p className="tb-dim tb-fine">{booking.note}</p>}

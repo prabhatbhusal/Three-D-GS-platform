@@ -22,13 +22,19 @@ interface Template extends Starter {
 
 const room = (id: string, label: string, sleeps: number) =>
   ({ id, label, units: 1, sleeps, price: '', per: '/ night', features: '', image: '', area: '', pin: false, x: 0.5, y: 0.5, space: '', view: '' });
+/** Event booking with one hall to fill in, switched off (server/src/events.js). */
+const events = (label: string, seated: number, standing: number) => ({
+  on: false, days: 365, timezone: 'Asia/Kathmandu', note: '',
+  kinds: ['Wedding', 'Reception', 'Birthday', 'Conference', 'Meeting', 'Other'],
+  halls: [{ id: 'hall', label, seated, standing, area: '', features: '', image: '', space: '', view: '' }]
+});
 const tables = (first: string, last: string) =>
   ({ on: false, plan: '', tables: [], first, last, slot: 30, stay: 90, days: 30, maxParty: 8, closed: [], timezone: 'Asia/Kathmandu', note: '' });
 
 export const TEMPLATES: Template[] = [
   {
     kind: 'hotel', label: 'Hotel or resort', firstSpace: 'Lobby',
-    gives: 'Room booking with three room types to fill in, table booking hours for the restaurant, and an enquiry section. Both bookings start switched off.',
+    gives: 'Room booking with three room types to fill in, table booking hours for the restaurant, a banquet hall for event bookings, and an enquiry section. The bookings start switched off.',
     site: {
       menu: { title: 'Dining', note: '', items: [] },
       contact: { title: 'Plan your stay', body: 'Ask about dates, rooms, events or anything else. We reply within a day.' },
@@ -37,7 +43,8 @@ export const TEMPLATES: Template[] = [
         timezone: 'Asia/Kathmandu', note: '',
         rooms: [room('standard', 'Standard Room', 2), room('deluxe', 'Deluxe Room', 2), room('family', 'Family Suite', 4)]
       },
-      booking: tables('12:00', '21:30')
+      booking: tables('09:00', '21:30'),
+      events: events('Banquet Hall', 150, 250)
     }
   },
   {
@@ -46,13 +53,16 @@ export const TEMPLATES: Template[] = [
     site: {
       menu: { title: 'Menu', note: '', items: [] },
       contact: { title: 'Visit us', body: 'Ask about a table, a private dinner or an event.' },
-      booking: tables('11:00', '21:30')
+      booking: tables('09:00', '21:30')
     }
   },
   {
     kind: 'venue', label: 'Banquet or event venue', firstSpace: 'Main hall',
-    gives: 'An enquiry section that asks the right questions for events.',
-    site: { contact: { title: 'Plan your event', body: 'Tell us the date, how many guests and the kind of event, and we’ll send options.' } }
+    gives: 'Event booking with a hall to fill in (seated and standing, a photo, its 3D space), switched off until you turn it on, and an enquiry section for events.',
+    site: {
+      contact: { title: 'Plan your event', body: 'Tell us the date, how many guests and the kind of event, and we’ll send options.' },
+      events: events('Main Hall', 300, 500)
+    }
   },
   {
     kind: 'college', label: 'College or school', firstSpace: 'Main building',

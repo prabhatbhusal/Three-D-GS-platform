@@ -19,7 +19,7 @@ import { uiConfig, setUiConfig, useUiConfig } from '../lib/uiConfig';
 import {
   saveScene, getSession, logout, getPublishState, publishSceneNow, unpublishScene, revertScene, getVersions, restoreVersion,
   resolveAsset, safeUrl, getProperties, assetUrl, buildFloorPlan, uploadFloorPlan, removeFloorPlan, getEmbed, setEmbed,
-  getSiteDraft, renameFloorPlanRooms, type SiteTable
+  getSiteDraft, renameFloorPlanRooms, type SiteDoc
 } from '../lib/api';
 import { forgetPlan } from '../lib/floorMap';
 import type { SessionUser, PublishState, EmbedSettings, SceneVersion } from '../lib/api';
@@ -32,8 +32,8 @@ import type { Collider, Property, Scene, SceneDoc } from '../@types/scene.types'
 import type { Viewpoint } from '../@types/viewpoint.types';
 import './editor.css';
 
-const HS_TYPES: HotspotType[] = ['text', 'image', 'video', 'audio', 'link', 'portal', 'table'];
-const HS_ICON: Record<HotspotType, string> = { image: '▣', video: '▶', text: 'i', link: '↗', portal: '⤢', audio: '♪', table: '◎' };
+const HS_TYPES: HotspotType[] = ['text', 'image', 'video', 'audio', 'link', 'portal', 'table', 'room', 'hall'];
+const HS_ICON: Record<HotspotType, string> = { image: '▣', video: '▶', text: 'i', link: '↗', portal: '⤢', audio: '♪', table: '◎', room: '⌂', hall: '◇' };
 
 type Selection = { type: 'hotspot' | 'track' | 'collider'; id: string };
 interface Pose { x: number; y: number; z: number; yaw: number; }
@@ -144,7 +144,7 @@ export function EditorShell({ state, property, onPreview }: {
         )}
         {selHotspot ? (
           <HotspotInspector
-            ed={ed} hs={selHotspot} activeId={state.activeId}
+            ed={ed} hs={selHotspot} activeId={state.activeId} onAddTable={() => addHotspot('table')}
             onDelete={() => { ed.removeHotspot(selHotspot.id); setSel(null); }}
           />
         ) : selCollider ? (
@@ -1066,9 +1066,11 @@ interface HotspotInspectorProps {
   hs: Hotspot;
   activeId: string;
   onDelete: () => void;
+  /** A table's "＋ Next table": another table hotspot where the dot is, selected. */
+  onAddTable: () => void;
 }
 
-function HotspotInspector({ ed, hs, activeId, onDelete }: HotspotInspectorProps) {
+function HotspotInspector({ ed, hs, activeId, onDelete, onAddTable }: HotspotInspectorProps) {
   const p = hs.payload || {};
   const set = (patch: Partial<Hotspot>) => ed.updateHotspot(hs.id, patch);
   const setPayload = (patch: Hotspot['payload']) => set({ payload: { ...p, ...patch } });
@@ -1096,7 +1098,7 @@ function HotspotInspector({ ed, hs, activeId, onDelete }: HotspotInspectorProps)
           display={`${hs.radius.toFixed(2)} m`} onChange={(x) => set({ radius: x })} />
       </Section>
 
-      {hs.type !== 'audio' && <Section title="Content">
+      {hs.type !== 'audio' && <Section title={hs.type === 'table' || hs.type === 'room' || hs.type === 'hall' ? 'Book now' : 'Content'}>
         {hs.type === 'text' && (
           <>
             <textarea className="ed2-name ed2-area" rows={4}
@@ -1144,9 +1146,8 @@ function HotspotInspector({ ed, hs, activeId, onDelete }: HotspotInspectorProps)
             ))}
           </select>
         )}
-        {hs.type === 'table' && (
-          <TablePicker sceneId={activeId} value={p.tableId || ''} text={p.text || ''}
-            onChange={(patch) => setPayload(patch)} />
+        {(hs.type === 'table' || hs.type === 'room' || hs.type === 'hall') && (
+          <BookablePicker kind={hs.type} sceneId={activeId} payload={p} onChange={(patch) => setPayload(patch)} onAddTable={onAddTable} />
         )}
       </Section>}
 
@@ -1224,31 +1225,93 @@ function ColliderInspector({ ed, c, sceneId, onDelete }: {
  * Remove only unlinks it. The file stays in storage: a published snapshot
  * may still point at it, and deleting it would break that live tour (§3.6).
  */
-/** A table hotspot stands for one table on the website's floor plan
- *  (Website → Table booking): visitors who open it can reserve that table. */
-function TablePicker({ sceneId, value, text, onChange }: {
-  sceneId: string; value: string; text: string; onChange: (patch: { tableId?: string; text?: string }) => void;
+/**
+ * A bookable thing in the room: a room, a hall or a table (2026-09-30).
+ * Book now works with nothing else set up: what visitors see (capacity,
+ * price, deposit) is typed here, and their requests land in Reservations for
+ * the team to confirm or decline. Or the hotel's own booking page takes them.
+ * Optionally it can stand for an item in the website's own booking instead
+ * (Website → Table, Room or Event booking), for live availability.
+ */
+function BookablePicker({ kind, sceneId, payload, onChange, onAddTable }: {
+  kind: 'table' | 'room' | 'hall'; sceneId: string; payload: Hotspot['payload'];
+  onChange: (patch: Hotspot['payload']) => void;
+  onAddTable: () => void;
 }) {
   const pid = SCENE_BY_ID[sceneId]?.propertyId;
-  const [tables, setTables] = useState<SiteTable[] | null>(null);
+  const [draft, setDraft] = useState<SiteDoc | null>(null);
   useEffect(() => {
     if (!pid) return;
-    getSiteDraft(pid).then((d) => setTables(d?.draft.booking.tables ?? [])).catch(() => setTables([]));
+    getSiteDraft(pid).then((d) => setDraft(d?.draft ?? null)).catch(() => setDraft(null));
   }, [pid]);
-  if (!pid) return <p className="ed2-muted ed2-fine">Put this space in a project first: tables belong to a project’s website.</p>;
-  if (!tables) return <p className="ed2-muted ed2-fine">Loading the tables…</p>;
-  if (!tables.length) {
-    return <p className="ed2-muted ed2-fine">No tables yet. Add the floor plan and tables in the project’s Website → Table booking, then pick one here.</p>;
-  }
+  const pl = payload ?? {};
+  const num = (v: string) => { const n = Math.round(Number(v)); return Number.isFinite(n) && n > 0 ? Math.min(n, 10000) : undefined; };
+
+  const places = draft ? [{ id: '', name: draft.booking.name || 'Main restaurant', tables: draft.booking.tables },
+    ...draft.dining.map((o) => ({ id: o.id, name: o.name, tables: o.booking.tables }))].filter((x) => x.tables.length) : [];
+  const options: [string, string][] = !draft ? [] : kind === 'table'
+    ? places.flatMap((x) => x.tables.map((t): [string, string] => [`${x.id}|${t.id}`,
+      `${places.length > 1 ? `${x.name} · ` : ''}${t.label || t.id} · seats ${t.seats}${t.area ? ` · ${t.area}` : ''}`]))
+    : kind === 'room'
+      ? draft.stays.rooms.map((r): [string, string] => [r.id, [r.label, r.price && `${r.price} ${r.per}`.trim(), r.deposit && `deposit ${r.deposit}`].filter(Boolean).join(' · ')])
+      : draft.events.halls.map((h): [string, string] => [h.id, [h.label, h.seated && `seats ${h.seated}`, h.price].filter(Boolean).join(' · ')]);
+  const value = kind === 'table' ? (pl.tableId ? `${pl.outlet ?? ''}|${pl.tableId}` : '') : kind === 'room' ? pl.roomId ?? '' : pl.hallId ?? '';
+  const pick = (v: string) => {
+    if (kind === 'table') { const [outlet, tableId] = v.split('|'); onChange({ outlet: outlet || undefined, tableId: tableId ?? '' }); }
+    else onChange(kind === 'room' ? { roomId: v } : { hallId: v });
+  };
+  const holds = kind === 'table' ? 'Seats' : kind === 'room' ? 'Sleeps' : 'Seated';
+
   return (
     <>
-      <select className="ed2-name" value={value} onChange={(e) => onChange({ tableId: e.target.value })}>
-        <option value="">— pick a table —</option>
-        {tables.map((t) => <option key={t.id} value={t.id}>{t.label || t.id} · seats {t.seats}{t.area ? ` · ${t.area}` : ''}</option>)}
-      </select>
-      <input className="ed2-name" style={{ marginTop: 6 }} placeholder="A line about it, e.g. Best sunset view"
-        value={text} maxLength={120} onChange={(e) => onChange({ text: e.target.value })} />
-      <p className="ed2-muted ed2-fine">Visitors who open it can reserve this table, once table booking is published on the website.</p>
+      {!pid && <p className="ed2-warn ed2-fine">Put this space in a project first: bookings belong to a project.</p>}
+      <input className="ed2-name" value={pl.text ?? ''} maxLength={120}
+        placeholder={kind === 'table' ? 'A line about it, e.g. Best sunset view' : kind === 'room' ? 'A line about it, e.g. Our quietest room' : 'A line about it, e.g. Weddings up to 400 guests'}
+        onChange={(e) => onChange({ text: e.target.value })} />
+      <div className="ed2-row" style={{ marginTop: 6 }}>
+        <input className="ed2-name" type="number" min={1} aria-label={holds} placeholder={holds} value={pl.capacity ?? ''}
+          onChange={(e) => onChange({ capacity: num(e.target.value) })} />
+        {kind === 'hall' && (
+          <input className="ed2-name" type="number" min={1} aria-label="Standing" placeholder="Standing" value={pl.standing ?? ''}
+            onChange={(e) => onChange({ standing: num(e.target.value) })} />
+        )}
+      </div>
+      {kind !== 'table' && (
+        <>
+          <input className="ed2-name" style={{ marginTop: 6 }} value={pl.price ?? ''} maxLength={40} aria-label="Price"
+            placeholder={kind === 'room' ? 'Price, e.g. Rs 9,500 / night' : 'Price, e.g. Rs 1,500 per plate'} onChange={(e) => onChange({ price: e.target.value })} />
+          <input className="ed2-name" style={{ marginTop: 6 }} value={pl.deposit ?? ''} maxLength={60} aria-label="Deposit"
+            placeholder="Deposit, e.g. Rs 2,000 when we confirm" onChange={(e) => onChange({ deposit: e.target.value })} />
+        </>
+      )}
+      <input className="ed2-name" style={{ marginTop: 6 }} value={pl.bookUrl ?? ''} maxLength={300} aria-label="Your own booking page"
+        placeholder="Your own booking page (optional): https://…" onChange={(e) => onChange({ bookUrl: e.target.value.trim() || undefined })} />
+      {kind === 'table' ? (
+        <>
+          <p className="ed2-muted ed2-fine">
+            Put one on every table guests can book: name it above and set its seats. Visitors press Reserve this table, pick a day and a time,
+            and can switch to any other table in this room. A table is never asked for twice at one sitting. Times follow the hours under
+            Website → Table booking (9:00 to 21:30 until you set them). Requests come to Reservations for you to confirm; publish to put them live.
+          </p>
+          <div className="ed2-row" style={{ marginTop: 6 }}>
+            <button onClick={onAddTable} title="Aim the dot in the middle of the view at the next table first">＋ Next table, where the dot is</button>
+          </div>
+        </>
+      ) : (
+        <p className="ed2-muted ed2-fine">
+          Visitors who open it see this and press Book now. Their request comes to Reservations, where you confirm or decline it and the guest is told.
+          With your own booking page, Book now sends them there with their dates filled in ({'{checkin}'} {'{checkout}'} {'{guests}'} in the link).
+        </p>
+      )}
+      {options.length > 0 && (
+        <label className="ed2-fine" style={{ display: 'grid', gap: 4, marginTop: 8 }}>
+          <span className="ed2-muted">Or take it through the website’s {kind === 'hall' ? 'event' : kind} booking, with live availability:</span>
+          <select className="ed2-name" value={value} onChange={(e) => pick(e.target.value)}>
+            <option value="">— no, use Book now above —</option>
+            {options.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+          </select>
+        </label>
+      )}
     </>
   );
 }

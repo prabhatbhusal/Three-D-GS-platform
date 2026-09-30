@@ -17,18 +17,18 @@ const pct = (n: number, of: number) => (of ? `${Math.round((n / of) * 100)}%` : 
  */
 function Funnel({ report }: { report: ProjectReport }) {
   const f = report.funnel;
-  const requests = f.requests.tables + f.requests.rooms;
-  const confirmed = f.confirmed.tables + f.confirmed.rooms;
-  const split = (t: number, r: number) => [t && `${t} table${t === 1 ? '' : 's'}`, r && `${r} room${r === 1 ? '' : 's'}`].filter(Boolean).join(', ');
-  const cards = ([['enquire', 'Ask'], ['book', 'Book now'], ['table', 'Reserve a table'], ['room', 'Book a room'], ['whatsapp', 'WhatsApp']] as const)
+  const requests = f.requests.tables + f.requests.rooms + (f.requests.events ?? 0);
+  const confirmed = f.confirmed.tables + f.confirmed.rooms + (f.confirmed.events ?? 0);
+  const split = (t: number, r: number, e = 0) => [t && `${t} table${t === 1 ? '' : 's'}`, r && `${r} room${r === 1 ? '' : 's'}`, e && `${e} event${e === 1 ? '' : 's'}`].filter(Boolean).join(', ');
+  const cards = ([['enquire', 'Ask'], ['book', 'Book now'], ['table', 'Reserve a table'], ['room', 'Book a room'], ['event', 'Plan an event'], ['whatsapp', 'WhatsApp']] as const)
     .filter(([k]) => f.intent[k]).map(([k, label]) => `${label} ${f.intent[k]}`).join(' · ');
   const steps: [string, number, string][] = [
     ['Space visits', f.visits, ''],
     ['Opened a hotspot', f.engaged, ''],
     ['Opened a booking card, enquiry or WhatsApp', f.intents, cards],
     ['Sent an enquiry', f.enquiries, ''],
-    ['Asked to book', requests, split(f.requests.tables, f.requests.rooms)],
-    ['Confirmed', confirmed, split(f.confirmed.tables, f.confirmed.rooms)]
+    ['Asked to book', requests, split(f.requests.tables, f.requests.rooms, f.requests.events)],
+    ['Confirmed', confirmed, split(f.confirmed.tables, f.confirmed.rooms, f.confirmed.events)]
   ];
   const top = Math.max(1, ...steps.map((s) => s[1]));
   return (

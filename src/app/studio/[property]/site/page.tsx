@@ -5,7 +5,7 @@ import Image from 'next/image';
 import {
   API_BASE_URL, cancelSiteSchedule, getProperty, getReviewFeedback, getSiteDraft, publishSite, resolveReviewComment, saveSiteDraft,
   scheduleSite, shareSiteForReview, stopSiteReview, uploadSiteImage, type ReviewFeedback,
-  type SiteBooking, type SiteDoc, type SiteSpace, type SiteStays, type SiteStyle, type SiteTable, type StayRoom
+  type DiningPlace, type EventHall, type SiteBooking, type SiteDoc, type SiteEvents, type SiteMenu, type SiteSpace, type SiteStays, type SiteStyle, type SiteTable, type StayRoom
 } from '../../../../lib/api';
 import { useStudioSession } from '../../../../lib/useStudioSession';
 import '../../../../components/editor.css';
@@ -121,6 +121,8 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
     try { await cancelSiteSchedule(id); setScheduledAt(null); } catch (e) { setError((e as Error).message); }
   };
   const published = spaces.filter((s) => s.published);
+  // the viewpoints a table's "view from here" may use: the tour's space's
+  const views = published.find((x) => x.id === (doc.hero.space || published[0]?.id))?.views ?? [];
 
   return (
     <div className="ed2 se">
@@ -273,6 +275,32 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
           )}
         </Card>
 
+        <Card title="Offers and packages" hint="A honeymoon package, a weekday rate, a wedding bundle. Each gets an “Ask about this offer” button that opens the enquiry form with the offer named.">
+          {doc.offers.map((o, i) => {
+            const set = (patch: Partial<typeof o>) => change({ offers: doc.offers.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
+            return (
+              <div key={i} className="se-item">
+                <div className="se-item-head">
+                  <b>{i + 1}. {o.title || 'Untitled'}</b>
+                  <Tools onUp={() => change({ offers: move(doc.offers, i, -1) })} onDown={() => change({ offers: move(doc.offers, i, 1) })}
+                    onRemove={() => change({ offers: doc.offers.filter((_, j) => j !== i) })} />
+                </div>
+                <div className="se-split">
+                  <Photo project={id} value={o.image} onChange={(image) => set({ image })} onError={setError} />
+                  <div>
+                    <Text label="Name" value={o.title} max={80} placeholder="e.g. Honeymoon package" onChange={(title) => set({ title })} />
+                    <Text label="What’s in it" value={o.body} max={400} long placeholder="Two nights in a suite, candle-lit dinner, spa for two." onChange={(body) => set({ body })} />
+                    <Text label="Price" value={o.price} max={40} placeholder="From Rs 18,000" onChange={(price) => set({ price })} />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {doc.offers.length < 6 && (
+            <button className="se-add" onClick={() => change({ offers: [...doc.offers, { title: '', body: '', price: '', image: '' }] })}>＋ Add an offer</button>
+          )}
+        </Card>
+
         <Card title="Floor plan" hint="The plan of the tour’s space: the one you uploaded in the studio, else the one drawn from the scan.">
           <label className="se-check">
             <input type="checkbox" checked={doc.plan} onChange={(e) => change({ plan: e.target.checked })} /> Show the floor plan
@@ -296,45 +324,64 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
           </div>
         </Card>
 
-        <Card title="Menu or prices" hint="For a restaurant, its dishes; for a hotel, its rooms and rates. Leave empty to hide.">
-          <div className="se-row">
-            <Text label="Heading" value={doc.menu.title} max={80} placeholder="Menu" onChange={(v) => change({ menu: { ...doc.menu, title: v } })} />
-            <Text label="Note" value={doc.menu.note} max={300} placeholder="Prices include VAT." onChange={(v) => change({ menu: { ...doc.menu, note: v } })} />
-          </div>
-          {doc.menu.items.map((m, i) => {
-            const set = (patch: Partial<typeof m>) => change({ menu: { ...doc.menu, items: doc.menu.items.map((x, j) => (j === i ? { ...x, ...patch } : x)) } });
+        <Card title="Guest reviews" hint="Up to eight things guests said, word for word, with their name. Link to where more are (Google, TripAdvisor) so visitors can check.">
+          {doc.reviews.items.map((r, i) => {
+            const items = doc.reviews.items;
+            const set = (patch: Partial<typeof r>) => change({ reviews: { ...doc.reviews, items: items.map((x, j) => (j === i ? { ...x, ...patch } : x)) } });
             return (
-              <div key={i} className="se-row se-menu">
-                <input aria-label="Dish or item" placeholder="Newari khaja set" value={m.name} maxLength={80} onChange={(e) => set({ name: e.target.value })} />
-                <input aria-label="Description" placeholder="Beaten rice, choila, bara…" value={m.desc} maxLength={200} onChange={(e) => set({ desc: e.target.value })} />
-                <input aria-label="Price" placeholder="Rs 650" value={m.price} maxLength={30} onChange={(e) => set({ price: e.target.value })} />
-                <input aria-label="Label" placeholder="Vegetarian" value={m.tag} maxLength={30} onChange={(e) => set({ tag: e.target.value })} />
-                <Tools onUp={() => change({ menu: { ...doc.menu, items: move(doc.menu.items, i, -1) } })}
-                  onDown={() => change({ menu: { ...doc.menu, items: move(doc.menu.items, i, 1) } })}
-                  onRemove={() => change({ menu: { ...doc.menu, items: doc.menu.items.filter((_, j) => j !== i) } })} />
+              <div key={i} className="se-item">
+                <div className="se-item-head">
+                  <b>{r.name || `Review ${i + 1}`}</b>
+                  <Tools onUp={() => change({ reviews: { ...doc.reviews, items: move(items, i, -1) } })}
+                    onDown={() => change({ reviews: { ...doc.reviews, items: move(items, i, 1) } })}
+                    onRemove={() => change({ reviews: { ...doc.reviews, items: items.filter((_, j) => j !== i) } })} />
+                </div>
+                <Text label="What they said" value={r.quote} max={600} long placeholder="The staff remembered our names by the second morning…" onChange={(quote) => set({ quote })} />
+                <div className="se-row">
+                  <Text label="Name" value={r.name} max={60} placeholder="Asha K." onChange={(name) => set({ name })} />
+                  <Text label="From" value={r.from} max={60} placeholder="Stayed in March · Google" onChange={(from) => set({ from })} />
+                </div>
               </div>
             );
           })}
-          {doc.menu.items.length < 40 && (
-            <button className="se-add" onClick={() => change({ menu: { ...doc.menu, items: [...doc.menu.items, { name: '', desc: '', price: '', tag: '' }] } })}>
-              ＋ Add an item
-            </button>
+          {doc.reviews.items.length < 8 && (
+            <button className="se-add" onClick={() => change({ reviews: { ...doc.reviews, items: [...doc.reviews.items, { quote: '', name: '', from: '' }] } })}>＋ Add a review</button>
           )}
+          <Text label="Where to read more (https:// link)" value={doc.reviews.link} max={300} placeholder="https://g.page/r/…"
+            onChange={(link) => change({ reviews: { ...doc.reviews, link } })} />
+        </Card>
+
+        <Card title="Menu or prices" hint="For a restaurant, its dishes; for a hotel, its rooms and rates. Leave empty to hide.">
+          <MenuEditor menu={doc.menu} onChange={(menu) => change({ menu })} />
         </Card>
 
         <Card title="Table booking" hint="Guests choose a day, a time and a table on your floor plan, and send a request; you confirm it in Reservations. Publish to put changes live.">
-          <label className="se-check">
-            <input type="checkbox" checked={doc.booking.on} onChange={(e) => change({ booking: { ...doc.booking, on: e.target.checked } })} />
-            Take table bookings on the website
-          </label>
-          <PlanEditor project={id} booking={doc.booking} onError={setError}
-            views={published.find((s) => s.id === (doc.hero.space || published[0]?.id))?.views ?? []}
-            onChange={(booking) => change({ booking })} />
-          <Hours booking={doc.booking} onChange={(booking) => change({ booking })} />
-          <Text label="A note under the booking form" value={doc.booking.note} max={300} placeholder="Tables are held for 15 minutes. For groups over 8, call us."
-            onChange={(note) => change({ booking: { ...doc.booking, note } })} />
-          {doc.booking.on && (!doc.booking.plan || !doc.booking.tables.length) && (
-            <p className="se-warn">Booking stays hidden on the website until there is a floor plan with at least one table.</p>
+          <Text label="This place's name, when you have more than one" value={doc.booking.name ?? ''} max={60} placeholder="The Restaurant"
+            onChange={(name) => change({ booking: { ...doc.booking, name } })} />
+          <TableSetup project={id} booking={doc.booking} views={views} onError={setError} onChange={(booking) => change({ booking })} />
+        </Card>
+
+        <Card title="More dining places" hint="A café beside the restaurant, a rooftop bar: each has its own menu, floor plan, tables and hours, booked apart. Guests see them on the website and choose between them in the tour.">
+          {doc.dining.map((o, i) => {
+            const set = (patch: Partial<DiningPlace>) => change({ dining: doc.dining.map((x) => (x.id === o.id ? { ...x, ...patch } : x)) });
+            return (
+              <div key={o.id} className="se-item">
+                <div className="se-item-head">
+                  <b>{o.name || 'Untitled place'}</b>
+                  <Tools onUp={() => change({ dining: move(doc.dining, i, -1) })} onDown={() => change({ dining: move(doc.dining, i, 1) })}
+                    onRemove={() => change({ dining: doc.dining.filter((x) => x.id !== o.id) })} />
+                </div>
+                <Text label="Name" value={o.name} max={60} placeholder="Courtyard Café" onChange={(name) => set({ name })} />
+                <MenuEditor menu={o.menu} onChange={(menu) => set({ menu })} />
+                <TableSetup project={id} booking={o.booking} views={views} onError={setError} onChange={(booking) => set({ booking })} />
+              </div>
+            );
+          })}
+          {doc.dining.length < 5 && (
+            <button className="se-add" onClick={() => change({ dining: [...doc.dining, {
+              id: `d${Date.now().toString(36)}`, name: `Place ${doc.dining.length + 2}`,
+              menu: { title: 'Menu', note: '', items: [] }, booking: { ...doc.booking, on: false, plan: '', tables: [], name: '', note: '' }
+            }] })}>＋ Add a dining place</button>
           )}
         </Card>
 
@@ -351,6 +398,43 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
           {doc.stays.on && !doc.stays.rooms.length && (
             <p className="se-warn">Room booking stays hidden on the website until there is at least one room.</p>
           )}
+        </Card>
+
+        <Card title="Event booking" hint="For weddings, parties and meetings: guests pick a hall, the day (daytime, evening or the whole day), how many and what kind of event, and send a request; you confirm it in Reservations. Publish to put changes live.">
+          <label className="se-check">
+            <input type="checkbox" checked={doc.events.on} onChange={(e) => change({ events: { ...doc.events, on: e.target.checked } })} />
+            Take event bookings on the website and in the tour
+          </label>
+          <HallsEditor project={id} events={doc.events} spaces={published} onError={setError} onChange={(events) => change({ events })} />
+          <Text label="Kinds of event you host, separated by commas" value={doc.events.kinds.join(', ')} max={400}
+            placeholder="Wedding, Reception, Birthday, Conference, Meeting, Other"
+            onChange={(v) => change({ events: { ...doc.events, kinds: v.split(',').map((k) => k.trim()) } })} />
+          <label className="se-field"><span>How far ahead guests may book (days)</span>
+            <input type="number" min={7} max={730} value={doc.events.days}
+              onChange={(e) => change({ events: { ...doc.events, days: num(e.target.value, 7, 730) } })} /></label>
+          <Text label="A note under the booking form" value={doc.events.note} max={300} placeholder="Daytime 10:00–16:00, evening 17:00–23:00. Catering in-house."
+            onChange={(note) => change({ events: { ...doc.events, note } })} />
+          {doc.events.on && !doc.events.halls.some((h) => h.seated || h.standing) && (
+            <p className="se-warn">Event booking stays hidden until at least one hall says how many it holds.</p>
+          )}
+        </Card>
+
+        <Card title="Questions guests ask" hint="Parking, check-in times, airport pick-up, pets. The answers also reach Google, which can show them under your listing.">
+          {doc.faq.map((f, i) => {
+            const set = (patch: Partial<typeof f>) => change({ faq: doc.faq.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
+            return (
+              <div key={i} className="se-item">
+                <div className="se-item-head">
+                  <b>{i + 1}. {f.q || 'New question'}</b>
+                  <Tools onUp={() => change({ faq: move(doc.faq, i, -1) })} onDown={() => change({ faq: move(doc.faq, i, 1) })}
+                    onRemove={() => change({ faq: doc.faq.filter((_, j) => j !== i) })} />
+                </div>
+                <Text label="Question" value={f.q} max={160} placeholder="Is there parking?" onChange={(q) => set({ q })} />
+                <Text label="Answer" value={f.a} max={800} long placeholder="Yes, free and on site, for 20 cars." onChange={(a) => set({ a })} />
+              </div>
+            );
+          })}
+          {doc.faq.length < 12 && <button className="se-add" onClick={() => change({ faq: [...doc.faq, { q: '', a: '' }] })}>＋ Add a question</button>}
         </Card>
 
         <Card title="Enquiries" hint="The closing section. Its button opens the enquiry form; enquiries arrive with this project’s others.">
@@ -559,6 +643,8 @@ function RoomsEditor({ project, stays, spaces, onChange, onError }: {
                   <Text label="Per" value={r.per} max={20} placeholder="/ night" onChange={(per) => edit(r.id, { per })} />
                   <Text label="Where" value={r.area} max={40} placeholder="Garden wing" onChange={(area) => edit(r.id, { area })} />
                 </div>
+                <Text label="Deposit, in words (shown to guests; nothing is charged online)" value={r.deposit ?? ''} max={60}
+                  placeholder="Rs 2,000 when we confirm" onChange={(deposit) => edit(r.id, { deposit })} />
                 <Text label="Features, separated by commas" value={r.features} max={200} placeholder="King bed, River view, 32 m²"
                   onChange={(features) => edit(r.id, { features })} />
                 <div className="se-row">
@@ -583,6 +669,71 @@ function RoomsEditor({ project, stays, spaces, onChange, onError }: {
         );
       })}
       {stays.rooms.length < 40 && <button className="se-add" onClick={add}>＋ Add a room</button>}
+    </>
+  );
+}
+
+/** The halls a venue books for events (server/src/events.js), like the rooms: a photo, how many it holds, its 3D space. */
+function HallsEditor({ project, events, spaces, onChange, onError }: {
+  project: string; events: SiteEvents; spaces: SiteSpace[];
+  onChange: (e: SiteEvents) => void; onError: (m: string) => void;
+}) {
+  const setHalls = (halls: EventHall[]) => onChange({ ...events, halls });
+  const edit = (hid: string, patch: Partial<EventHall>) => setHalls(events.halls.map((h) => (h.id === hid ? { ...h, ...patch } : h)));
+  const add = () => setHalls([...events.halls, {
+    id: `h${Date.now().toString(36)}`, label: `Hall ${events.halls.length + 1}`, seated: 100, standing: 0,
+    area: '', features: '', image: '', space: '', view: ''
+  }]);
+  return (
+    <>
+      {events.halls.map((h, i) => {
+        const views = spaces.find((x) => x.id === h.space)?.views ?? [];
+        return (
+          <div key={h.id} className="se-item">
+            <div className="se-item-head">
+              <b>{h.label || 'Untitled hall'}</b>
+              <Tools onUp={() => setHalls(move(events.halls, i, -1))} onDown={() => setHalls(move(events.halls, i, 1))}
+                onRemove={() => setHalls(events.halls.filter((x) => x.id !== h.id))} />
+            </div>
+            <div className="se-split">
+              <Photo project={project} value={h.image} onChange={(image) => edit(h.id, { image })} onError={onError} />
+              <div>
+                <div className="se-row">
+                  <Text label="Name" value={h.label} max={60} placeholder="Grand Banquet Hall, Garden Lawn…" onChange={(label) => edit(h.id, { label })} />
+                  <label className="se-field"><span>Seated</span>
+                    <input type="number" min={0} max={5000} value={h.seated} onChange={(e) => edit(h.id, { seated: num(e.target.value, 0, 5000) })} /></label>
+                  <label className="se-field"><span>Standing</span>
+                    <input type="number" min={0} max={10000} value={h.standing} onChange={(e) => edit(h.id, { standing: num(e.target.value, 0, 10000) })} /></label>
+                </div>
+                <div className="se-row">
+                  <Text label="Size" value={h.area} max={40} placeholder="450 m²" onChange={(area) => edit(h.id, { area })} />
+                  <Text label="Price" value={h.price ?? ''} max={40} placeholder="Rs 1,500 per plate" onChange={(price) => edit(h.id, { price })} />
+                  <Text label="Deposit" value={h.deposit ?? ''} max={60} placeholder="Rs 20,000 to hold the date" onChange={(deposit) => edit(h.id, { deposit })} />
+                </div>
+                <Text label="Features, separated by commas" value={h.features} max={200} placeholder="Stage, Dance floor, In-house catering, Parking"
+                  onChange={(features) => edit(h.id, { features })} />
+                <div className="se-row">
+                  <label className="se-field">
+                    <span>Its space in 3D</span>
+                    <select value={h.space} onChange={(e) => edit(h.id, { space: e.target.value, view: '' })}>
+                      <option value="">None</option>
+                      {spaces.map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}
+                    </select>
+                  </label>
+                  <label className="se-field">
+                    <span>Viewpoint</span>
+                    <select value={h.view} disabled={!h.space} onChange={(e) => edit(h.id, { view: e.target.value })}>
+                      <option value="">Where the space starts</option>
+                      {views.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
+                    </select>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+      {events.halls.length < 20 && <button className="se-add" onClick={add}>＋ Add a hall</button>}
     </>
   );
 }
@@ -718,6 +869,57 @@ function Hours({ booking, onChange }: { booking: SiteBooking; onChange: (b: Site
           })}
         </div>
       </div>
+    </>
+  );
+}
+
+/** A menu's heading, note and items (the main place's, or another dining place's). */
+function MenuEditor({ menu, onChange }: { menu: SiteMenu; onChange: (m: SiteMenu) => void }) {
+  const items = menu.items;
+  return (
+    <>
+      <div className="se-row">
+        <Text label="Heading" value={menu.title} max={80} placeholder="Menu" onChange={(v) => onChange({ ...menu, title: v })} />
+        <Text label="Note" value={menu.note} max={300} placeholder="Prices include VAT." onChange={(v) => onChange({ ...menu, note: v })} />
+      </div>
+      {items.map((m, i) => {
+        const set = (patch: Partial<typeof m>) => onChange({ ...menu, items: items.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
+        return (
+          <div key={i} className="se-row se-menu">
+            <input aria-label="Dish or item" placeholder="Newari khaja set" value={m.name} maxLength={80} onChange={(e) => set({ name: e.target.value })} />
+            <input aria-label="Description" placeholder="Beaten rice, choila, bara…" value={m.desc} maxLength={200} onChange={(e) => set({ desc: e.target.value })} />
+            <input aria-label="Price" placeholder="Rs 650" value={m.price} maxLength={30} onChange={(e) => set({ price: e.target.value })} />
+            <input aria-label="Label" placeholder="Vegetarian" value={m.tag} maxLength={30} onChange={(e) => set({ tag: e.target.value })} />
+            <Tools onUp={() => onChange({ ...menu, items: move(items, i, -1) })} onDown={() => onChange({ ...menu, items: move(items, i, 1) })}
+              onRemove={() => onChange({ ...menu, items: items.filter((_, j) => j !== i) })} />
+          </div>
+        );
+      })}
+      {items.length < 40 && (
+        <button className="se-add" onClick={() => onChange({ ...menu, items: [...items, { name: '', desc: '', price: '', tag: '' }] })}>＋ Add an item</button>
+      )}
+    </>
+  );
+}
+
+/** A place's table booking: on or off, its floor plan and tables, its hours, a note. */
+function TableSetup({ project, booking, views, onChange, onError }: {
+  project: string; booking: SiteBooking; views: { id: string; label: string }[];
+  onChange: (b: SiteBooking) => void; onError: (m: string) => void;
+}) {
+  return (
+    <>
+      <label className="se-check">
+        <input type="checkbox" checked={booking.on} onChange={(e) => onChange({ ...booking, on: e.target.checked })} />
+        Take table bookings on the website
+      </label>
+      <PlanEditor project={project} booking={booking} onError={onError} views={views} onChange={onChange} />
+      <Hours booking={booking} onChange={onChange} />
+      <Text label="A note under the booking form" value={booking.note} max={300} placeholder="Tables are held for 15 minutes. For groups over 8, call us."
+        onChange={(note) => onChange({ ...booking, note })} />
+      {booking.on && (!booking.plan || !booking.tables.length) && (
+        <p className="se-warn">Booking stays hidden on the website until there is a floor plan with at least one table.</p>
+      )}
     </>
   );
 }

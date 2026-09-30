@@ -2,7 +2,7 @@
 
 import { use, useCallback, useEffect, useState } from 'react';
 import {
-  getProperty, getReservations, setReservationStatus, type Reservation, type ReservationStatus, type SiteBooking, type SiteStays
+  getProperty, getReservations, setReservationStatus, type Reservation, type ReservationStatus, type SiteBooking, type SiteEvents, type SiteStays
 } from '../../../../lib/api';
 import { useStudioSession } from '../../../../lib/useStudioSession';
 import '../../../../components/editor.css';
@@ -21,10 +21,21 @@ const dayName = (date: string, today: string) => {
 };
 const shortDay = (date: string) => new Date(`${date}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 const isStay = (r: Reservation) => r.kind === 'stay';
+const isEvent = (r: Reservation) => r.kind === 'event';
+/** Tables, rooms or events: the inbox's filter. */
+type Kind = 'tables' | 'rooms' | 'events';
+/** Book now on a hotspot in the tour (kind 'request'): a room, a hall or a table, with nothing else set up. */
+const asked = (r: Reservation, of: 'room' | 'hall' | 'table') => r.kind === 'request' && r.of === of;
+/** Held by the night (a stay, or a room asked for from the tour); by the part of a day (an event, or a hall asked for). */
+const nightly = (r: Reservation) => isStay(r) || asked(r, 'room');
+const eventish = (r: Reservation) => isEvent(r) || asked(r, 'hall');
+const kindOf = (r: Reservation): Kind => (nightly(r) ? 'rooms' : eventish(r) ? 'events' : 'tables');
+const SESSION: Record<string, string> = { day: 'Daytime', evening: 'Evening', full: 'Whole day' };
 
 /**
  * A place's bookings (/studio/<project>/reservations): tables, picked on
- * its website's floor plan, and rooms, listed on the day guests arrive. New
+ * its website's floor plan, rooms, listed on the day guests arrive, and
+ * events, listed on their day. New
  * ones wait for a reply: Confirm or Decline (the guest is emailed, if they
  * left an address). Checks for new ones every 30 seconds while it's open.
  */
@@ -35,9 +46,10 @@ export default function ReservationsPage({ params }: { params: Promise<{ propert
   const [list, setList] = useState<Reservation[] | null>(null);
   const [booking, setBooking] = useState<SiteBooking | null>(null);
   const [stays, setStays] = useState<SiteStays | null>(null);
+  const [events, setEvents] = useState<SiteEvents | null>(null);
   const [today, setToday] = useState('');
   const [tab, setTab] = useState<Tab>('reply');
-  const [kind, setKind] = useState<'all' | 'tables' | 'rooms'>('all');
+  const [kind, setKind] = useState<'all' | Kind>('all');
   const [staff, setStaff] = useState(false); // the client's staff: no setup to go to
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
@@ -47,6 +59,7 @@ export default function ReservationsPage({ params }: { params: Promise<{ propert
     setList(r.reservations);
     setBooking(r.booking);
     setStays(r.stays);
+    setEvents(r.events ?? null);
     setToday(r.today);
   }).catch((e: Error) => setError(e.message)), [id]);
 
@@ -62,12 +75,13 @@ export default function ReservationsPage({ params }: { params: Promise<{ propert
   if (!list) return <div className="ed2-boot">{error || 'Loading reservations…'}</div>;
 
   // A stay is upcoming until its guests have left.
-  const upcoming = (r: Reservation) => (isStay(r) ? (r.checkout ?? r.date) > today : r.date >= today);
+  const upcoming = (r: Reservation) => (nightly(r) ? (r.checkout ?? r.date) > today : r.date >= today);
   // The waitlist has its own tab; the other tabs are bookings.
   const waitlist = list.filter((r) => r.kind === 'wait' && (r.of === 'room' ? (r.checkout ?? r.date) > today : r.date >= today));
   const bookings = list.filter((r) => r.kind !== 'wait');
-  const both = bookings.some(isStay) && bookings.some((r) => !isStay(r));
-  const ofKind = bookings.filter((r) => kind === 'all' || (kind === 'rooms') === isStay(r));
+  const kinds = [...new Set(bookings.map(kindOf))];
+  const both = kinds.length > 1;
+  const ofKind = bookings.filter((r) => kind === 'all' || kindOf(r) === kind);
   const waiting = ofKind.filter((r) => r.status === 'requested' && upcoming(r));
   const stillWaiting = waitlist.filter((r) => r.status === 'waiting').length;
   const shown = (tab === 'waitlist' ? waitlist.filter((r) => r.status !== 'removed')
@@ -90,17 +104,24 @@ export default function ReservationsPage({ params }: { params: Promise<{ propert
       setBusy('');
     }
   };
-  const tableName = (r: Reservation) => r.tableLabel || booking?.tables.find((t) => t.id === r.table)?.label || r.table;
+  // a table at one of the site's other dining places says which
+  const tableName = (r: Reservation) => {
+    const table = r.tableLabel || (r.outlet ? '' : booking?.tables.find((t) => t.id === r.table)?.label) || r.table;
+    return r.outletName ? `${r.outletName} · ${table}` : table;
+  };
   const roomName = (r: Reservation) => {
     const name = r.roomLabel || stays?.rooms.find((x) => x.id === r.room)?.label || r.room || 'Room';
     return (r.rooms ?? 1) > 1 ? `${r.rooms} × ${name}` : name;
   };
-  // What a day adds up to: guests at tables, and rooms for guests arriving.
+  const hallName = (r: Reservation) => r.hallLabel || events?.halls.find((h) => h.id === r.hall)?.label || r.hall || 'Hall';
+  // What a day adds up to: guests at tables, rooms for guests arriving, and events.
   const dayTotal = (d: string) => {
     const live = shown.filter((r) => r.date === d && r.status !== 'declined' && r.status !== 'cancelled');
-    const guests = live.filter((r) => !isStay(r)).reduce((a, r) => a + r.party, 0);
+    const guests = live.filter((r) => kindOf(r) === 'tables').reduce((a, r) => a + r.party, 0);
     const rooms = live.filter(isStay).reduce((a, r) => a + (r.rooms ?? 1), 0);
-    return [guests && `${guests} ${guests === 1 ? 'guest' : 'guests'} at tables`, rooms && `${rooms} ${rooms === 1 ? 'room' : 'rooms'} for arrivals`]
+    const evts = live.filter(isEvent).length;
+    return [guests && `${guests} ${guests === 1 ? 'guest' : 'guests'} at tables`, rooms && `${rooms} ${rooms === 1 ? 'room' : 'rooms'} for arrivals`,
+      evts && `${evts} ${evts === 1 ? 'event' : 'events'}`]
       .filter(Boolean).join(' · ') || 'Nothing booked or waiting';
   };
 
@@ -117,10 +138,10 @@ export default function ReservationsPage({ params }: { params: Promise<{ propert
       </header>
 
       <main className="se-body">
-        {!booking?.on && !stays?.on && (
+        {!booking?.on && !stays?.on && !events?.on && !list.some((r) => r.kind === 'request') && (
           <p className="se-warn">{staff
             ? 'Online booking isn’t switched on for this place yet. Ask whoever runs its website to turn it on.'
-            : 'Booking is off on the website. Turn on Table booking or Room booking under Website, set it up, and publish.'}</p>
+            : 'Booking is off on the website. Turn on Table, Room or Event booking under Website, set it up, and publish.'}</p>
         )}
         <div className="rs-tabs" role="tablist">
           {([['reply', `Needs a reply${waiting.length ? ` (${waiting.length})` : ''}`], ['upcoming', 'Upcoming'], ['past', 'Past'], ['all', 'All'], ['waitlist', `Waitlist${stillWaiting ? ` (${stillWaiting})` : ''}`]] as [Tab, string][]).map(([k, label]) => (
@@ -128,7 +149,7 @@ export default function ReservationsPage({ params }: { params: Promise<{ propert
           ))}
           {both && tab !== 'waitlist' && (
             <span className="rs-kinds">
-              {([['all', 'Tables and rooms'], ['tables', 'Tables'], ['rooms', 'Rooms']] as const).map(([k, label]) => (
+              {([['all', 'All'], ['tables', 'Tables'], ['rooms', 'Rooms'], ['events', 'Events']] as const).filter(([k]) => k === 'all' || kinds.includes(k)).map(([k, label]) => (
                 <button key={k} aria-pressed={kind === k} className={kind === k ? 'is-on' : ''} onClick={() => setKind(k)}>{label}</button>
               ))}
             </span>
@@ -168,14 +189,20 @@ export default function ReservationsPage({ params }: { params: Promise<{ propert
               </div>
             ) : (
               <div key={r.id} className={`rs-item is-${r.status}`}>
-                {isStay(r) ? (
+                {nightly(r) ? (
                   <div className="rs-when"><b>{r.nights} {r.nights === 1 ? 'night' : 'nights'}</b><span>{r.party} {r.party === 1 ? 'guest' : 'guests'}</span></div>
+                ) : eventish(r) ? (
+                  <div className="rs-when"><b>{SESSION[r.session ?? ''] ?? r.session}</b><span>{r.party} guests</span></div>
                 ) : (
                   <div className="rs-when"><b>{r.time}</b><span>{r.party} {r.party === 1 ? 'guest' : 'guests'}</span></div>
                 )}
                 <div className="rs-who">
-                  <b>{r.name}</b> <span className="rs-table">{isStay(r) ? roomName(r) : tableName(r)}</span>
-                  {isStay(r) && <p className="rs-stay">{shortDay(r.checkin ?? r.date)} → {shortDay(r.checkout ?? r.date)}</p>}
+                  <b>{r.name}</b> <span className="rs-table">{r.kind === 'request' ? [r.item, r.occasion].filter(Boolean).join(' · ')
+                    : isStay(r) ? roomName(r) : isEvent(r) ? `${r.occasion} · ${hallName(r)}` : tableName(r)}</span>
+                  {nightly(r) && <p className="rs-stay">{shortDay(r.checkin ?? r.date)} → {shortDay(r.checkout ?? r.date)}</p>}
+                  {r.kind === 'request' && (
+                    <p className="se-hint">{[`Book now in the tour (${r.spaceTitle})`, r.price, r.deposit && `deposit ${r.deposit}`].filter(Boolean).join(' · ')}</p>
+                  )}
                   <div className="rs-contact">
                     <a href={`tel:${r.phone}`}>{r.phone}</a>
                     {r.email && <a href={`mailto:${r.email}`}>{r.email}</a>}

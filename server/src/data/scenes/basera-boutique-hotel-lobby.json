@@ -43,7 +43,24 @@
     "mode": "viewpoint"
   },
   "viewpoints": [],
-  "hotspots": [],
+  "hotspots": [
+    {
+      "id": "hs-basera-boutique-hotel-lobby-mumifllv1",
+      "type": "table",
+      "position": [
+        -0.544,
+        -0.099,
+        -0.529
+      ],
+      "radius": 0.4,
+      "label": "New hotspot",
+      "payload": {
+        "tableId": "",
+        "text": ""
+      },
+      "occludedBy": "none"
+    }
+  ],
   "tracks": [
     {
       "id": "vp-basera-boutique-hotel-lobby-mumbcc1c1",
@@ -127,7 +144,11 @@
   "audio": null,
   "cta": null,
   "theme": null,
-  "booking": null,
+  "booking": {
+    "enabled": true,
+    "label": "Book now",
+    "url": ""
+  },
   "neighbours": [],
   "status": "published",
   "ownerId": "44d97664-14c0-4473-82e8-a0089a8219cd",

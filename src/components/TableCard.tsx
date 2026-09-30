@@ -27,8 +27,10 @@ const LOCALE = { en: 'en-GB', ne: 'ne-NP', zh: 'zh-CN' } as const;
  * hotspot named), a name and a phone, and one button. The full floor plan is
  * a link away for guests who want to pick by sight (TableBooking).
  */
-export function TableCard({ project, booking, venue, initialTable = '', preview = false, onClose, onOpenPlan }: {
+export function TableCard({ project, booking, venue, places, onPlace, initialTable = '', preview = false, onClose, onOpenPlan }: {
   project: string; booking: SiteBooking; venue: string;
+  /** More than one dining place (a restaurant and a café): which one, in words, and switching. */
+  places?: { id: string; name: string }[]; onPlace?: (id: string) => void;
   initialTable?: string;
   /** The studio's Preview: the draft's setup, never sends. */
   preview?: boolean;
@@ -48,7 +50,7 @@ export function TableCard({ project, booking, venue, initialTable = '', preview 
   const [done, setDone] = useState<{ label: string; date: string; time: string; party: number } | null>(null);
 
   const load = (date?: string) =>
-    (preview ? getPreviewAvailability : getAvailability)(project, date)
+    (preview ? getPreviewAvailability : getAvailability)(project, date, booking.outlet)
       .then((a) => { if (a) setAvail(a); })
       .catch((e: Error) => setError(e.message));
   useEffect(() => { load(); }, [project]); // eslint-disable-line react-hooks/exhaustive-deps -- once per project
@@ -74,7 +76,7 @@ export function TableCard({ project, booking, venue, initialTable = '', preview 
     setSending(true);
     setError('');
     try {
-      const r = await reserveTable(project, {
+      const r = await reserveTable(project, { outlet: booking.outlet,
         table: table || 'any', date: avail.date, time: pickedTime, party, formRenderedAt: renderedAt, ...form
       });
       setDone({ label: r?.tableLabel || chosen?.label || best?.label || '', date: avail.date, time: pickedTime, party });
@@ -104,7 +106,16 @@ export function TableCard({ project, booking, venue, initialTable = '', preview 
         ) : (
           <form onSubmit={submit} noValidate>
             <h2>{t('Reserve a table')}</h2>
-            <p className="vw-sheet-sub">{venue}</p>
+            {places && onPlace ? (
+              <label className="vw-sheet-field vw-sheet-field-wide">
+                <span className="vw-sheet-field-txt">
+                  <span>{t('Place')}</span>
+                  <select value={booking.outlet ?? ''} onChange={(e) => onPlace(e.target.value)}>
+                    {places.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                  </select>
+                </span>
+              </label>
+            ) : <p className="vw-sheet-sub">{venue}</p>}
 
             <div className="vw-stay">
               <label className="vw-sheet-field">

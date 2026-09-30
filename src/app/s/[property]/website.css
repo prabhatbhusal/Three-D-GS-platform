@@ -250,6 +250,50 @@
 .ws-wa svg { width: 30px; height: 30px; }
 .ws-wa:hover { scale: 1.07; }
 
+/* ---- offers: cards, each asking about itself */
+.ws-offers { width: var(--wide); margin: 18vh auto 0; }
+.ws-offer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 28px; }
+.ws-offer { display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+.ws-offer-img { aspect-ratio: 3 / 2; overflow: hidden; }
+.ws-offer-img img { display: block; width: 100%; height: 100%; object-fit: cover; transition: scale 1.2s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.ws-offer:hover .ws-offer-img img { scale: 1.04; }
+.ws-offer-txt { display: flex; flex: 1; flex-direction: column; align-items: flex-start; padding: 26px 26px 28px; }
+.ws-offer h3 { margin: 0 0 10px; font-size: clamp(24px, 2.2vw, 30px); line-height: 1.15; }
+.ws-offer p { margin: 0 0 14px; color: var(--dim); font-size: 16px; }
+.ws-offer .ws-offer-price { color: var(--ws-accent-ink); font: 400 22px/1.3 var(--ws-serif); }
+.ws-offer .ws-btn { margin-top: auto; }
+/* no photo: the accent, faintly, so the space reads as meant */
+.ws-offer:not(:has(.ws-offer-img)) { background: linear-gradient(160deg, var(--card), color-mix(in srgb, var(--ws-accent) 16%, var(--card))); }
+
+/* ---- what guests said: quotes of any length, in columns */
+.ws-reviews { width: var(--wide); margin: 18vh auto 0; }
+.ws-quotes { columns: 3 300px; column-gap: 28px; }
+.ws-quotes figure {
+  display: flex; flex-direction: column; margin: 0 0 28px; padding: 26px 28px 24px; break-inside: avoid;
+  border-top: 2px solid var(--ws-accent); border-radius: 0 0 var(--radius) var(--radius); background: var(--card);
+}
+.ws-quotes blockquote { margin: 0 0 20px; font: 400 clamp(18px, 1.5vw, 21px)/1.55 var(--ws-serif); }
+.ws-quotes blockquote::before { content: '“'; display: block; height: 0.45em; color: var(--ws-accent-ink); font-size: 3em; line-height: 1; }
+.ws-quotes figcaption { display: grid; font-size: 14px; }
+.ws-quotes figcaption span { color: var(--dim); }
+.ws-reviews .ws-caption { text-align: center; }
+.ws-reviews .ws-caption a { color: var(--ws-accent-ink); }
+
+/* ---- questions guests ask: the browser's own disclosure */
+.ws-faq { width: var(--text); margin: 18vh auto 0; }
+.ws-faq-list { border-top: 1px solid var(--line); }
+.ws-faq details { border-bottom: 1px solid var(--line); }
+.ws-faq summary {
+  display: flex; justify-content: space-between; gap: 16px; padding: 20px 0; list-style: none; cursor: pointer;
+  font: 400 20px/1.4 var(--ws-serif);
+}
+.ws-faq summary::-webkit-details-marker { display: none; }
+.ws-faq summary::after { content: '+'; flex: none; color: var(--ws-accent-ink); font: 300 28px/1 system-ui, sans-serif; transition: rotate 0.25s; }
+.ws-faq details[open] summary::after { rotate: 45deg; }
+.ws-faq summary:focus-visible { outline: 2px solid var(--ws-accent); outline-offset: 4px; }
+.ws-faq details p { margin: 0 0 1em; color: var(--dim); }
+.ws-faq details p:last-child { margin-bottom: 22px; }
+
 /* ---- phones and small tablets */
 @media (max-width: 860px) {
   .ws-top { flex-wrap: wrap; row-gap: 8px; padding-block: 10px; }
@@ -281,7 +325,7 @@
 @media (prefers-reduced-motion: reduce) {
   .ws { scroll-behavior: auto; }
   .ws-hero-in > *, .ws-stage, .ws-hero-img { animation: none; }
-  .ws-room-img img, .ws-gallery img { transition: none; }
+  .ws-room-img img, .ws-gallery img, .ws-offer-img img, .ws-faq summary::after { transition: none; }
 }
 
 /* The studio's Preview (studio/[property]/site/preview): a banner above everything. */

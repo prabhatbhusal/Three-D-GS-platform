@@ -50,7 +50,9 @@ const blankPayload = (type: HotspotType): HotspotPayload =>
       : type === 'link' ? { url: '', text: 'Open' }
         : type === 'portal' ? { sceneId: '' }
           : type === 'audio' ? { transcript: '' }
-            : type === 'table' ? { tableId: '', text: '' }
+            : type === 'table' ? { tableId: '', text: '', capacity: 4 }
+            : type === 'room' ? { roomId: '', text: '' }
+            : type === 'hall' ? { hallId: '', text: '' }
             : { text: '' };
 
 /**
@@ -78,7 +80,8 @@ export function addHotspot(sceneId: string, camera: THREE.Camera, type: HotspotT
     type,
     position: spotInView(camera, renderer),
     radius: 0.4,
-    label: 'New hotspot',
+    // a dining room has many tables: each new one is numbered
+    label: type === 'table' ? `Table ${(doc[sceneId]?.hotspots.filter((h) => h.type === 'table').length ?? 0) + 1}` : 'New hotspot',
     payload: blankPayload(type),
     occludedBy: 'none'
   };

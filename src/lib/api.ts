@@ -114,8 +114,8 @@ export interface ProjectReport {
   spaces: { id: string; title: string; visits: number; seconds: number; enquiries: number }[];
   /** The path to a booking: tour counts (space visits, those that opened a hotspot or a card), then what was saved. */
   funnel: {
-    visits: number; engaged: number; intent: Partial<Record<'enquire' | 'book' | 'table' | 'room' | 'whatsapp', number>>; intents: number;
-    enquiries: number; requests: { tables: number; rooms: number }; confirmed: { tables: number; rooms: number };
+    visits: number; engaged: number; intent: Partial<Record<'enquire' | 'book' | 'table' | 'room' | 'whatsapp' | 'event', number>>; intents: number;
+    enquiries: number; requests: { tables: number; rooms: number; events?: number }; confirmed: { tables: number; rooms: number; events?: number };
   };
   /** The most-opened hotspots, with the enquiries sent after looking at each. */
   hotspots: { space: string; spaceTitle: string; id: string; label: string; opens: number; enquiries: number }[];
@@ -133,6 +133,9 @@ export const photoSize = (path: string): [number, number] | null => {
   const m = /-(\d+)x(\d+)\.\w+$/.exec(path);
   return m ? [Number(m[1]), Number(m[2])] : null;
 };
+export interface SiteMenu { title: string; note: string; items: SiteMenuItem[] }
+/** Another place to eat or drink (2026-09-29): a café beside the restaurant, a rooftop bar. Its own menu and table booking. */
+export interface DiningPlace { id: string; name: string; menu: SiteMenu; booking: SiteBooking }
 export interface SiteDoc {
   style: SiteStyle;
   /** `image`: a full-width photo behind the opening words; empty = words only. */
@@ -142,10 +145,18 @@ export interface SiteDoc {
   rooms: SiteRoom[];
   plan: boolean;
   gallery: string[];
-  menu: { title: string; note: string; items: SiteMenuItem[] };
+  menu: SiteMenu;
+  /** More dining places; the main one is menu and booking. */
+  dining: DiningPlace[];
+  /** What guests said, and where to read more (an https link: Google, TripAdvisor). */
+  reviews: { link: string; items: { quote: string; name: string; from: string }[] };
+  /** Packages and offers; each asks about itself through the enquiry form. */
+  offers: { title: string; body: string; price: string; image: string }[];
+  faq: { q: string; a: string }[];
   contact: { title: string; body: string };
   booking: SiteBooking;
   stays: SiteStays;
+  events: SiteEvents;
 }
 /** A table on the restaurant's floor plan; x and y are fractions of the plan. */
 export interface SiteTable {
@@ -157,10 +168,14 @@ export interface SiteBooking {
   on: boolean; plan: string; tables: SiteTable[];
   first: string; last: string; slot: number; stay: number; days: number; maxParty: number;
   closed: number[]; timezone: string; note: string;
+  /** The place's name ("The Restaurant"). A dining place's live setup also carries its id, for the booking calls. */
+  name?: string; outlet?: string;
 }
 /** A room type the hotel lets online (or one villa: `units` 1). With `pin`, it sits on the site plan at x, y. */
 export interface StayRoom {
   id: string; label: string; units: number; sleeps: number; price: string; per: string; features: string;
+  /** What's asked to hold it, in words ("Rs 2,000 when we confirm"). No payment is taken online. */
+  deposit?: string;
   image: string; area: string; pin: boolean; x: number; y: number; space: string; view: string;
 }
 /** Room booking (server/src/stays.js): the rooms, an optional site plan, check-in and check-out, stay lengths. */
@@ -172,9 +187,15 @@ export interface SiteSpace { id: string; title: string; published: boolean; view
 export interface SiteDraft { draft: SiteDoc; publishedAt: string | null; scheduledAt: string | null; spaces: SiteSpace[] }
 export interface PublicSite {
   project: { id: string; title: string; theme: ProjectTheme; info?: ProjectInfo };
-  site: Omit<SiteDoc, 'booking' | 'stays'> & { booking: SiteBooking | null; stays: SiteStays | null };
+  site: Omit<SiteDoc, 'booking' | 'stays' | 'events' | 'dining'> & {
+    booking: SiteBooking | null; stays: SiteStays | null; events?: SiteEvents | null;
+    /** Each with its live table setup, or null when its booking is off. */
+    dining?: (Omit<DiningPlace, 'booking'> & { booking: SiteBooking | null })[];
+  };
   tour: { space: string; title: string; key: string; thumb?: string | null } | null;
   plan: string | null;
+  /** The place's schema.org type, for the page's structured data. */
+  kind?: 'Hotel' | 'Restaurant' | 'EventVenue' | 'LocalBusiness';
   publishedAt: string;
 }
 const sitePath = (id: string) => `/api/sites/${encodeURIComponent(id)}`;
@@ -214,16 +235,24 @@ export const getSitePreview = (id: string) => request<PublicSite & { preview: tr
 let reviewKey = '';
 export const setReviewKey = (key: string) => { reviewKey = key; };
 const withKey = (q: URLSearchParams) => { if (reviewKey) q.set('key', reviewKey); const s = q.toString(); return s ? `?${s}` : ''; };
-export const getPreviewAvailability = (id: string, date?: string) =>
-  request<Availability>(`${sitePath(id)}/preview/availability${withKey(new URLSearchParams(date ? { date } : {}))}`);
-/** The published website's table booking, for the tour's Reserve a table (null when off). */
-export const getSiteBooking = (id: string) =>
-  request<{ booking: SiteBooking | null }>(`${sitePath(id)}/booking`).then((r) => r?.booking ?? null).catch(() => null);
-export const getAvailability = (id: string, date?: string) =>
-  request<Availability>(`${sitePath(id)}/availability${date ? `?date=${date}` : ''}`);
+/** `outlet`: a dining place's id (SiteBooking.outlet); none, the main one. */
+const withOutlet = (q: URLSearchParams, outlet?: string) => { if (outlet) q.set('outlet', outlet); return q; };
+export const getPreviewAvailability = (id: string, date?: string, outlet?: string) =>
+  request<Availability>(`${sitePath(id)}/preview/availability${withKey(withOutlet(new URLSearchParams(date ? { date } : {}), outlet))}`);
+/** The published website's dining places taking table bookings (the main one first), for the tour's Reserve a table. */
+export const getSiteTables = (id: string) =>
+  request<{ places: SiteBooking[] }>(`${sitePath(id)}/booking`).then((r) => r?.places ?? []).catch(() => [] as SiteBooking[]);
+export const getAvailability = (id: string, date?: string, outlet?: string) => {
+  const q = withOutlet(new URLSearchParams(date ? { date } : {}), outlet).toString();
+  return request<Availability>(`${sitePath(id)}/availability${q ? `?${q}` : ''}`);
+};
+/** When each table in a published space (its table hotspots, by id) is free: the tour's Book now for tables.
+ *  `tables`: the ones the server knows (published); a draft's table has only the hours. */
+export const getHereTables = (id: string, space: string, date?: string) =>
+  request<Availability & { tables: string[] }>(`${sitePath(id)}/requests/tables?${new URLSearchParams({ space, ...(date ? { date } : {}) })}`);
 export interface TableRequest {
   table: string; date: string; time: string; party: number; name: string; phone: string; email?: string; notes?: string;
-  website?: string; formRenderedAt: number;
+  website?: string; formRenderedAt: number; outlet?: string;
 }
 export const reserveTable = (id: string, r: TableRequest) =>
   request<{ ok: true; id?: string; table?: string; tableLabel?: string }>(`${sitePath(id)}/reservations`, { method: 'POST', body: JSON.stringify(r) });
@@ -239,11 +268,41 @@ export interface StayRequest {
   room: string; checkin: string; checkout: string; guests: number; name: string; phone: string; email?: string; notes?: string;
   website?: string; formRenderedAt: number;
 }
+/** A hall for events (server/src/events.js): how many it seats and holds standing, its size and photo, its 3D space. */
+export interface EventHall {
+  id: string; label: string; seated: number; standing: number; area: string; features: string; image: string; space: string; view: string;
+  /** In words: "Rs 1,500 per plate", and what holds the date ("Rs 20,000 deposit"). */
+  price?: string; deposit?: string;
+}
+/** Event booking: the halls, the kinds of event the venue hosts, how far ahead it books. */
+export interface SiteEvents { on: boolean; halls: EventHall[]; kinds: string[]; days: number; timezone: string; note: string }
+export type EventSession = 'day' | 'evening' | 'full';
+/** What's taken: hall → date → the sessions held. The first and last day a guest may pick. */
+export interface EventCalendar { today: string; first: string; last: string; taken: Record<string, Record<string, EventSession[]>> }
+/** The published website's event booking, for the tour's Plan an event (null when off). */
+export const getSiteEvents = (id: string) =>
+  request<{ events: SiteEvents | null }>(`${sitePath(id)}/events`).then((r) => r?.events ?? null).catch(() => null);
+export const getEventCalendar = (id: string) => request<EventCalendar>(`${sitePath(id)}/events/availability`);
+export interface EventRequest {
+  hall: string; date: string; session: EventSession; guests: number; occasion: string;
+  name: string; phone: string; email?: string; notes?: string; formRenderedAt: number; website?: string;
+}
+export const requestEvent = (id: string, r: EventRequest) =>
+  request<{ ok: true; id?: string; hallLabel?: string }>(`${sitePath(id)}/events`, { method: 'POST', body: JSON.stringify(r) });
+
+/** Book now on a room, hall or table hotspot (server: POST /requests). What's booked comes from the published hotspot. */
+export interface HereRequest {
+  space: string; hotspot: string; guests: number; date: string; checkout?: string; session?: EventSession; occasion?: string; time?: string;
+  name: string; phone: string; email?: string; notes?: string; formRenderedAt: number; website?: string;
+}
+export const requestHere = (id: string, r: HereRequest) =>
+  request<{ ok: true; id?: string }>(`${sitePath(id)}/requests`, { method: 'POST', body: JSON.stringify(r) });
+
 export const requestStay = (id: string, r: StayRequest) =>
   request<{ ok: true; id?: string; roomLabel?: string; rooms?: number; nights?: number }>(`${sitePath(id)}/stays`, { method: 'POST', body: JSON.stringify(r) });
 
 /** A full day (tables) or full dates (rooms): the guest waits, and is told if a place is let go. */
-export type WaitFor = ({ of: 'table'; date: string; time?: string } | { of: 'room'; checkin: string; checkout: string; room?: string }) & { party: number };
+export type WaitFor = ({ of: 'table'; date: string; time?: string; outlet?: string } | { of: 'room'; checkin: string; checkout: string; room?: string }) & { party: number };
 export type WaitRequest = WaitFor & { name: string; phone: string; email?: string; website?: string; formRenderedAt: number };
 export const joinWaitlist = (id: string, w: WaitRequest) =>
   request<{ ok: true; id?: string }>(`${sitePath(id)}/waitlist`, { method: 'POST', body: JSON.stringify(w) });
@@ -262,12 +321,18 @@ export interface Reservation {
   id: string; status: ReservationStatus; table: string; tableLabel: string; date: string; time: string; party: number;
   name: string; phone: string; email: string; notes: string; createdAt: string; updatedAt: string;
   delivery?: { sent: boolean; reason?: string }; guestDelivery?: { sent: boolean; reason?: string };
-  kind?: 'stay' | 'wait'; room?: string; roomLabel?: string; rooms?: number; checkin?: string; checkout?: string; nights?: number;
+  kind?: 'stay' | 'wait' | 'event' | 'request';
+  /** A Book now request from a hotspot: what it was for, in which space, at what price and deposit. */
+  item?: string; spaceTitle?: string; price?: string; deposit?: string;
+  /** An event's: its hall, its part of the day, what kind of event. */
+  hall?: string; hallLabel?: string; session?: EventSession; occasion?: string; room?: string; roomLabel?: string; rooms?: number; checkin?: string; checkout?: string; nights?: number;
   /** A waitlist entry's: what they wait for, and when they were told. */
-  of?: 'table' | 'room'; notifiedAt?: string;
+  of?: 'table' | 'room' | 'hall'; notifiedAt?: string;
+  /** A table booking at one of the site's other dining places. */
+  outlet?: string; outletName?: string;
 }
 export const getReservations = (id: string) =>
-  request<{ reservations: Reservation[]; booking: SiteBooking | null; stays: SiteStays | null; today: string }>(`${sitePath(id)}/reservations`);
+  request<{ reservations: Reservation[]; booking: SiteBooking | null; stays: SiteStays | null; events?: SiteEvents | null; dining?: DiningPlace[]; today: string }>(`${sitePath(id)}/reservations`);
 export const setReservationStatus = (id: string, rid: string, status: ReservationStatus) =>
   request<Reservation & { waitlistTold?: number }>(`${sitePath(id)}/reservations/${encodeURIComponent(rid)}`, { method: 'PATCH', body: JSON.stringify({ status }) });
 

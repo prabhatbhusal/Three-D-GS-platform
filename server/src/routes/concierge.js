@@ -62,8 +62,10 @@ export async function knowledgeOf(p) {
       (site.facts ?? []).map((f) => `- ${f.n} ${f.k}`),
       site.story?.body && `### ${site.story.title || 'Story'}\n${site.story.body}`,
       (site.rooms ?? []).map((r) => `### ${r.title}\n${r.body}${r.features ? `\nFeatures: ${r.features}` : ''}${r.space ? `\n(Its 3D space: ${r.space})` : ''}`)),
-    site?.menu?.items?.length && block(`## ${site.menu.title || 'Menu'}`, site.menu.note,
-      site.menu.items.map((m) => `- ${m.name}${m.price ? ` (${m.price})` : ''}${m.desc ? `: ${m.desc}` : ''}${m.tag ? ` [${m.tag}]` : ''}`)),
+    ...[site?.menu, ...(site?.dining ?? []).map((o) => ({ ...o.menu, title: `${o.name}: ${o.menu.title || 'Menu'}` }))]
+      .filter((m) => m?.items?.length)
+      .map((m) => block(`## ${m.title || 'Menu'}`, m.note,
+        m.items.map((x) => `- ${x.name}${x.price ? ` (${x.price})` : ''}${x.desc ? `: ${x.desc}` : ''}${x.tag ? ` [${x.tag}]` : ''}`))),
     liveBooking(site) && (() => {
       const b = liveBooking(site);
       return block('## Table booking (on the website and in the tour: "Reserve a table")',

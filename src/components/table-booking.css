@@ -60,9 +60,9 @@
 }
 .tb-card b { font: 400 22px/1.2 var(--ws-serif); }
 .tb-card span { color: var(--dim); font-size: 15px; }
-.tb-link { justify-self: start; margin-top: 6px; padding: 0; border: 0; background: none; color: var(--ws-accent) !important; font-weight: 600 !important; }
+.tb-link { justify-self: start; margin-top: 6px; padding: 0; border: 0; background: none; color: var(--ws-accent-ink, var(--ws-accent)) !important; font-weight: 600 !important; }
 .tb-ghost { padding: 8px 16px; border: 1px solid var(--line); border-radius: 999px; background: transparent; }
-.tb-ghost:hover, .tb-ghost.is-on { border-color: var(--ws-accent); color: var(--ws-accent) !important; }
+.tb-ghost:hover, .tb-ghost.is-on { border-color: var(--ws-accent); color: var(--ws-accent-ink, var(--ws-accent)) !important; }
 
 .tb-details { display: grid; gap: 12px; overflow: hidden; padding-top: 6px; }
 .tb-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -196,7 +196,7 @@
 .rb-price b { color: var(--ink); font-weight: 600; }
 .rb-feats { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
 .rb-feats em { font-style: normal; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); }
-.rb-left { margin-top: 6px; font-size: 13px; font-weight: 600; color: var(--ws-accent); }
+.rb-left { margin-top: 6px; font-size: 13px; font-weight: 600; color: var(--ws-accent-ink, var(--ws-accent)); }
 .rb-left.is-full, .rb-left.is-small { color: var(--dim); font-weight: 500; }
 .rb-3d { margin: -6px 16px 14px; font-size: 14px; }
 .rb-check {
@@ -240,3 +240,19 @@
   margin: 6px 0 0; padding: 14px 16px; border-radius: 14px;
   border: 1px solid color-mix(in srgb, var(--ws-accent) 50%, transparent); background: color-mix(in srgb, var(--ws-accent) 8%, var(--card));
 }
+
+/* ---- Plan an event (EventBooking.tsx): the day, and its part, like the table times */
+.eb-field { display: grid; gap: 6px; font-size: 14px; }
+.eb-field input, .eb-field select {
+  width: 100%; box-sizing: border-box; padding: 11px 13px; border: 1px solid var(--line); border-radius: 12px;
+  background: var(--card); color: var(--ink); font: inherit; font-size: 16px;
+}
+.eb-field input:focus, .eb-field select:focus { outline: 2px solid color-mix(in srgb, var(--ws-accent) 40%, transparent); border-color: var(--ws-accent); }
+.eb-sessions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.eb-sessions button {
+  display: grid; gap: 2px; min-width: 104px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--card);
+}
+.eb-sessions button:hover:not(:disabled) { border-color: var(--ws-accent); }
+.eb-sessions button.is-on { border-color: var(--ws-accent); background: color-mix(in srgb, var(--ws-accent) 18%, var(--card)); }
+.eb-sessions button:disabled { opacity: 0.45; text-decoration: line-through; }
+.eb-sessions small { font-size: 11px; color: var(--dim); text-decoration: none; }

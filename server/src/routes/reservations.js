@@ -7,11 +7,18 @@
  * left an address).
  *
  *   GET   /api/sites/:id/booking                        public: the live table setup, or null (the tour asks)
+ *   (every table route takes ?outlet= / { outlet }: one of the site's other dining places; none, the main one)
  *   GET   /api/sites/:id/availability?date=YYYY-MM-DD   public
  *   POST  /api/sites/:id/reservations                   public: { table | 'any', date, time, party, name, phone, email?, notes? }
  *   GET   /api/sites/:id/stays                          public: the live room setup, or null (the tour asks)
  *   GET   /api/sites/:id/stays/availability             public: the room calendar
  *   POST  /api/sites/:id/stays                          public: { room, checkin, checkout, guests, name, phone, email?, notes? }
+ *   GET   /api/sites/:id/events                         public: the live halls, or null (the tour asks)
+ *   GET   /api/sites/:id/events/availability            public: which halls are taken when
+ *   POST  /api/sites/:id/events                         public: { hall, date, session, guests, occasion, name, phone, email?, notes? }
+ *   POST  /api/sites/:id/requests                       public: Book now on a room, hall or table hotspot in the tour:
+ *                                                        { space, hotspot, guests, date, checkout? | session?, occasion? | time?, name, phone, email?, notes? }
+ *   GET   /api/sites/:id/requests/tables?space=&date=   public: when each table hotspot in a space is free that day
  *   POST  /api/sites/:id/waitlist                       public: { of: 'table', date, time?, party } or
  *                                                        { of: 'room', checkin, checkout, room?, party }, and name, phone, email?
  *   GET   /api/sites/:id/reservations                   studio, and the client's staff: both kinds, and the waitlist
@@ -21,16 +28,17 @@
  * Guests hear back by email and, where set up, by SMS or WhatsApp (notify.js).
  */
 import { Router } from 'express';
-import { getProperty } from '../store.js';
+import { getProperty, getPublishedScene } from '../store.js';
 import { requireEditorSession } from '../middleware/auth.js';
 import { visibleProject, staffProject } from './properties.js';
-import { readSite, liveBooking, liveStays, publicStays, cleanSite, reviewed } from './sites.js';
+import { readSite, liveBooking, liveStays, publicStays, liveEvents, publicEvents, cleanSite, reviewed } from './sites.js';
 import { sendMail, teamRecipients } from '../mailer.js';
 import { record } from '../activity.js';
 import {
-  LIVE, STATUSES, availability, bestTable, bookableDates, readReservations, newReservation, nowIn, slotsFor, tableFree, withReservations
+  LIVE, STATUSES, atOutlet, availability, bestTable, bookableDates, readReservations, newReservation, nowIn, slotsFor, tableFree, withReservations
 } from '../reservations.js';
 import { nightsOf, roomsFree, roomsNeeded, stayCalendar, stayProblem } from '../stays.js';
+import { SESSIONS, SESSION_LABEL, eventCalendar, eventProblem, hallFree } from '../events.js';
 import { WAIT_STATUSES, waitersWithSpace } from '../waitlist.js';
 import { textGuest } from '../notify.js';
 
@@ -39,27 +47,40 @@ const wrap = (fn) => (req, res, next) => fn(req, res).catch(next);
 
 const NO_BOOKING = { error: 'This place doesn’t take table bookings online.' };
 const NO_STAYS = { error: 'This place doesn’t take room bookings online.' };
+const NO_EVENTS = { error: 'This place doesn’t take event bookings online.' };
 
 /** The project and its live booking setup (the published site's), or null. */
-async function bookingOf(pid) {
+/** Which dining place a request is about: one of site.dining's ids, or '' (the main one). */
+const outletOf = (v) => (typeof v === 'string' && /^[a-z0-9-]{1,24}$/i.test(v) ? v : '');
+
+async function bookingOf(pid, outlet = '') {
   const p = await getProperty(pid);
-  const cfg = p ? liveBooking((await readSite(p.id))?.published) : null;
-  return cfg ? { p, cfg } : null;
+  const cfg = p ? liveBooking((await readSite(p.id))?.published, outlet) : null;
+  return cfg ? { p, cfg, outlet } : null;
 }
 async function staysOf(pid) {
   const p = await getProperty(pid);
   const cfg = p ? liveStays((await readSite(p.id))?.published) : null;
   return cfg ? { p, cfg } : null;
 }
+async function eventsOf(pid) {
+  const p = await getProperty(pid);
+  const cfg = p ? liveEvents((await readSite(p.id))?.published) : null;
+  return cfg ? { p, cfg } : null;
+}
 
 // Every tour asks whether its project takes table bookings, so "no" is an
 // ordinary answer here, not a 404 that each visitor's browser logs as an error.
+// With it, `places`: every dining place taking bookings (the main one first), for the tour's choice.
 reservationsRouter.get('/:id/booking', wrap(async (req, res) => {
-  res.json({ booking: (await bookingOf(req.params.id))?.cfg ?? null });
+  const p = await getProperty(req.params.id);
+  const published = p ? (await readSite(p.id))?.published : null;
+  const places = [liveBooking(published), ...(published?.dining ?? []).map((o) => liveBooking(published, o.id))].filter(Boolean);
+  res.json({ booking: liveBooking(published, outletOf(req.query.outlet)), places });
 }));
 
 reservationsRouter.get('/:id/availability', wrap(async (req, res) => {
-  await sendAvailability(req, res, await bookingOf(req.params.id));
+  await sendAvailability(req, res, await bookingOf(req.params.id, outletOf(req.query.outlet)));
 }));
 
 /** The draft's booking for a client reviewing it (?key=, the review link's): no account, the key is the pass.
@@ -76,24 +97,28 @@ const byReviewKey = (answer) => (req, res, next) => {
 
 /** Studio preview: the draft's tables and hours, against the real bookings. Never books. */
 reservationsRouter.get('/:id/preview/availability', byReviewKey(async (req, res, p, draft) => {
-  const cfg = liveBooking(draft);
-  await sendAvailability(req, res, cfg ? { p, cfg } : null);
+  const outlet = outletOf(req.query.outlet);
+  const cfg = liveBooking(draft, outlet);
+  await sendAvailability(req, res, cfg ? { p, cfg, outlet } : null);
 }), requireEditorSession, wrap(async (req, res) => {
   const p = await visibleProject(req, res);
   if (!p) return;
-  const cfg = liveBooking(cleanSite((await readSite(p.id))?.draft, p.id));
-  await sendAvailability(req, res, cfg ? { p, cfg } : null);
+  const outlet = outletOf(req.query.outlet);
+  const cfg = liveBooking(cleanSite((await readSite(p.id))?.draft, p.id), outlet);
+  await sendAvailability(req, res, cfg ? { p, cfg, outlet } : null);
 }));
 
-async function sendAvailability(req, res, b) {
+/** `b.list`: the bookings that hold these tables, when they aren't the place's own (the tour's table hotspots).
+ *  `extra`: more to answer with. */
+async function sendAvailability(req, res, b, extra = {}) {
   if (!b) return res.status(404).json(NO_BOOKING);
   const now = nowIn(b.cfg.timezone);
   const dates = bookableDates(b.cfg, now);
   const asked = typeof req.query.date === 'string' && dates.some((d) => d.date === req.query.date) ? req.query.date : null;
   // Unasked, the first day that still has a time left.
   const date = asked ?? dates.find((d) => slotsFor(b.cfg, d.date, now).length)?.date ?? now.date;
-  const list = await readReservations(b.p.id);
-  res.json({ today: now.date, dates, date, slots: availability(list, b.cfg, date, now) });
+  const list = b.list ?? atOutlet(await readReservations(b.p.id), b.outlet);
+  res.json({ today: now.date, dates, date, slots: availability(list, b.cfg, date, now), ...extra });
 }
 
 // Same as /booking: every tour asks, and "no rooms online" is an ordinary answer.
@@ -121,6 +146,18 @@ async function sendCalendar(res, b) {
   if (!b) return res.status(404).json(NO_STAYS);
   res.json(stayCalendar(await readReservations(b.p.id), b.cfg, nowIn(b.cfg.timezone).date));
 }
+
+// Same as /booking and /stays: every tour asks, and "no events online" is an ordinary answer.
+reservationsRouter.get('/:id/events', wrap(async (req, res) => {
+  const p = await getProperty(req.params.id);
+  res.json({ events: p ? await publicEvents(p.id, (await readSite(p.id))?.published) : null });
+}));
+
+reservationsRouter.get('/:id/events/availability', wrap(async (req, res) => {
+  const b = await eventsOf(req.params.id);
+  if (!b) return res.status(404).json(NO_EVENTS);
+  res.json(eventCalendar(await readReservations(b.p.id), b.cfg, nowIn(b.cfg.timezone).date));
+}));
 
 const RATE_WINDOW_MS = 10 * 60 * 1000;
 const RATE_MAX = Number(process.env.RESERVE_RATE_MAX) || 5; // tests raise it
@@ -179,9 +216,9 @@ reservationsRouter.post('/:id/reservations', wrap(async (req, res) => {
   const g = guestFrom(req, res);
   if (!g) return;
   const { body, guest } = g;
-  const b = await bookingOf(req.params.id);
+  const b = await bookingOf(req.params.id, outletOf(body.outlet));
   if (!b) return res.status(404).json(NO_BOOKING);
-  const { p, cfg } = b;
+  const { p, cfg, outlet } = b;
   const party = Number(body.party);
   if (!Number.isInteger(party) || party < 1) return res.status(400).json({ error: 'How many of you?' });
   if (party > cfg.maxParty) return res.status(400).json({ error: `For more than ${cfg.maxParty}, please call us.` });
@@ -193,9 +230,10 @@ reservationsRouter.post('/:id/reservations', wrap(async (req, res) => {
   if (chosen && chosen.seats < party) return res.status(400).json({ error: `${chosen.label || 'That table'} seats ${chosen.seats}. Pick a bigger one.` });
 
   const r = await withReservations(p.id, (list) => {
-    const table = any ? bestTable(list, cfg, party, date, time) : tableFree(list, cfg, chosen.id, date, time) ? chosen : null;
+    const here = atOutlet(list, outlet);
+    const table = any ? bestTable(here, cfg, party, date, time) : tableFree(here, cfg, chosen.id, date, time) ? chosen : null;
     if (!table) return null;
-    const made = newReservation({ table: table.id, tableLabel: table.label, date, time, party, ...guest });
+    const made = newReservation({ table: table.id, tableLabel: table.label, date, time, party, ...(outlet ? { outlet, outletName: cfg.name } : {}), ...guest });
     list.push(made);
     return made;
   });
@@ -203,7 +241,7 @@ reservationsRouter.post('/:id/reservations', wrap(async (req, res) => {
     return res.status(409).json({ error: any ? `No table for ${party} is free at ${time}. Try another time.` : 'Someone has just booked that table for then. Pick another table or time.' });
   }
   res.status(201).json({ ok: true, id: r.id, table: r.table, tableLabel: r.tableLabel, date, time, party });
-  tellTheTeam(p, r, `Table request: ${party} at ${time}, ${dayName(date)} — ${r.name}`, `New table request for ${venueOf(p)}`,
+  tellTheTeam(p, r, `Table request${outlet ? ` (${cfg.name})` : ''}: ${party} at ${time}, ${dayName(date)} — ${r.name}`, `New table request for ${venueOf(p)}${outlet ? `, ${cfg.name}` : ''}`,
     [['Name', r.name], ['Phone', r.phone], ['Email', r.email], ['Guests', party], ['Table', r.tableLabel || r.table],
       ['Day', dayName(date)], ['Time', time], ['Notes', r.notes]]);
 }));
@@ -242,6 +280,135 @@ reservationsRouter.post('/:id/stays', wrap(async (req, res) => {
       ['Check-in', `${dayName(r.checkin)}, from ${cfg.checkin}`], ['Check-out', `${dayName(r.checkout)}, by ${cfg.checkout}`], ['Nights', nights], ['Notes', r.notes]]);
 }));
 
+reservationsRouter.post('/:id/events', wrap(async (req, res) => {
+  const g = guestFrom(req, res);
+  if (!g) return;
+  const { body, guest } = g;
+  const b = await eventsOf(req.params.id);
+  if (!b) return res.status(404).json(NO_EVENTS);
+  const { p, cfg } = b;
+  const hall = cfg.halls.find((h) => h.id === body.hall);
+  if (!hall) return res.status(400).json({ error: 'Pick a hall.' });
+  const ask = { date: String(body.date ?? ''), session: String(body.session ?? ''), guests: Number(body.guests), occasion: text(body.occasion) };
+  const problem = eventProblem(cfg, hall, ask, nowIn(cfg.timezone).date);
+  if (problem) return res.status(400).json({ error: problem });
+
+  const r = await withReservations(p.id, (list) => {
+    if (!hallFree(list, hall.id, ask.date, ask.session)) return null;
+    const made = newReservation({
+      kind: 'event', hall: hall.id, hallLabel: hall.label, date: ask.date, time: '', session: ask.session,
+      party: ask.guests, occasion: ask.occasion, ...guest
+    });
+    list.push(made);
+    return made;
+  });
+  if (!r) return res.status(409).json({ error: `${hall.label} is already taken then (${SESSION_LABEL[ask.session].toLowerCase()}, ${shortDay(ask.date)}). Try another day or hall.` });
+  res.status(201).json({ ok: true, id: r.id, hall: hall.id, hallLabel: hall.label, date: r.date, session: r.session, guests: r.party, occasion: r.occasion });
+  tellTheTeam(p, r, `Event request: ${r.occasion}, ${r.party} guests, ${shortDay(r.date)} — ${r.name}`, `New event request for ${venueOf(p)}`,
+    [['Name', r.name], ['Phone', r.phone], ['Email', r.email], ['Event', r.occasion], ['Guests', r.party], ['Hall', hall.label],
+      ['Day', dayName(r.date)], ['When', SESSION_LABEL[r.session]], ['Notes', r.notes]]);
+}));
+
+/**
+ * Book now on a room, hall or table hotspot (2026-09-30), with nothing else
+ * set up: no website booking, no floor plan, no calendar. What the visitor
+ * is booking comes from the published hotspot itself (its name, price,
+ * deposit), never from the request. It lands with the other bookings, kind
+ * 'request', for the team to confirm or decline. A room or hall request holds
+ * nothing (the team knows their calendar). A table does: a dining room has
+ * many tables, each its own hotspot, booked by the sitting like the website's
+ * floor plan, on the hours under Website → Table booking (defaults if unset,
+ * on or off), so one table is never asked for twice at one time.
+ */
+const BOOKABLE = ['room', 'hall', 'table'];
+/** The table requests holding a space's tables, keyed like the floor plan's (`table`: the hotspot). */
+const heldTables = (list, space) => list.filter((r) => r.kind === 'request' && r.of === 'table' && r.space === space && r.hotspot)
+  .map((r) => ({ ...r, table: r.hotspot }));
+/** A space's published tables (its table hotspots) on the table-booking hours. Not published yet
+ *  (the studio trying its draft): the hours alone, no tables. Another project's space: null. */
+async function tablesOf(pid, space) {
+  const p = await getProperty(pid);
+  if (!p || typeof space !== 'string' || !/^[a-z0-9-]+$/i.test(space)) return null;
+  const snap = await getPublishedScene(space).catch(() => null);
+  if (snap && snap.propertyId !== p.id) return null;
+  const tables = (snap?.hotspots ?? []).filter((h) => h.type === 'table').map((h) => ({ id: h.id, seats: h.payload?.capacity ?? 0 }));
+  return { p, space, cfg: { ...cleanSite((await readSite(p.id))?.published, p.id).booking, tables } };
+}
+
+// When each table in a space is free on a day (no names, nothing personal): the tour's Book now for tables.
+// `tables`: the ones it knows; a table not among them (a draft's) has only the hours to go on.
+reservationsRouter.get('/:id/requests/tables', wrap(async (req, res) => {
+  const t = await tablesOf(req.params.id, req.query.space);
+  await sendAvailability(req, res, t && { ...t, list: heldTables(await readReservations(t.p.id), t.space) },
+    { tables: t?.cfg.tables.map((x) => x.id) ?? [] });
+}));
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const HM = /^([01]\d|2[0-3]):[0-5]\d$/;
+const words = (v, n) => (typeof v === 'string' ? v.replace(/[<>]/g, '').trim().slice(0, n) : '');
+/** A booking request's when, in words: the nights, the part of the day, or the time. */
+const requestWhen = (r) => r.of === 'room' ? `${shortDay(r.checkin)} → ${shortDay(r.checkout)} (${r.nights} night${r.nights === 1 ? '' : 's'})`
+  : r.of === 'hall' ? `${shortDay(r.date)}, ${SESSION_LABEL[r.session]?.toLowerCase() ?? ''}`
+    : `${shortDay(r.date)} at ${r.time}`;
+
+reservationsRouter.post('/:id/requests', wrap(async (req, res) => {
+  const g = guestFrom(req, res);
+  if (!g) return;
+  const { body, guest } = g;
+  const p = await getProperty(req.params.id);
+  const space = typeof body.space === 'string' && /^[a-z0-9-]+$/i.test(body.space) ? body.space : '';
+  const snap = p && space ? await getPublishedScene(space).catch(() => null) : null;
+  const hs = snap && snap.propertyId === p.id ? (snap.hotspots ?? []).find((h) => h.id === body.hotspot && BOOKABLE.includes(h.type)) : null;
+  if (!hs) return res.status(404).json({ error: 'This can’t be booked here. Send an enquiry instead.' });
+
+  // the table-booking hours (and the place's clock), set up or not
+  const hours = cleanSite((await readSite(p.id))?.published, p.id).booking;
+  const now = nowIn(hours.timezone);
+  const guests = Number(body.guests);
+  if (!Number.isInteger(guests) || guests < 1 || guests > 5000) return res.status(400).json({ error: 'How many guests?' });
+  const date = String(body.date ?? '');
+  let when;
+  if (hs.type === 'room') {
+    const checkout = String(body.checkout ?? '');
+    if (!DATE.test(date) || !DATE.test(checkout)) return res.status(400).json({ error: 'Pick your check-in and check-out dates.' });
+    if (date < now.date) return res.status(400).json({ error: 'Check-in can’t be in the past.' });
+    const nights = nightsOf(date, checkout).length;
+    if (nights < 1) return res.status(400).json({ error: 'Check-out has to be at least a day after check-in.' });
+    if (nights > 60) return res.status(400).json({ error: 'For more than 60 nights, please call us.' });
+    when = { checkin: date, checkout, nights, time: '' };
+  } else if (hs.type === 'hall') {
+    if (!DATE.test(date) || date <= now.date) return res.status(400).json({ error: 'Pick a day from tomorrow on. For today, please call us.' });
+    if (!SESSIONS.includes(body.session)) return res.status(400).json({ error: 'Daytime, evening or the whole day?' });
+    when = { session: body.session, occasion: words(body.occasion, 40) || 'Event', time: '' };
+  } else {
+    const time = String(body.time ?? '');
+    if (!DATE.test(date) || date < now.date) return res.status(400).json({ error: 'Pick the day.' });
+    if (!HM.test(time)) return res.status(400).json({ error: 'Pick a time.' });
+    const slots = slotsFor(hours, date, now);
+    if (!slots.length) return res.status(400).json({ error: 'We don’t take bookings for that day. Pick another.' });
+    if (!slots.includes(time)) return res.status(400).json({ error: 'Pick one of the times shown.' });
+    const seats = hs.payload?.capacity;
+    if (seats && guests > seats) return res.status(400).json({ error: `This table seats ${seats}. Pick a bigger one.` });
+    when = { time };
+  }
+
+  const pl = hs.payload ?? {};
+  const r = await withReservations(p.id, (list) => {
+    // checked again in the queue: two guests can't both get the same table at the same time
+    if (hs.type === 'table' && !tableFree(heldTables(list, snap.id), hours, hs.id, date, when.time)) return null;
+    const made = newReservation({
+      kind: 'request', of: hs.type, item: words(hs.label, 80) || hs.type, space: snap.id, spaceTitle: words(snap.title, 80), hotspot: hs.id,
+      date, party: guests, price: words(pl.price, 40), deposit: words(pl.deposit, 60), ...when, ...guest
+    });
+    list.push(made);
+    return made;
+  });
+  if (!r) return res.status(409).json({ error: 'Someone has just asked for this table at that time. Pick another time or table.' });
+  res.status(201).json({ ok: true, id: r.id });
+  tellTheTeam(p, r, `Booking request:${r.item}, ${requestWhen(r)} — ${r.name}`, `New booking request for ${venueOf(p)}, from the 3D tour (${r.spaceTitle})`,
+    [['Name', r.name], ['Phone', r.phone], ['Email', r.email], ['Booking', r.item], ['When', requestWhen(r)], ['Guests', r.party],
+      ['Event', r.occasion], ['Price', r.price], ['Deposit', r.deposit], ['Notes', r.notes]]);
+}));
+
 reservationsRouter.post('/:id/waitlist', wrap(async (req, res) => {
   const g = guestFrom(req, res);
   if (!g) return;
@@ -262,7 +429,8 @@ reservationsRouter.post('/:id/waitlist', wrap(async (req, res) => {
     entry = { of: 'room', room: room?.id ?? '', roomLabel: room?.label ?? '', date: stay.checkin, checkout: stay.checkout,
       nights: nightsOf(stay.checkin, stay.checkout).length, time: cfg.checkin, party };
   } else {
-    const cfg = liveBooking(published);
+    const outlet = outletOf(body.outlet);
+    const cfg = liveBooking(published, outlet);
     if (!cfg) return res.status(404).json(NO_BOOKING);
     if (!Number.isInteger(party) || party < 1) return res.status(400).json({ error: 'How many of you?' });
     if (party > cfg.maxParty) return res.status(400).json({ error: `For more than ${cfg.maxParty}, please call us.` });
@@ -270,7 +438,7 @@ reservationsRouter.post('/:id/waitlist', wrap(async (req, res) => {
     const now = nowIn(cfg.timezone);
     if (!bookableDates(cfg, now).some((d) => d.date === date && !d.closed)) return res.status(400).json({ error: 'That day can’t be booked.' });
     if (time && !slotsFor(cfg, date, now).includes(time)) return res.status(400).json({ error: 'That time can’t be booked.' });
-    entry = { of: 'table', date, time, party };
+    entry = { of: 'table', date, time, party, ...(outlet ? { outlet, outletName: cfg.name } : {}) };
   }
   const w = await withReservations(p.id, (list) => {
     const made = newReservation({ kind: 'wait', ...entry, ...guest, status: 'waiting' });
@@ -288,7 +456,7 @@ function tellWaiter(p, w) {
   const what = w.of === 'room'
     ? `${w.roomLabel || 'a room'} from ${shortDay(w.date)} to ${shortDay(w.checkout)}`
     : `a table for ${w.party} on ${shortDay(w.date)}${w.time ? ` at ${w.time}` : ''}`;
-  const text = `${venue}: good news, ${what} may now be free. Book it before someone else does: ${siteLink(p.id)}#${w.of === 'room' ? 'stay' : 'reserve'}`;
+  const text = `${venue}: good news, ${what} may now be free. Book it before someone else does: ${siteLink(p.id)}#${w.of === 'room' ? 'stay' : `reserve${w.outlet ? `-${w.outlet}` : ''}`}`;
   Promise.all([
     textGuest(w.phone, text),
     w.email ? sendMail({ to: [w.email], subject: `A place may be free at ${venue}`, text: `Hello ${w.name},\n\n${text}\n\n${venue}` }) : null
@@ -304,8 +472,10 @@ reservationsRouter.get('/:id/reservations', requireEditorSession, wrap(async (re
   const published = (await readSite(p.id))?.published;
   const booking = published?.booking ?? null;
   const stays = published?.stays ?? null;
+  const events = published?.events ?? null;
+  const dining = published?.dining ?? [];
   const list = (await readReservations(p.id)).map(noIp).sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
-  res.json({ reservations: list, booking, stays, today: nowIn(booking?.timezone || stays?.timezone || 'Asia/Kathmandu').date });
+  res.json({ reservations: list, booking, stays, events, dining, today: nowIn(booking?.timezone || stays?.timezone || events?.timezone || 'Asia/Kathmandu').date });
 }));
 
 reservationsRouter.patch('/:id/reservations/:rid', requireEditorSession, wrap(async (req, res) => {
@@ -314,7 +484,8 @@ reservationsRouter.patch('/:id/reservations/:rid', requireEditorSession, wrap(as
   const status = req.body?.status;
   if (![...STATUSES, ...WAIT_STATUSES].includes(status)) return res.status(400).json({ error: `status must be one of ${STATUSES.join(', ')}.` });
   const published = (await readSite(p.id))?.published;
-  const cfg = published?.booking ?? { stay: 90 };
+  // a table booking's own dining place's setup
+  const cfgOf = (o) => (o ? published?.dining?.find((d) => d.id === o)?.booking : published?.booking) ?? { stay: 90 };
   let freed = [];
   const r = await withReservations(p.id, (list) => {
     const x = list.find((y) => y.id === req.params.rid);
@@ -324,17 +495,18 @@ reservationsRouter.patch('/:id/reservations/:rid', requireEditorSession, wrap(as
     if (LIVE.includes(status) && !LIVE.includes(x.status)) {
       const others = list.filter((y) => y !== x);
       const room = published?.stays?.rooms?.find((y) => y.id === x.room);
-      const free = x.kind === 'stay'
-        ? !!room && roomsFree(others, room, x.checkin, x.checkout) >= x.rooms
-        : tableFree(others, cfg, x.table, x.date, x.time);
-      if (!free) return { taken: x.kind === 'stay' ? 'room' : 'table' };
+      const free = x.kind === 'request' ? true
+        : x.kind === 'stay' ? !!room && roomsFree(others, room, x.checkin, x.checkout) >= x.rooms
+        : x.kind === 'event' ? hallFree(others, x.hall, x.date, x.session)
+          : tableFree(atOutlet(others, x.outlet), cfgOf(x.outlet), x.table, x.date, x.time);
+      if (!free) return { taken: x.kind === 'stay' ? 'room' : x.kind === 'event' ? 'hall' : 'table' };
     }
     const was = x.status;
     x.status = status;
     x.updatedAt = new Date().toISOString();
     // A table or room let go: whoever on the waitlist could now book is told, and marked told.
     if (LIVE.includes(was) && !LIVE.includes(status)) {
-      freed = waitersWithSpace(list, liveBooking(published), liveStays(published));
+      freed = waitersWithSpace(list, (o) => liveBooking(published, o), liveStays(published));
       for (const w of freed) Object.assign(w, { status: 'notified', notifiedAt: x.updatedAt, updatedAt: x.updatedAt });
       freed = freed.map((w) => ({ ...w }));
     }
@@ -355,11 +527,14 @@ reservationsRouter.patch('/:id/reservations/:rid', requireEditorSession, wrap(as
   if (r.taken) {
     return res.status(409).json({ error: r.taken === 'room'
       ? 'That room has been booked for some of those nights since. Offer the guest other dates.'
-      : 'That table has been booked for then since. Offer the guest another time.' });
+      : r.taken === 'hall' ? 'That hall has been booked for then since. Offer the guest another day or hall.'
+        : 'That table has been booked for then since. Offer the guest another time.' });
   }
-  const stay = r.kind === 'stay';
-  const what = stay ? `${r.name}, ${r.roomLabel}, ${dayName(r.checkin)} for ${r.nights} night${r.nights === 1 ? '' : 's'}` : `${r.name}, ${dayName(r.date)} ${r.time}`;
-  await record(req, p.id, `${status === 'requested' ? 'reopened' : status} a ${stay ? 'room' : 'table'} booking`, what);
+  const stay = r.kind === 'stay', event = r.kind === 'event', asked = r.kind === 'request';
+  const what = stay ? `${r.name}, ${r.roomLabel}, ${dayName(r.checkin)} for ${r.nights} night${r.nights === 1 ? '' : 's'}`
+    : event ? `${r.name}, ${r.occasion} in ${r.hallLabel}, ${dayName(r.date)}`
+      : asked ? `${r.name}, ${r.item}, ${requestWhen(r)}` : `${r.name}, ${dayName(r.date)} ${r.time}`;
+  await record(req, p.id, `${status === 'requested' ? 'reopened' : status} ${asked ? 'a' : event ? 'an event' : stay ? 'a room' : 'a table'} booking${asked ? ' request' : ''}`, what);
   res.json({ ...noIp(r), waitlistTold: freed.length });
   for (const w of freed) tellWaiter(p, w);
 
@@ -367,7 +542,16 @@ reservationsRouter.patch('/:id/reservations/:rid', requireEditorSession, wrap(as
   if (!['confirmed', 'declined'].includes(status)) return;
   const venue = venueOf(p);
   let mail;
-  if (stay) {
+  if (asked) {
+    mail = status === 'confirmed'
+      ? { subject: `Your booking at ${venue} is confirmed`, text: `Hello ${r.name},\n\nYour booking is confirmed: ${r.item}, ${requestWhen(r)}, for ${r.party}.${r.deposit ? `\nDeposit: ${r.deposit}. We’ll tell you how to pay it.` : ''}\n\nSee you then,\n${venue}` }
+      : { subject: `About your booking at ${venue}`, text: `Hello ${r.name},\n\nSorry, we can’t offer ${r.item} for ${requestWhen(r)}. Reply to this email or call us, and we’ll find you something else.\n\n${venue}` };
+  } else if (event) {
+    const when = `${dayName(r.date)} (${SESSION_LABEL[r.session].toLowerCase()})`;
+    mail = status === 'confirmed'
+      ? { subject: `Your event at ${venue} is confirmed`, text: `Hello ${r.name},\n\nYour ${r.occasion.toLowerCase()} for ${r.party} in ${r.hallLabel} on ${when} is confirmed. We’ll be in touch about the details.\n\n${venue}` }
+      : { subject: `About your event at ${venue}`, text: `Hello ${r.name},\n\nSorry, ${r.hallLabel} isn’t free on ${when}. Other days or halls may be:\n${siteLink(p.id)}#events\n\n${venue}` };
+  } else if (stay) {
     const rooms = r.rooms > 1 ? `${r.rooms} × ${r.roomLabel}` : r.roomLabel;
     const when = `${dayName(r.checkin)} to ${dayName(r.checkout)}`;
     mail = status === 'confirmed'
@@ -379,13 +563,21 @@ reservationsRouter.patch('/:id/reservations/:rid', requireEditorSession, wrap(as
       ? { subject: `Your table at ${venue} is confirmed`, text: `Hello ${r.name},\n\nYour table for ${r.party} on ${when} is confirmed${r.tableLabel ? ` (${r.tableLabel})` : ''}.\n\nSee you then,\n${venue}` }
       : { subject: `About your table at ${venue}`, text: `Hello ${r.name},\n\nSorry, we can’t seat you on ${when}. Another time may be free:\n${siteLink(p.id)}#reserve\n\n${venue}` };
   }
-  const short = stay
+  const short = asked
+    ? (status === 'confirmed'
+      ? `${venue}: your booking is confirmed, ${r.item}, ${requestWhen(r)}.${r.deposit ? ` Deposit: ${r.deposit}.` : ''} See you then.`
+      : `${venue}: sorry, we can’t offer ${r.item} for ${requestWhen(r)}. Call us and we’ll find you something else.`)
+    : event
+    ? (status === 'confirmed'
+      ? `${venue}: your ${r.occasion.toLowerCase()} in ${r.hallLabel} on ${shortDay(r.date)} is confirmed. We’ll be in touch about the details.`
+      : `${venue}: sorry, ${r.hallLabel} isn’t free on ${shortDay(r.date)}. Other days may be: ${siteLink(p.id)}#events`)
+    : stay
     ? (status === 'confirmed'
       ? `${venue}: your stay is confirmed, ${r.rooms > 1 ? `${r.rooms} × ` : ''}${r.roomLabel}, ${shortDay(r.checkin)} to ${shortDay(r.checkout)}. See you then.`
       : `${venue}: sorry, we can’t offer ${r.roomLabel} from ${shortDay(r.checkin)}. Other dates may be free: ${siteLink(p.id)}#stay`)
     : (status === 'confirmed'
       ? `${venue}: your table for ${r.party} on ${shortDay(r.date)} at ${r.time} is confirmed. See you then.`
-      : `${venue}: sorry, we can’t seat you on ${shortDay(r.date)} at ${r.time}. Another time may be free: ${siteLink(p.id)}#reserve`);
+      : `${venue}: sorry, we can’t seat you on ${shortDay(r.date)} at ${r.time}. Another time may be free: ${siteLink(p.id)}#reserve${r.outlet ? `-${r.outlet}` : ""}`);
   Promise.all([textGuest(r.phone, short), r.email ? sendMail({ to: [r.email], ...mail, replyTo: undefined }) : null])
     .then(([texted, mailed]) => withReservations(p.id, (list) => {
       const x = list.find((y) => y.id === r.id);

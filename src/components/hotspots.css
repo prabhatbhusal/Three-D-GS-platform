@@ -130,6 +130,12 @@
   transition: transform 0.15s, box-shadow 0.3s;
 }
 .hs-panel-link:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); }
+/* A room or hall hotspot: what it is, its price and deposit, right where the visitor is looking at it */
+/* a wide crop, so the price and the book button show without scrolling */
+.hs-book-img { aspect-ratio: 16 / 10; object-fit: cover; }
+.hs-book-facts { color: rgba(246, 241, 231, 0.7); font-size: 13px; }
+.hs-book-price { margin: 4px 0 0; font: 400 14px/1.3 var(--sans); color: rgba(246, 241, 231, 0.75); }
+.hs-book-price b { font: 400 26px/1.1 var(--serif, Georgia, serif); color: #fff; }
 
 /* ---- audio row + transcript (§6.3) -------------------------- */
 .hs-audio { display: flex; align-items: center; gap: 12px; margin: -4px 0 14px; }

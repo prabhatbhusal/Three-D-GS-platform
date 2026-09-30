@@ -557,8 +557,21 @@ button.vw-book { border: 0; cursor: pointer; }
   width: 100%; padding: 0; border: 0; outline: none; background: transparent; appearance: none;
   font: 600 14px/1.35 var(--sans); color: var(--ink); cursor: pointer;
 }
+/* Which dining place, when there's more than one (TableCard, and over the floor plan) */
+.vw-sheet-field-wide { margin-bottom: 14px; }
+.vw-place-pick {
+  display: block; margin: 0 0 16px; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--edge);
+  background: var(--field); font: 600 14px/1.35 var(--sans); color: var(--ink);
+}
 .vw-price { margin: 4px 0 2px; font: 400 15px/1.2 var(--sans); color: var(--ink-dim); }
 .vw-price b { font: 400 30px/1 var(--serif, Georgia, serif); color: var(--ink); }
+/* A table hotspot's card: the other tables in the room free at that time (HotspotBookCard) */
+.vw-free-tables { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 14px; font: 600 12px/1.2 var(--sans); color: var(--ink-dim); }
+.vw-free-tables button {
+  padding: 7px 12px; border-radius: 999px; border: 1px solid var(--edge); background: var(--field); cursor: pointer;
+  font: 600 12.5px/1 var(--sans); color: var(--ink);
+}
+.vw-free-tables button:hover { border-color: var(--gold); }
 
 /* Ask about this space: a two-column form */
 .vw-sheet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -813,6 +826,8 @@ button.vw-book { border: 0; cursor: pointer; }
 .tb-host {
   --ink: #1c1a17; --dim: #6f675d; --paper: #f5f1ea; --card: #fffdf9; --line: rgba(28, 26, 23, 0.12);
   --ws-accent: var(--gold, #b08d57); --ws-on-accent: var(--gold-ink, #14110e); --ws-serif: var(--serif, Georgia, serif);
+  /* the accent as text on this light paper: pulled toward the ink so a pale gold still reads (as on the website) */
+  --ws-accent-ink: color-mix(in oklab, var(--ws-accent) 55%, var(--ink));
   color: var(--ink); font: 400 16px/1.55 system-ui, 'Segoe UI', Roboto, sans-serif;
 }
 .vw-reserve {

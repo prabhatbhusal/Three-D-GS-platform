@@ -168,6 +168,7 @@ export function RoomCard({ project, stays, venue, initialRoom = '', preview = fa
                 <p className="vw-sheet-fine">
                   {nights === 1 ? t('1 night') : t('{n} nights', { n: nights })}
                   {need > 1 && chosen ? ` · ${t('{n} rooms', { n: need })}` : ''}
+                  {chosen?.deposit ? ` · ${t('Deposit')}: ${chosen.deposit}` : ''}
                   {' · '}{t('Check-in from {a}, check-out by {b}', { a: stays.checkin, b: stays.checkout })}
                 </p>
               )}

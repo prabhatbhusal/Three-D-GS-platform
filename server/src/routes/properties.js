@@ -102,7 +102,11 @@ propertiesRouter.get('/:id/report', requireEditorSession, wrap(async (req, res) 
 
   // Booking requests made this month, and how many of them were confirmed.
   const made = (await readReservations(p.id)).filter((r) => r.createdAt?.startsWith(month));
-  const rooms = made.filter((r) => r.kind === 'stay'), tables = made.filter((r) => r.kind !== 'stay');
+  // (a waitlist entry, kind 'wait', is not a booking request)
+  // a Book now request from a hotspot (kind 'request') counts with its kind of booking
+  const asked = (of) => (r) => r.kind === 'request' && r.of === of;
+  const rooms = made.filter((r) => r.kind === 'stay' || asked('room')(r)), tables = made.filter((r) => !r.kind || asked('table')(r));
+  const events = made.filter((r) => r.kind === 'event' || asked('hall')(r));
   const confirmed = (list) => list.filter((r) => r.status === 'confirmed').length;
   const titleOf = new Map(spaces.map((s) => [s.id, s.title]));
   const hotspots = Object.entries(stats.hotspots).flatMap(([space, byId]) => Object.entries(byId).map(([hid, h]) => ({
@@ -122,8 +126,8 @@ propertiesRouter.get('/:id/report', requireEditorSession, wrap(async (req, res) 
     funnel: {
       visits: stats.visits, engaged: stats.engaged, intent: stats.intent, intents,
       enquiries: leads.length,
-      requests: { tables: tables.length, rooms: rooms.length },
-      confirmed: { tables: confirmed(tables), rooms: confirmed(rooms) }
+      requests: { tables: tables.length, rooms: rooms.length, events: events.length },
+      confirmed: { tables: confirmed(tables), rooms: confirmed(rooms), events: confirmed(events) }
     },
     hotspots
   });

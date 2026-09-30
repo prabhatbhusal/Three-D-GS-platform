@@ -40,6 +40,7 @@ import { imageKind, imageSize } from './assets.js';
 import { embedKey } from './embed.js';
 import { record } from '../activity.js';
 import { removeReservations } from '../reservations.js';
+import { EVENT_KINDS } from '../events.js';
 
 export const sitesRouter = Router();
 const wrap = (fn) => (req, res, next) => fn(req, res).catch(next);
@@ -68,6 +69,11 @@ export function cleanSite(d, pid) {
   const list = (a, n, f) => (Array.isArray(a) ? a : []).slice(0, n).map(f);
   const img = (v) => (typeof v === 'string' && new RegExp(`^site_${pid}/img-\\d+(-\\d+x\\d+)?\\.(png|jpg|webp)$`).test(v) ? v : '');
   const id = (v) => (typeof v === 'string' && /^[\w-]{1,80}$/.test(v) ? v : '');
+  const menu = (m) => ({
+    title: s(m?.title, 80), note: s(m?.note, 300),
+    items: list(m?.items, 40, (x) => ({ name: s(x?.name, 80), desc: s(x?.desc, 200), price: s(x?.price, 30), tag: s(x?.tag, 30) }))
+      .filter((x) => x.name)
+  });
   d = d && typeof d === 'object' ? d : {};
   return {
     style: STYLES.includes(d.style) ? d.style : STYLES[0],
@@ -80,14 +86,28 @@ export function cleanSite(d, pid) {
     })).filter((r) => r.title || r.body || r.image),
     plan: d.plan === true,
     gallery: list(d.gallery, 24, img).filter(Boolean),
-    menu: {
-      title: s(d.menu?.title, 80), note: s(d.menu?.note, 300),
-      items: list(d.menu?.items, 40, (m) => ({ name: s(m?.name, 80), desc: s(m?.desc, 200), price: s(m?.price, 30), tag: s(m?.tag, 30) }))
-        .filter((m) => m.name)
+    menu: menu(d.menu),
+    // More places to eat and drink (2026-09-29): a café beside the restaurant,
+    // a rooftop bar. Each has its own menu and table booking; the main place
+    // is still menu and booking above, unchanged.
+    dining: list(d.dining, 5, (o) => ({
+      id: typeof o?.id === 'string' && /^[a-z0-9-]{1,24}$/i.test(o.id) ? o.id : '',
+      name: s(o?.name, 60), menu: menu(o?.menu), booking: cleanBooking(o?.booking, { s, img, id })
+    })).filter((o, i, all) => o.id && o.name && all.findIndex((x) => x.id === o.id) === i),
+    // What sells a stay besides the rooms (2026-09-30): what guests said (and
+    // where to read more of it), packages and offers, and the questions every
+    // guest asks. The FAQ also goes to search engines as FAQPage data.
+    reviews: {
+      link: typeof d.reviews?.link === 'string' && /^https:\/\/\S{1,300}$/.test(d.reviews.link.trim()) ? d.reviews.link.trim() : '',
+      items: list(d.reviews?.items, 8, (r) => ({ quote: s(r?.quote, 600), name: s(r?.name, 60), from: s(r?.from, 60) })).filter((r) => r.quote)
     },
+    offers: list(d.offers, 6, (o) => ({ title: s(o?.title, 80), body: s(o?.body, 400), price: s(o?.price, 40), image: img(o?.image) }))
+      .filter((o) => o.title),
+    faq: list(d.faq, 12, (f) => ({ q: s(f?.q, 160), a: s(f?.a, 800) })).filter((f) => f.q && f.a),
     contact: { title: s(d.contact?.title, 120), body: s(d.contact?.body, 400) },
     booking: cleanBooking(d.booking, { s, img, id }),
-    stays: cleanStays(d.stays, { s, img, id })
+    stays: cleanStays(d.stays, { s, img, id }),
+    events: cleanEvents(d.events, { s, img, id })
   };
 }
 
@@ -101,7 +121,7 @@ function cleanBooking(b, { s, img, id }) {
   const int = (v, lo, hi, dflt) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt; };
   const oneOf = (v, ok, dflt) => (ok.includes(v) ? v : dflt);
   const frac = (v) => { const n = Number(v); return Number.isFinite(n) ? Math.min(1, Math.max(0, Math.round(n * 10000) / 10000)) : 0.5; };
-  const first = TIME.test(b.first) ? b.first : '12:00';
+  const first = TIME.test(b.first) ? b.first : '09:00';
   const last = TIME.test(b.last) && b.last >= first ? b.last : first > '21:30' ? first : '21:30';
   const seen = new Set();
   const tables = (Array.isArray(b.tables) ? b.tables : []).slice(0, 60).map((t) => ({
@@ -110,7 +130,7 @@ function cleanBooking(b, { s, img, id }) {
     shape: oneOf(t?.shape, ['round', 'square', 'long'], 'round'), area: s(t?.area, 40), view: id(t?.view)
   })).filter((t) => t.id && !seen.has(t.id) && seen.add(t.id));
   return {
-    on: b.on === true, plan: img(b.plan), tables, first, last,
+    on: b.on === true, plan: img(b.plan), tables, first, last, name: s(b.name, 60),
     slot: oneOf(Number(b.slot), [15, 30, 60], 30), stay: oneOf(Number(b.stay), [60, 90, 120, 150, 180], 90),
     days: int(b.days, 1, 90, 30), maxParty: int(b.maxParty, 1, 30, 8),
     closed: [...new Set((Array.isArray(b.closed) ? b.closed : []).map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6))].sort(),
@@ -120,8 +140,11 @@ function cleanBooking(b, { s, img, id }) {
 }
 
 /** The booking setup the public page may use: switched on, with a plan and tables. */
-export const liveBooking = (site) => {
-  const b = site?.booking;
+export const liveBooking = (site, outlet = '') => {
+  // `outlet`: one of the site's other dining places (site.dining), its name
+  // carried on its setup; none, the main one
+  const o = outlet ? site?.dining?.find((x) => x.id === outlet) : null;
+  const b = outlet ? (o?.booking ? { ...o.booking, name: o.name, outlet: o.id } : null) : site?.booking;
   return b?.on && b.plan && b.tables.length ? b : null;
 };
 
@@ -136,7 +159,7 @@ function cleanStays(b, { s, img, id }) {
   const rooms = (Array.isArray(b.rooms) ? b.rooms : []).slice(0, 40).map((r) => ({
     id: typeof r?.id === 'string' && /^[a-z0-9-]{1,24}$/i.test(r.id) ? r.id : '',
     label: s(r?.label, 60), units: int(r?.units, 1, 200, 1), sleeps: int(r?.sleeps, 1, 20, 2),
-    price: s(r?.price, 30), per: s(r?.per, 20), features: s(r?.features, 200), image: img(r?.image), area: s(r?.area, 40),
+    price: s(r?.price, 30), per: s(r?.per, 20), deposit: s(r?.deposit, 60), features: s(r?.features, 200), image: img(r?.image), area: s(r?.area, 40),
     pin: r?.pin === true, x: frac(r?.x), y: frac(r?.y), space: id(r?.space), view: id(r?.view)
   })).filter((r) => r.id && r.label && !seen.has(r.id) && seen.add(r.id));
   const minNights = int(b.minNights, 1, 30, 1);
@@ -155,6 +178,41 @@ export const liveStays = (site) => {
   const b = site?.stays;
   return b?.on && b.rooms.length ? b : null;
 };
+
+/** Event bookings (events.js): the venue's halls, the kinds of event it
+ *  hosts, how far ahead it books. A hall seats, stands, or both. */
+function cleanEvents(b, { s, img, id }) {
+  b = b && typeof b === 'object' ? b : {};
+  const int = (v, lo, hi, dflt) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt; };
+  const seen = new Set();
+  const halls = (Array.isArray(b.halls) ? b.halls : []).slice(0, 20).map((h) => ({
+    id: typeof h?.id === 'string' && /^[a-z0-9-]{1,24}$/i.test(h.id) ? h.id : '',
+    label: s(h?.label, 60), seated: int(h?.seated, 0, 5000, 0), standing: int(h?.standing, 0, 10000, 0),
+    area: s(h?.area, 40), price: s(h?.price, 40), deposit: s(h?.deposit, 60),
+    features: s(h?.features, 200), image: img(h?.image), space: id(h?.space), view: id(h?.view)
+  })).filter((h) => h.id && h.label && !seen.has(h.id) && seen.add(h.id));
+  const kinds = [...new Set((Array.isArray(b.kinds) ? b.kinds : []).map((k) => s(k, 40)).filter(Boolean))].slice(0, 12);
+  return {
+    on: b.on === true, halls, kinds: kinds.length ? kinds : EVENT_KINDS, days: int(b.days, 7, 730, 365),
+    timezone: typeof b.timezone === 'string' && validTimezone(b.timezone) ? b.timezone : 'Asia/Kathmandu',
+    note: s(b.note, 300)
+  };
+}
+
+/** The event booking the public page may use: switched on, with a hall that holds someone. */
+export const liveEvents = (site) => {
+  const b = site?.events;
+  return b?.on && b.halls.some((h) => h.seated || h.standing) ? { ...b, halls: b.halls.filter((h) => h.seated || h.standing) } : null;
+};
+
+/** The live event booking, its halls only pointing at this project's published spaces. */
+export async function publicEvents(pid, site) {
+  const cfg = liveEvents(site);
+  if (!cfg) return null;
+  const halls = [];
+  for (const h of cfg.halls) halls.push((await ownPublished(pid, h.space)) ? h : { ...h, space: '', view: '' });
+  return { ...cfg, halls };
+}
 
 /** A space the public page may show: published, and in this project. */
 async function ownPublished(pid, space) {
@@ -189,6 +247,8 @@ sitesRouter.get('/:id/preview', requireEditorSession, wrap(async (req, res) => {
 
 /** What the public page gets: the site, the tour to embed, the floor plan, and only this project's spaces. */
 async function renderSite(p, site, publishedAt) {
+  // A site published before a field existed gets its default (cleaning is idempotent).
+  site = cleanSite(site, p.id);
 
   // The tour: the space the studio picked, else the project's newest published one.
   let tour = await ownPublished(p.id, site.hero.space);
@@ -213,13 +273,19 @@ async function renderSite(p, site, publishedAt) {
 
   return {
     project: { id: p.id, title: p.title, theme: p.theme ?? {}, info: p.info ?? {} },
-    site: { ...site, rooms, booking: liveBooking(site), stays: await publicStays(p.id, site) },
+    site: {
+      ...site, rooms, booking: liveBooking(site), stays: await publicStays(p.id, site), events: await publicEvents(p.id, site),
+      dining: (site.dining ?? []).map((o) => ({ ...o, booking: liveBooking(site, o.id) }))
+    },
     tour: tour && embed ? {
       space: tour.id, title: tour.title, key: embedKey(tour.id, embed.version),
       // its picture for link previews, when it has one (scenes.js galleryRouter)
       thumb: tour.tracks?.some((t) => t.thumb) ? `/api/gallery/${tour.id}/thumb.jpg?v=${tour.publishedVersion}` : null
     } : null,
     plan,
+    // What search engines are told the place is (schema.org), from what it offers, booked online or not
+    kind: site.stays.rooms.length ? 'Hotel' : site.events.halls.length && !site.booking.tables.length ? 'EventVenue'
+      : site.menu.items.length || site.booking.tables.length || site.dining.length ? 'Restaurant' : 'LocalBusiness',
     publishedAt
   };
 }

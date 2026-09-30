@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
@@ -38,6 +38,25 @@ export function BookThisRoom({ room }: { room: string }) {
     <a className="ws-link" href="#stay" onClick={() => window.dispatchEvent(new CustomEvent('rcaas:stay', { detail: room }))}>
       Book this room <span aria-hidden>→</span>
     </a>
+  );
+}
+
+/** Down to the event booking (#events) with this hall picked (EventBooking listens). */
+export function BookThisHall({ hall }: { hall: string }) {
+  return (
+    <a className="ws-link" href="#events" onClick={() => window.dispatchEvent(new CustomEvent('rcaas:hall', { detail: hall }))}>
+      Book this hall <span aria-hidden>→</span>
+    </a>
+  );
+}
+
+/** Opens the page's enquiry form (SiteEnquire) about this offer. */
+export function AskAbout({ offer, preview = false }: { offer: string; preview?: boolean }) {
+  return (
+    <button type="button" className="ws-btn ws-btn-ghost" disabled={preview} title={preview ? 'Works once the website is published' : undefined}
+      onClick={() => window.dispatchEvent(new CustomEvent('rcaas:ask', { detail: offer }))}>
+      Ask about this offer
+    </button>
   );
 }
 
@@ -79,15 +98,26 @@ export function SiteGallery({ photos, name }: { photos: Photo[]; name: string })
   );
 }
 
-/** The contact section's button and the enquiry sheet (the tour's own form). */
+/**
+ * The contact section's button and the enquiry sheet (the tour's own form).
+ * An offer's "Ask about this offer" (AskAbout) opens it too, and the enquiry
+ * then says which offer the guest was looking at.
+ */
 export function SiteEnquire({ project, name, preview = false, whatsapp }: { project: string; name: string; preview?: boolean; whatsapp?: string }) {
   const [open, setOpen] = useState(false);
+  const [offer, setOffer] = useState('');
+  useEffect(() => {
+    const ask = (e: Event) => { setOffer((e as CustomEvent<string>).detail); setOpen(true); };
+    window.addEventListener('rcaas:ask', ask);
+    return () => window.removeEventListener('rcaas:ask', ask);
+  }, []);
   // In the studio's preview no enquiry is sent: the form waits for Publish.
   if (preview) return <button type="button" className="ws-btn" disabled title="Works once the website is published">Send an enquiry</button>;
   return (
     <>
-      <button type="button" className="ws-btn" onClick={() => setOpen(true)}>Send an enquiry</button>
-      <EnquiryPanel sceneId="hub" sceneName={`${name} (website)`} propertyId={project}
+      <button type="button" className="ws-btn" onClick={() => { setOffer(''); setOpen(true); }}>Send an enquiry</button>
+      <EnquiryPanel sceneId="hub" sceneName={offer ? `${name}: ${offer}` : `${name} (website)`} propertyId={project}
+        hotspot={offer ? { id: 'offer', label: `the offer “${offer}”` } : null}
         label="Enquire" whatsapp={whatsapp} open={open} onOpenChange={setOpen} />
     </>
   );

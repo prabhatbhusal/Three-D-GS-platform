@@ -109,6 +109,10 @@ export function bestTable(list, cfg, party, date, time) {
     .sort((a, b) => a.seats - b.seats)[0] ?? null;
 }
 
+/** One dining place's bookings (a site's other places, site.dining, have
+ *  their own tables; the main place's bookings carry no `outlet`). */
+export const atOutlet = (list, outlet = '') => list.filter((r) => (r.outlet ?? '') === outlet);
+
 export function newReservation(fields) {
   const at = new Date().toISOString();
   return { id: randomUUID(), status: 'requested', createdAt: at, updatedAt: at, ...fields };

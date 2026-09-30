@@ -381,6 +381,7 @@ export function RoomBooking({ project, stays, tour = false, preview = false, ini
                       <b>{r.label}</b>
                       <span className="tb-dim">{[`Sleeps ${r.sleeps}`, r.area].filter(Boolean).join(' · ')}</span>
                       {r.price && <span className="rb-price"><b>{r.price}</b> {r.per}</span>}
+                      {r.deposit && <span className="tb-dim">Deposit: {r.deposit}</span>}
                       {r.features && <span className="rb-feats">{r.features.split(/\s*[·,]\s*/).filter(Boolean).slice(0, 4).map((f) => <em key={f}>{f}</em>)}</span>}
                       <span className={`rb-left is-${st}`}>{status(r)}</span>
                     </span>

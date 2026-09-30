@@ -1,6 +1,6 @@
 /** 'audio' is a hotspot whose content IS the clip (+ its transcript); any
  *  other type can carry a clip too, in payload.audio. */
-export type HotspotType = 'image' | 'video' | 'text' | 'link' | 'portal' | 'audio' | 'table';
+export type HotspotType = 'image' | 'video' | 'text' | 'link' | 'portal' | 'audio' | 'table' | 'room' | 'hall';
 
 export interface HotspotPayload {
   url?: string;
@@ -18,6 +18,21 @@ export interface HotspotPayload {
   reveal?: 'near' | 'always';
   /** 'table': which table on the website's floor plan this is (its booking lets visitors reserve it). */
   tableId?: string;
+  /** 'table': which dining place it's in (the site's other places, site.dining); none, the main one. */
+  outlet?: string;
+  /** 'room': which of the website's room types it is (Room booking): its price, deposit, Book this room. */
+  roomId?: string;
+  /** 'hall': which of the website's event halls it is (Event booking): capacity, price, deposit, Book this hall. */
+  hallId?: string;
+  /** Book now on a room, hall or table (2026-09-30), with nothing else set up:
+   *  what the visitor sees, typed on the hotspot. `capacity`: a table's seats,
+   *  a room's sleeps, a hall's seated; `standing`: a hall's. `bookUrl`: the
+   *  hotel's own booking page instead of a request (may use {checkin} {checkout} {guests} {nights}). */
+  price?: string;
+  deposit?: string;
+  capacity?: number;
+  standing?: number;
+  bookUrl?: string;
 }
 
 export interface Hotspot {

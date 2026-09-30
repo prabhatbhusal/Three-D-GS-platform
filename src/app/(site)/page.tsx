@@ -9,7 +9,7 @@ import { MODES, SECTORS, SPECS, STEPS, WINS } from '../../lib/siteContent';
 export const metadata: Metadata = {
   title: { absolute: 'RCAAS.tech — Reality Capture As A Service' },
   description:
-    'RCAAS.tech scans hotels, colleges, heritage sites and infrastructure with handheld LiDAR and publishes them as live 3D tours that open on any phone. By GeoNova Solutions, Kathmandu.'
+    'RCAAS.tech scans hotels, colleges, heritage sites and infrastructure with handheld LiDAR and publishes them as live 3D tours that open on any phone.'
 };
 
 // The pinned scene, one screen of scroll each: a flight through the tour's
@@ -41,7 +41,6 @@ export default function HomePage() {
     <SitePage>
       <section className={hero ? 'lp-hero has-media' : 'lp-hero'} data-nav-dark={hero ? '' : undefined}>
         {hero && <div className="lp-hero-media" aria-hidden><MediaFill m={hero} /></div>}
-        <p className="lp-eyebrow">By GeoNova Solutions, Kathmandu</p>
         <h1>
           <span className="lp-hero-word">RCAAS</span>
           <span className="lp-hero-title">Reality Capture As A Service</span>
