@@ -1,5 +1,5 @@
 
- <div align="center"><strong># Three-D-GS Platform</strong></div>
+ <div align="center"><strong>Three-D-GS Platform</strong></div>
  <hr/> 
 <div align="center">
  
