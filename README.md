@@ -243,7 +243,7 @@ This platform is ideal for:
 
 ## 🏁 Summary
 
-Three-D-GS Platform is more than a 3D viewer — it is a complete capture-to-publish workflow for creating immersive digital spaces and converting online interest into real business enquiries.
+Three-D-GS Platform(temporary) is more than a 3D viewer — it is a complete capture-to-publish workflow for creating immersive digital spaces and converting online interest into real business enquiries.
 
 It combines the power of modern web technologies with the clarity of a polished customer-facing experience, making it a strong fit for any brand that wants to showcase physical spaces with depth, interactivity, and conversion in mind.
 
