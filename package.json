@@ -22,6 +22,7 @@
     "next": "^16.3.5",
     "react": "19.2.7",
     "react-dom": "19.2.7",
+    "react-icons": "^5.7.0",
     "three": "^0.164.0",
     "three-mesh-bvh": "^0.9.15"
   },
