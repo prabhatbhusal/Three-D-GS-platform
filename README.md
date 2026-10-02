@@ -13,9 +13,7 @@
        width="100%" 
        style="border-radius: 10px;" />
 </p>
-<p align="center">
-  <img src="docs/3dgs.svg" alt="Three-D-GS Engine Real-Time Architecture Animation" width="100%" />
-</p>
+
 
   <br />
   <br />
