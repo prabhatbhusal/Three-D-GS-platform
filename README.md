@@ -7,7 +7,12 @@
   <br />
 
   <!-- The main dynamic visual, replacing the static hero image -->
-  <img src="image_0.png" alt="Three-D-GS Platform Infographic" width="100%" style="border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);" />
+  <p align="center">
+  <img src="https://d2guo0r1c2odkk.cloudfront.net/webresources/Blog/1745730559999.webp" 
+       alt="3D Gaussian Splatting Real-Time Rendering Showcase" 
+       width="100%" 
+       style="border-radius: 10px;" />
+</p>
 
   <br />
   <br />
