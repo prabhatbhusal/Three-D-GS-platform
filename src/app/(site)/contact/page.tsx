@@ -7,10 +7,10 @@ export const metadata: Metadata = {
 };
 
 const ASK = [
-  { t: 'What the space is', b: 'A hotel floor, a banquet hall, a campus, a temple courtyard.' },
-  { t: 'Where it is', b: 'The town or district, and how we reach it.' },
-  { t: 'Roughly how big', b: 'Rooms, floors or square metres. A guess is fine.' },
-  { t: 'What you need', b: 'A tour for your website, drawings, a point cloud, or all three.' }
+  { t: 'What is the space', b: 'A hotel floor, a banquet hall, a campus, a temple courtyard.' },
+  { t: 'Where is it', b: 'Precise location so we can reach it.' },
+  { t: 'Roughly how big', b: 'Rooms, floors or hall and square metres. A guess is fine.' },
+  { t: 'Your requirements', b: 'A tour for your website, 360 video or both.' }
 ];
 
 export default function ContactPage() {
@@ -18,7 +18,7 @@ export default function ContactPage() {
     <SitePage contact={false}>
       <section className="lp-band lp-reach">
         <div>
-          <PageHead label="Contact" lede="Call or write and we will scan it, publish it and hand you a link.">
+          <PageHead label="Contact" lede="Call or email and we will scan it, publish it and hand you a link.">
             Have a space worth <em>walking</em>?
           </PageHead>
           <ol className="lp-ask">
