@@ -6,18 +6,8 @@
   
   <br />
 
-  <!-- Tech Stack Badges -->
-  <img src="https://img.shields.io/badge/Next.js_14-000000?style=for-the-badge&logo=nextdotjs&logoColor=white" alt="Next.js" />
-  <img src="https://img.shields.io/badge/React_19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React 19" />
-  <img src="https://img.shields.io/badge/Three.js-000000?style=for-the-badge&logo=three.js&logoColor=white" alt="Three.js" />
-  <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/Express.js-404D59?style=for-the-badge&logo=express&logoColor=white" alt="Express API" />
-
-  <br />
-  <br />
-
-  <!-- Hero Visual: Represents 3D Space / Architecture -->
-  <img src="https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=1200&q=80" alt="3D virtual tour showcase" width="100%" style="border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);" />
+  <!-- The main dynamic visual, replacing the static hero image -->
+  <img src="image_0.png" alt="Three-D-GS Platform Infographic" width="100%" style="border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);" />
 
   <br />
   <br />
