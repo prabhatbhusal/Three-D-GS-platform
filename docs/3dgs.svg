@@ -1,0 +1,188 @@
+<!-- Save this file as: docs/assets/3dgs-animation.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 400" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient -->
+    <radialGradient id="bgGlow" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="60%" stop-color="#060913" />
+      <stop offset="100%" stop-color="#020408" />
+    </radialGradient>
+
+    <!-- Splat Blur Filter for Gaussian Depth -->
+    <filter id="splatGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3.5" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <!-- Scan Beam Gradient -->
+    <linearGradient id="laserBeam" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0" />
+      <stop offset="50%" stop-color="#38bdf8" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- Hotspot Radial Gradients -->
+    <radialGradient id="hotspotGrad">
+      <stop offset="0%" stop-color="#f43f5e" stop-opacity="1" />
+      <stop offset="100%" stop-color="#f43f5e" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <style>
+    /* Base Typography & Grid */
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .sans { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+
+    /* LiDAR Scanner Laser Sweep */
+    @keyframes laserSweep {
+      0% { transform: translateX(180px); opacity: 0.1; }
+      20% { opacity: 0.9; }
+      80% { opacity: 0.9; }
+      100% { transform: translateX(720px); opacity: 0.1; }
+    }
+    .scanner-line {
+      animation: laserSweep 5.5s ease-in-out infinite alternate;
+    }
+
+    /* Gaussian Splat Clusters Morphing / Shimmer */
+    @keyframes splatPulse {
+      0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.7; }
+      50% { transform: scale(1.15) rotate(4deg); opacity: 0.95; }
+    }
+    .splat-node-1 { animation: splatPulse 4s ease-in-out infinite; transform-origin: 460px 210px; }
+    .splat-node-2 { animation: splatPulse 5.2s ease-in-out infinite reverse; transform-origin: 360px 240px; }
+    .splat-node-3 { animation: splatPulse 4.4s ease-in-out infinite 1s; transform-origin: 580px 190px; }
+
+    /* Camera Frustum Orbit */
+    @keyframes cameraOrbit {
+      0% { transform: rotate(-8deg) translateY(0); }
+      50% { transform: rotate(10deg) translateY(-8px); }
+      100% { transform: rotate(-8deg) translateY(0); }
+    }
+    .camera-frustum {
+      animation: cameraOrbit 7s ease-in-out infinite;
+      transform-origin: 220px 120px;
+    }
+
+    /* Radar Hotspot Wave Ping */
+    @keyframes radarPing {
+      0% { r: 4px; opacity: 1; stroke-width: 2.5; }
+      100% { r: 24px; opacity: 0; stroke-width: 0.5; }
+    }
+    .radar-ring {
+      animation: radarPing 2.2s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+    }
+    .radar-ring-delayed {
+      animation: radarPing 2.2s cubic-bezier(0, 0.2, 0.8, 1) infinite 1.1s;
+    }
+
+    /* Telemetry HUD Counter Blink */
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    .hud-blink { animation: blink 1.4s ease-in-out infinite; }
+  </style>
+
+  <!-- Canvas Background -->
+  <rect width="920" height="400" rx="16" fill="url(#bgGlow)" stroke="#1e293b" stroke-width="1.5" />
+
+  <!-- 3D Perspective Isometric Grid Wireframe -->
+  <g stroke="#334155" stroke-width="0.8" opacity="0.35">
+    <!-- Grid Floor -->
+    <path d="M 160 280 L 460 360 L 760 280 L 460 200 Z" fill="none" stroke="#38bdf8" stroke-dasharray="3,3" />
+    <path d="M 235 260 L 535 340 M 310 240 L 610 320 M 385 220 L 685 300" />
+    <path d="M 685 260 L 385 340 M 610 240 L 310 320 M 535 220 L 235 300" />
+
+    <!-- Isometric Room Walls -->
+    <line x1="160" y1="280" x2="160" y2="130" stroke="#475569" stroke-width="1.2" />
+    <line x1="460" y1="360" x2="460" y2="210" stroke="#475569" stroke-width="1.2" />
+    <line x1="760" y1="280" x2="760" y2="130" stroke="#475569" stroke-width="1.2" />
+    <line x1="160" y1="130" x2="460" y2="210" stroke="#475569" stroke-width="1.2" />
+    <line x1="760" y1="130" x2="460" y2="210" stroke="#475569" stroke-width="1.2" />
+  </g>
+
+  <!-- Active Gaussian Splat Ellipsoids (Point Cloud Depth) -->
+  <g filter="url(#splatGlow)">
+    <!-- Node Cluster 1 (Cyan/Blue Core) -->
+    <g class="splat-node-1">
+      <ellipse cx="450" cy="220" rx="42" ry="16" fill="#06b6d4" opacity="0.65" transform="rotate(-15 450 220)" />
+      <ellipse cx="465" cy="210" rx="28" ry="12" fill="#38bdf8" opacity="0.8" transform="rotate(25 465 210)" />
+      <ellipse cx="440" cy="225" rx="18" ry="8" fill="#e0f2fe" opacity="0.9" />
+    </g>
+
+    <!-- Node Cluster 2 (Purple/Violet Spatial Depth) -->
+    <g class="splat-node-2">
+      <ellipse cx="360" cy="245" rx="36" ry="14" fill="#8b5cf6" opacity="0.6" transform="rotate(-30 360 245)" />
+      <ellipse cx="350" cy="250" rx="22" ry="9" fill="#c084fc" opacity="0.75" />
+      <circle cx="335" cy="235" r="4" fill="#a855f7" opacity="0.8" />
+      <circle cx="380" cy="255" r="3.5" fill="#e9d5ff" opacity="0.9" />
+    </g>
+
+    <!-- Node Cluster 3 (Emerald/Teal Boundary Splats) -->
+    <g class="splat-node-3">
+      <ellipse cx="580" cy="230" rx="38" ry="15" fill="#10b981" opacity="0.55" transform="rotate(20 580 230)" />
+      <ellipse cx="595" cy="225" rx="20" ry="8" fill="#34d399" opacity="0.8" />
+      <circle cx="560" cy="240" r="3" fill="#6ee7b7" opacity="0.85" />
+    </g>
+  </g>
+
+  <!-- Mobile LiDAR Scanner Sweeping Beam -->
+  <g class="scanner-line">
+    <line x1="0" y1="120" x2="0" y2="350" stroke="url(#laserBeam)" stroke-width="45" opacity="0.6" />
+    <line x1="0" y1="120" x2="0" y2="350" stroke="#38bdf8" stroke-width="1.8" />
+    <circle cx="0" cy="340" r="4" fill="#38bdf8" />
+  </g>
+
+  <!-- Interactive Hotspots (Radar Ping) -->
+  <g transform="translate(520, 240)">
+    <circle class="radar-ring" cx="0" cy="0" r="4" fill="none" stroke="#f43f5e" />
+    <circle class="radar-ring-delayed" cx="0" cy="0" r="4" fill="none" stroke="#f43f5e" />
+    <circle cx="0" cy="0" r="4.5" fill="#f43f5e" />
+    <text x="12" y="4" fill="#fda4af" font-size="11" class="mono" font-weight="600">HOTSPOT: TABLE 04</text>
+  </g>
+
+  <!-- Virtual Camera Frustum / Orbit Tracker -->
+  <g class="camera-frustum">
+    <!-- Camera Position -->
+    <rect x="205" y="105" width="28" height="18" rx="3" fill="#1e293b" stroke="#38bdf8" stroke-width="1.2" />
+    <polygon points="233,110 242,106 242,122 233,118" fill="#38bdf8" />
+    <!-- Frustum Ray Projections -->
+    <line x1="242" y1="114" x2="380" y2="180" stroke="#0ea5e9" stroke-width="1" stroke-dasharray="4,4" opacity="0.7" />
+    <line x1="242" y1="114" x2="330" y2="250" stroke="#0ea5e9" stroke-width="1" stroke-dasharray="4,4" opacity="0.7" />
+  </g>
+
+  <!-- Platform Telemetry HUD Overlays -->
+  <!-- Top Left: Engine & Mode -->
+  <g transform="translate(32, 42)">
+    <circle cx="6" cy="6" r="4.5" fill="#10b981" class="hud-blink" />
+    <text x="18" y="10" fill="#f8fafc" font-size="13" font-weight="700" class="sans" letter-spacing="0.5">3D-GS SPATIAL ENGINE</text>
+    <text x="18" y="26" fill="#64748b" font-size="11" class="mono">STATUS: 60 FPS // RENDERER: THREE.JS</text>
+  </g>
+
+  <!-- Top Right: Live Scene Metadata Badges -->
+  <g transform="translate(640, 36)">
+    <!-- Badge 1: Splat Count -->
+    <rect x="0" y="0" width="115" height="24" rx="5" fill="#1e293b" stroke="#334155" stroke-width="1" />
+    <text x="8" y="16" fill="#94a3b8" font-size="10" class="mono">SPLATS:</text>
+    <text x="58" y="16" fill="#38bdf8" font-size="10" font-weight="700" class="mono">1,428,500</text>
+
+    <!-- Badge 2: Mode -->
+    <rect x="125" y="0" width="120" height="24" rx="5" fill="#1e293b" stroke="#334155" stroke-width="1" />
+    <text x="133" y="16" fill="#94a3b8" font-size="10" class="mono">VIEW:</text>
+    <text x="170" y="16" fill="#a855f7" font-size="10" font-weight="700" class="mono">FLY/WALK</text>
+  </g>
+
+  <!-- Bottom Left: Capture Pipeline Flow -->
+  <g transform="translate(32, 365)" fill="#64748b" font-size="11" class="mono">
+    <text x="0" y="0"><tspan fill="#38bdf8">1. LiDAR CAPTURE</tspan> ➔ <tspan fill="#818cf8">2. GAUSSIAN OPTIMIZE</tspan> ➔ <tspan fill="#c084fc">3. WEB PUBLISH</tspan></text>
+  </g>
+
+  <!-- Bottom Right: Day / Night Status Indicator -->
+  <g transform="translate(735, 365)">
+    <text x="0" y="0" fill="#64748b" font-size="11" class="mono">LIGHTING: <tspan fill="#f59e0b">DAY / SUNNY</tspan></text>
+  </g>
+</svg>
