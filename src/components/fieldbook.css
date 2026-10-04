@@ -1,0 +1,213 @@
+/* Field book: the Contact and About pages (app/(site)/contact, about).
+ * Both read as pages of a surveyor's field book: ruled answer lines with a
+ * margin rule, a register of measured sites, and a topographic plate
+ * (ContourPlate.tsx). One colour joins the site's own: contour brown, for
+ * line work only. Every fourth contour is an index contour, drawn heavier,
+ * as on a survey map. */
+
+.lp-field {
+  --contour: #c08a55;
+  --contour-faint: color-mix(in srgb, #c08a55 34%, transparent);
+  --margin: 9.5rem;
+  width: var(--wrap);
+  margin: 0 auto;
+  padding: 150px 0 40px;
+}
+:root[data-theme='light'] .site .lp-field {
+  --contour: #8a5a2e;
+  --contour-faint: color-mix(in srgb, #8a5a2e 30%, transparent);
+}
+
+.lp-field-head { margin-bottom: 56px; }
+.lp-field-head h1 {
+  max-width: 15ch;
+  margin: 0;
+  font: 700 clamp(40px, 6vw, 76px) / 1.04 var(--sans);
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+.lp-field-head p {
+  max-width: 58ch;
+  margin: 22px 0 0;
+  color: var(--dim);
+  font-size: clamp(17px, 1.5vw, 20px);
+  line-height: 1.6;
+}
+
+/* ---------------------------------------------------------------- Contact */
+
+.lp-field-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 64px;
+  align-items: start;
+}
+
+/* the sheet: a margin rule runs down it, between question and answer */
+.lp-sheet {
+  margin: 0;
+  border-top: 1px solid var(--contour);
+  background: linear-gradient(var(--contour), var(--contour)) var(--margin) 0 / 1px 100% no-repeat;
+}
+.lp-sheet-row {
+  display: grid;
+  grid-template-columns: var(--margin) minmax(0, 1fr);
+  column-gap: 18px;
+  align-items: baseline;
+  margin: 0;
+  padding: 20px 0 12px;
+  border: 0;
+  border-bottom: 1px solid var(--contour-faint);
+  min-inline-size: 0;
+}
+.lp-sheet-row > span {
+  padding-right: 14px;
+  color: var(--dim);
+  font-size: 15px;
+  font-weight: 600;
+}
+.lp-sheet-row input:not([type='checkbox']) {
+  width: 100%;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: 400 18px / 1.4 var(--sans);
+  outline: none;
+}
+.lp-sheet-row input::placeholder { color: color-mix(in srgb, var(--dim) 60%, transparent); }
+/* keyboard focus: the answer line turns blue */
+.lp-sheet-row:focus-within { border-bottom-color: var(--accent); box-shadow: 0 1px 0 var(--accent); }
+
+.lp-sheet-needs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+}
+.lp-sheet-need { display: inline-flex; align-items: center; gap: 8px; color: var(--text); font-size: 16px; cursor: pointer; }
+.lp-sheet-need input { width: 17px; height: 17px; margin: 0; accent-color: var(--accent-fill); }
+.lp-sheet-need input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.lp-sheet-send { margin-left: calc(var(--margin) + 18px); padding-top: 28px; }
+.lp-sheet-send p { max-width: 40ch; margin: 12px 0 0; color: var(--dim); font-size: 14px; line-height: 1.5; }
+
+.lp-talk > p { margin: 0 0 6px; color: var(--dim); font-size: 15px; font-weight: 600; }
+.lp-talk-phone {
+  display: block;
+  color: var(--text);
+  font: 700 clamp(26px, 2.6vw, 34px) / 1.15 var(--sans);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+.lp-talk-mail { display: inline-block; margin-top: 8px; color: var(--accent); font-size: 17px; text-decoration: none; }
+.lp-talk-phone:hover,
+.lp-talk-mail:hover { text-decoration: underline; text-underline-offset: 4px; }
+
+/* ------------------------------------------------------- the topographic plate */
+
+.lp-contour {
+  position: relative;
+  margin-top: 36px;
+  aspect-ratio: 6 / 5;
+  overflow: hidden;
+  border: 1px solid var(--contour-faint);
+  border-radius: 6px;
+}
+.lp-contour > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.lp-contour > svg > path { fill: none; stroke: var(--contour-faint); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.lp-contour > svg > path.is-index { stroke: var(--contour); stroke-width: 1.6; }
+.lp-contour-mark path { fill: var(--text); }
+.lp-contour-mark circle { fill: var(--bg); }
+.lp-contour-text {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  padding: 14px 18px;
+  background: var(--bg);
+  border: 1px solid var(--contour-faint);
+  border-radius: 4px;
+}
+.lp-contour-text > p { margin: 0; color: var(--dim); font-size: 14px; line-height: 1.5; }
+.lp-contour-text > .lp-plate-name { color: var(--text); font-weight: 700; }
+
+/* the one moment of motion: the contours draw themselves in */
+@media (prefers-reduced-motion: no-preference) {
+  .lp-contour > svg > path {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: lp-contour-draw 1.6s cubic-bezier(0.3, 0.6, 0.2, 1) forwards;
+  }
+}
+@keyframes lp-contour-draw { to { stroke-dashoffset: 0; } }
+
+/* ------------------------------------------------------------------ About */
+
+.lp-register { width: 100%; border-collapse: collapse; margin-bottom: 80px; }
+.lp-register caption { caption-side: top; padding-bottom: 14px; text-align: left; font: 700 22px / 1.3 var(--sans); }
+.lp-register thead th {
+  padding: 0 16px 10px 0;
+  border-bottom: 1px solid var(--contour);
+  color: var(--dim);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+}
+.lp-register tbody tr { border-bottom: 1px solid var(--contour-faint); }
+.lp-register tbody th,
+.lp-register tbody td { padding: 20px 16px 20px 0; vertical-align: top; text-align: left; font-weight: 400; line-height: 1.5; }
+.lp-register tbody td { color: var(--dim); font-size: 16px; }
+.lp-register tbody th { width: 36%; }
+.lp-register-place { display: block; color: var(--text); font-size: 19px; font-weight: 700; }
+.lp-register-place a { color: inherit; text-decoration: underline; text-decoration-color: var(--contour); text-underline-offset: 4px; }
+.lp-register-where { display: block; color: var(--dim); font-size: 15px; }
+.lp-register-stats { display: block; margin-top: 4px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.lp-register tbody td.lp-register-status { white-space: nowrap; }
+.lp-register tbody td.is-done { color: var(--text); }
+.lp-register tbody td.is-live { color: var(--accent); }
+.lp-register tbody td.is-now { color: var(--contour); }
+
+/* the mission on a wide plate, contours at its right end */
+.lp-contour.is-side { display: flex; align-items: center; aspect-ratio: auto; min-height: 380px; margin: 0; }
+.lp-contour.is-side > .lp-contour-text {
+  position: relative;
+  left: auto;
+  bottom: auto;
+  max-width: min(36rem, 60%);
+  margin: 48px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.lp-mission { margin: 0; }
+.lp-mission p { margin: 0; color: var(--text); font: 600 clamp(24px, 2.8vw, 36px) / 1.3 var(--sans); letter-spacing: -0.012em; }
+.lp-mission cite { display: block; margin-top: 18px; color: var(--dim); font-size: 15px; font-style: normal; }
+.lp-mission-film { position: relative; display: flex; align-items: center; min-height: 420px; overflow: hidden; border-radius: 6px; }
+.lp-mission-media { position: absolute; inset: 0; }
+.lp-mission-film .lp-mission { position: relative; max-width: 36rem; margin: 48px; }
+.lp-mission-film .lp-mission p,
+.lp-mission-film .lp-mission cite { color: #fff; }
+
+.lp-field-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 64px; margin-top: 80px; }
+.lp-field-cols h2 { margin: 0 0 14px; font: 700 20px / 1.3 var(--sans); }
+.lp-field-cols p { max-width: 46ch; margin: 0 0 12px; color: var(--dim); font-size: 17px; line-height: 1.6; }
+.lp-kitlist { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--contour); }
+.lp-kitlist li { padding: 11px 0; border-bottom: 1px solid var(--contour-faint); font-size: 17px; }
+
+/* ------------------------------------------------------------------ phones */
+
+@media (max-width: 860px) {
+  .lp-field { padding-top: 120px; }
+  .lp-field-grid,
+  .lp-field-cols { grid-template-columns: 1fr; gap: 48px; }
+  .lp-sheet { background: none; }
+  .lp-sheet-row { grid-template-columns: 1fr; row-gap: 6px; }
+  .lp-sheet-send { margin-left: 0; }
+  .lp-register thead { display: none; }
+  .lp-register tbody tr { display: block; padding: 16px 0; }
+  .lp-register tbody th,
+  .lp-register tbody td { display: block; width: auto; padding: 2px 0; }
+  .lp-contour.is-side { display: block; min-height: 0; }
+  .lp-contour.is-side > svg { position: relative; height: 200px; }
+  .lp-contour.is-side > .lp-contour-text { max-width: none; margin: 0; padding: 0 20px 28px; }
+}
