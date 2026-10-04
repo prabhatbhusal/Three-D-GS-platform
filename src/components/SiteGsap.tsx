@@ -54,15 +54,18 @@ export function SiteGsap() {
 
     gsap.matchMedia().add({ full: '(prefers-reduced-motion: no-preference)', calm: '(prefers-reduced-motion: reduce)' }, (ctx) => {
       const full = !!ctx.conditions?.full;
-      gsap.set([...gated, ...heads], { autoAlpha: 1 });
-      gsap.set(cards, { autoAlpha: 0, y: full ? 48 : 0 });
-      ScrollTrigger.batch(cards, {
-        scroller, start: 'top 90%', once: true,
-        onEnter: (els) => gsap.to(els, { autoAlpha: 1, y: 0, duration: full ? 0.8 : 0.5, stagger: 0.08, ease: 'power3.out', overwrite: true })
-      });
+      // A page may have none of these: GSAP warns "target not found" on an empty list.
+      if (gated.length + heads.length) gsap.set([...gated, ...heads], { autoAlpha: 1 });
+      if (cards.length) {
+        gsap.set(cards, { autoAlpha: 0, y: full ? 48 : 0 });
+        ScrollTrigger.batch(cards, {
+          scroller, start: 'top 90%', once: true,
+          onEnter: (els) => gsap.to(els, { autoAlpha: 1, y: 0, duration: full ? 0.8 : 0.5, stagger: 0.08, ease: 'power3.out', overwrite: true })
+        });
+      }
 
       if (!full) {
-        gsap.from(gated, { autoAlpha: 0, duration: 0.6, stagger: 0.06 });
+        if (gated.length) gsap.from(gated, { autoAlpha: 0, duration: 0.6, stagger: 0.06 });
         heads.forEach((h) => gsap.from(h, { autoAlpha: 0, duration: 0.6, scrollTrigger: { trigger: h, scroller, start: 'top 88%', once: true } }));
         return;
       }
