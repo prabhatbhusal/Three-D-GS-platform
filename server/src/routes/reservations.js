@@ -448,7 +448,7 @@ reservationsRouter.post('/:id/waitlist', wrap(async (req, res) => {
   res.status(201).json({ ok: true, id: w.id });
 }));
 
-const noIp = ({ ip, ...r }) => r; // eslint-disable-line no-unused-vars
+const noIp = ({ ip, ...r }) => r;  
 
 /** What a waiting guest is told when a place may have opened up: by text, and by email if they left one. */
 function tellWaiter(p, w) {

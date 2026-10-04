@@ -450,7 +450,7 @@ assetsRouter.post('/:assetId/finalize', requireEditorSession, assetGuard, async 
       const { size } = await fs.stat(full);
       if (size === 0) return res.status(400).json({ error: `${relPath} uploaded empty — never load a partial scan.` });
       bytes += size;
-      // eslint-disable-next-line no-await-in-loop -- files are moved sequentially; a scan is dozens, not thousands
+       
       await storage.put(assetId, relPath, createReadStream(full));
     }
 
