@@ -182,16 +182,6 @@
 
 @keyframes lp-hero-push { to { scale: 1.12; } }
 
-.lp-eyebrow {
-  margin: 0 0 28px;
-  padding: 7px 16px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--text) 30%, transparent);
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--dim);
-}
-
 .lp-hero h1 { display: flex; flex-direction: column; align-items: center; gap: 14px; }
 
 .lp-hero-word {
@@ -1253,3 +1243,4 @@ html.gs :is(.lp-win, .lp-spec, .lp-four li, .lp-sectors li, .lp-svc, .lp-entry, 
 .lp-faq dl > div { padding: 22px 0; border-top: 1px solid var(--raise); }
 .lp-faq dt { font: 700 19px/1.35 var(--sans); }
 .lp-faq dd { margin: 8px 0 0; color: var(--dim); font-size: 16px; line-height: 1.65; }
+

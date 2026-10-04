@@ -68,7 +68,8 @@ app.use('/api/concierge', conciergeRouter);
 app.use('/api/sites', reservationsRouter);
 app.use('/api/sites', sitesRouter);
 
- 
+// Express knows an error handler by its four arguments, so `next` stays.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(err.status || 500).json({ error: err.message || 'Internal error' });

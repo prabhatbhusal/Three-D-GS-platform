@@ -5,7 +5,8 @@ import { projected } from '../lib/hotspotProjector';
 import { hotspotsFor, subscribeDoc } from '../lib/sceneDoc';
 import { SCENE_BY_ID } from '../lib/scenes';
 import { cardBox, nearestIds, showsCard } from '../lib/hotspotLayout';
-import { apiUrl, resolveAsset, safeUrl, type EventHall, type StayRoom } from '../lib/api';
+import { apiUrl, resolveAsset, safeUrl, type EventHall, type SiteBooking, type StayRoom } from '../lib/api';
+import { bookableTable } from '../lib/booking';
 import { playClip, setMuted, stopClip, unlockAudio, useSound } from '../lib/audio';
 import type { Hotspot, HotspotType, ProjectedHotspot } from '../@types/hotspot.types';
 import { useT } from '../lib/i18n';
@@ -146,6 +147,8 @@ interface HotspotPanelProps {
   onPortal?: (sceneId: string) => void;
   /** A table hotspot's Reserve this table (at its dining place); absent while the project takes no table bookings. */
   onReserve?: (tableId: string, outlet: string) => void;
+  /** The dining places taking table bookings, so a table books only at its own place (booking.ts bookableTable). */
+  places?: SiteBooking[];
   /** A room hotspot's room types and Book this room; absent while the project takes no room bookings. */
   rooms?: StayRoom[];
   onBookRoom?: (roomId: string) => void;
@@ -158,7 +161,7 @@ interface HotspotPanelProps {
 
 const photo = (path: string) => apiUrl(`/api/assets/${path}`)!;
 
-export function HotspotPanel({ sceneId, id, onClose, onPortal, onReserve, rooms, onBookRoom, halls, onBookHall, onBookHere }: HotspotPanelProps) {
+export function HotspotPanel({ sceneId, id, onClose, onPortal, onReserve, places, rooms, onBookRoom, halls, onBookHall, onBookHere }: HotspotPanelProps) {
   const [, bump] = useReducer((n) => n + 1, 0);
   useEffect(() => subscribeDoc(bump), []);
   const sound = useSound();
@@ -242,7 +245,7 @@ export function HotspotPanel({ sceneId, id, onClose, onPortal, onReserve, rooms,
           // otherwise the hotspot's own details and Book now (a request the team confirms).
           const room = hs.type === 'room' && onBookRoom ? rooms?.find((x) => x.id === pl.roomId) : undefined;
           const hall = hs.type === 'hall' && onBookHall ? halls?.find((x) => x.id === pl.hallId) : undefined;
-          const table = hs.type === 'table' && onReserve && pl.tableId ? pl.tableId : '';
+          const table = hs.type === 'table' && onReserve ? bookableTable(places, pl.outlet, pl.tableId) : null;
           const img = room?.image || hall?.image;
           const facts = room ? [room.label, t('Sleeps {n}', { n: room.sleeps }), room.area]
             : hall ? [hall.label, hall.seated && t('Seats {n}', { n: hall.seated }), hall.standing && t('{n} standing', { n: hall.standing }), hall.area]
@@ -250,7 +253,7 @@ export function HotspotPanel({ sceneId, id, onClose, onPortal, onReserve, rooms,
                 hs.type === 'hall' && pl.standing ? t('{n} standing', { n: pl.standing }) : ''];
           const price = room?.price ? `${room.price} ${room.per}`.trim() : hall?.price || (hs.type !== 'table' ? pl.price : '');
           const deposit = room?.deposit || hall?.deposit || (hs.type !== 'table' ? pl.deposit : '');
-          const book = room ? () => onBookRoom!(room.id) : hall ? () => onBookHall!(hall.id) : table ? () => onReserve!(table, pl.outlet ?? '')
+          const book = room ? () => onBookRoom!(room.id) : hall ? () => onBookHall!(hall.id) : table ? () => onReserve!(table.tableId, table.outlet)
             : onBookHere ? () => onBookHere(hs.id) : null;
           const label = hs.type === 'table' ? t('Reserve this table') : hs.type === 'room' ? t('Book this room') : t('Book this hall');
           return (

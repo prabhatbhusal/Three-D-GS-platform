@@ -250,6 +250,9 @@ export const getAvailability = (id: string, date?: string, outlet?: string) => {
  *  `tables`: the ones the server knows (published); a draft's table has only the hours. */
 export const getHereTables = (id: string, space: string, date?: string) =>
   request<Availability & { tables: string[] }>(`${sitePath(id)}/requests/tables?${new URLSearchParams({ space, ...(date ? { date } : {}) })}`);
+/** Which parts of a day a hall hotspot is already asked for, so its Book now can strike them out. */
+export const getHereHall = (id: string, space: string, hotspot: string, date: string) =>
+  request<{ date: string; taken: EventSession[] }>(`${sitePath(id)}/requests/halls?${new URLSearchParams({ space, hotspot, date })}`);
 export interface TableRequest {
   table: string; date: string; time: string; party: number; name: string; phone: string; email?: string; notes?: string;
   website?: string; formRenderedAt: number; outlet?: string;

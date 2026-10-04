@@ -63,3 +63,30 @@ export function bookingHref(template: string, stay: Stay | null): string {
     : {};
   return template.trim().replace(/\{(checkin|checkout|guests|nights)\}/g, (_, k: string) => encodeURIComponent(values[k] ?? ''));
 }
+
+/* ------------------------------------------------------------------ */
+/* Table hotspots and dining places (2026-10-04)                        */
+/* ------------------------------------------------------------------ */
+
+interface Place { on: boolean; plan: string; tables: { id: string }[]; name?: string; outlet?: string }
+
+/** The dining places that take table bookings, each tagged with its id and
+ *  name: the same list the public tour gets (server routes/sites.js
+ *  liveBooking), built here from a draft for the studio's preview. */
+export function livePlaces<B extends Place>(site: { booking?: B | null; dining?: { id: string; name: string; booking?: B | null }[] } | null | undefined): B[] {
+  const live = (b: B | null | undefined) => (b?.on && b.plan && b.tables.length ? b : null);
+  return [
+    live(site?.booking),
+    ...(site?.dining ?? []).map((o) => { const b = live(o.booking); return b && { ...b, name: o.name, outlet: o.id }; })
+  ].filter((b): b is B => !!b);
+}
+
+/** Where a table hotspot's Reserve this table goes: its own dining place, if
+ *  that place takes bookings and still has the table. Otherwise null, and the
+ *  hotspot offers its own Book now; never another place's booking, since two
+ *  places can both have a "T1". */
+export function bookableTable(places: Place[] | undefined, outlet: string | undefined, tableId: string | undefined) {
+  if (!places || !tableId) return null;
+  const place = places.find((b) => (b.outlet ?? '') === (outlet ?? ''));
+  return place?.tables.some((t) => t.id === tableId) ? { outlet: place.outlet ?? '', tableId } : null;
+}

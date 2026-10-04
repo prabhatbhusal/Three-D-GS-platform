@@ -38,7 +38,7 @@ import {
   LIVE, STATUSES, atOutlet, availability, bestTable, bookableDates, readReservations, newReservation, nowIn, slotsFor, tableFree, withReservations
 } from '../reservations.js';
 import { nightsOf, roomsFree, roomsNeeded, stayCalendar, stayProblem } from '../stays.js';
-import { SESSIONS, SESSION_LABEL, eventCalendar, eventProblem, hallFree } from '../events.js';
+import { SESSIONS, SESSION_LABEL, eventCalendar, eventProblem, hallFree, hallHotspotFree } from '../events.js';
 import { WAIT_STATUSES, waitersWithSpace } from '../waitlist.js';
 import { textGuest } from '../notify.js';
 
@@ -342,6 +342,18 @@ reservationsRouter.get('/:id/requests/tables', wrap(async (req, res) => {
   await sendAvailability(req, res, t && { ...t, list: heldTables(await readReservations(t.p.id), t.space) },
     { tables: t?.cfg.tables.map((x) => x.id) ?? [] });
 }));
+
+// Which parts of a day a hall hotspot is already asked for (nothing personal): the tour's Book now
+// strikes them out, the way the website's hall booking does.
+reservationsRouter.get('/:id/requests/halls', wrap(async (req, res) => {
+  const p = await getProperty(req.params.id);
+  const { space, hotspot, date } = req.query;
+  if (!p || typeof space !== 'string' || !/^[a-z0-9-]+$/i.test(space) || typeof hotspot !== 'string' || !DATE.test(String(date ?? ''))) {
+    return res.status(400).json({ error: 'Which hall, and which day?' });
+  }
+  const list = await readReservations(p.id);
+  res.json({ date, taken: SESSIONS.filter((s) => !hallHotspotFree(list, space, hotspot, date, s)) });
+}));
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const HM = /^([01]\d|2[0-3]):[0-5]\d$/;
 const words = (v, n) => (typeof v === 'string' ? v.replace(/[<>]/g, '').trim().slice(0, n) : '');
@@ -393,8 +405,9 @@ reservationsRouter.post('/:id/requests', wrap(async (req, res) => {
 
   const pl = hs.payload ?? {};
   const r = await withReservations(p.id, (list) => {
-    // checked again in the queue: two guests can't both get the same table at the same time
+    // checked in the queue: two guests can't both get the same table at the same time, or the same hall for the same part of a day
     if (hs.type === 'table' && !tableFree(heldTables(list, snap.id), hours, hs.id, date, when.time)) return null;
+    if (hs.type === 'hall' && !hallHotspotFree(list, snap.id, hs.id, date, when.session)) return null;
     const made = newReservation({
       kind: 'request', of: hs.type, item: words(hs.label, 80) || hs.type, space: snap.id, spaceTitle: words(snap.title, 80), hotspot: hs.id,
       date, party: guests, price: words(pl.price, 40), deposit: words(pl.deposit, 60), ...when, ...guest
@@ -402,7 +415,11 @@ reservationsRouter.post('/:id/requests', wrap(async (req, res) => {
     list.push(made);
     return made;
   });
-  if (!r) return res.status(409).json({ error: 'Someone has just asked for this table at that time. Pick another time or table.' });
+  if (!r) {
+    return res.status(409).json({ error: hs.type === 'hall'
+      ? 'This hall is already asked for at that time of day. Pick another day, or the other half of the day.'
+      : 'Someone has just asked for this table at that time. Pick another time or table.' });
+  }
   res.status(201).json({ ok: true, id: r.id });
   tellTheTeam(p, r, `Booking request:${r.item}, ${requestWhen(r)} — ${r.name}`, `New booking request for ${venueOf(p)}, from the 3D tour (${r.spaceTitle})`,
     [['Name', r.name], ['Phone', r.phone], ['Email', r.email], ['Booking', r.item], ['When', requestWhen(r)], ['Guests', r.party],
@@ -448,7 +465,7 @@ reservationsRouter.post('/:id/waitlist', wrap(async (req, res) => {
   res.status(201).json({ ok: true, id: w.id });
 }));
 
-const noIp = ({ ip, ...r }) => r;  
+const noIp = ({ ip, ...r }) => r;
 
 /** What a waiting guest is told when a place may have opened up: by text, and by email if they left one. */
 function tellWaiter(p, w) {
@@ -486,6 +503,11 @@ reservationsRouter.patch('/:id/reservations/:rid', requireEditorSession, wrap(as
   const published = (await readSite(p.id))?.published;
   // a table booking's own dining place's setup
   const cfgOf = (o) => (o ? published?.dining?.find((d) => d.id === o)?.booking : published?.booking) ?? { stay: 90 };
+  // a hotspot's Book now: its table at that sitting, or its hall for that part of the day (as the requests route
+  // checks them); a room hotspot has no count of rooms to check against
+  const requestFree = (others, x) => x.of === 'table'
+    ? tableFree(heldTables(others, x.space), cleanSite(published, p.id).booking, x.hotspot, x.date, x.time)
+    : x.of === 'hall' ? hallHotspotFree(others, x.space, x.hotspot, x.date, x.session) : true;
   let freed = [];
   const r = await withReservations(p.id, (list) => {
     const x = list.find((y) => y.id === req.params.rid);
@@ -495,11 +517,11 @@ reservationsRouter.patch('/:id/reservations/:rid', requireEditorSession, wrap(as
     if (LIVE.includes(status) && !LIVE.includes(x.status)) {
       const others = list.filter((y) => y !== x);
       const room = published?.stays?.rooms?.find((y) => y.id === x.room);
-      const free = x.kind === 'request' ? true
+      const free = x.kind === 'request' ? requestFree(others, x)
         : x.kind === 'stay' ? !!room && roomsFree(others, room, x.checkin, x.checkout) >= x.rooms
         : x.kind === 'event' ? hallFree(others, x.hall, x.date, x.session)
           : tableFree(atOutlet(others, x.outlet), cfgOf(x.outlet), x.table, x.date, x.time);
-      if (!free) return { taken: x.kind === 'stay' ? 'room' : x.kind === 'event' ? 'hall' : 'table' };
+      if (!free) return { taken: x.kind === 'stay' || x.of === 'room' ? 'room' : x.kind === 'event' || x.of === 'hall' ? 'hall' : 'table' };
     }
     const was = x.status;
     x.status = status;

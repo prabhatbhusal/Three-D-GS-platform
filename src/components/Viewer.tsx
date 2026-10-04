@@ -7,6 +7,7 @@ import { useNavMode, setVisitorMode, visitorMode } from '../lib/navMode';
 import { zoomOrbit, scaleFlySpeed, walkerCfg } from '../lib/walkerConfig';
 import { bookingFor, sceneHasAudio, subscribeDoc } from '../lib/sceneDoc';
 import { apiUrl, safeUrl, getSiteTables, getSitePreview, getSiteStays, getSiteEvents, conciergeOn, type ConciergeShow, type EventHall, type SiteBooking, type SiteEvents, type SiteStays, type SiteTable, type StayRoom } from '../lib/api';
+import { livePlaces } from '../lib/booking';
 import { ConciergePanel } from './ConciergePanel';
 import { TableBooking } from './TableBooking';
 import { TableCard } from './TableCard';
@@ -72,7 +73,7 @@ export function Viewer({ state, isTouch, autoStart = false, tour = false }: View
     const load = isPublicTour()
       ? Promise.all([getSiteTables(pid), getSiteStays(pid), getSiteEvents(pid)])
       : getSitePreview(pid).then((s) => [
-        [s?.site.booking ?? null, ...(s?.site.dining ?? []).map((o) => o.booking)].filter((b): b is SiteBooking => !!b),
+        livePlaces<SiteBooking>(s?.site),
         s?.site.stays ?? null, s?.site.events ?? null
       ] as const).catch(() => [[] as SiteBooking[], null, null] as const);
     conciergeOn(pid).then((yes) => { if (live) setConcierge(yes); });
@@ -334,7 +335,7 @@ export function Viewer({ state, isTouch, autoStart = false, tour = false }: View
               id={openHs}
               onClose={() => setOpenHs(null)}
               onPortal={(sid) => { setOpenHs(null); state.select(sid); }}
-              onReserve={tables ? (id, at) => { setOpenHs(null); reserve(id, at); } : undefined}
+              places={tables?.places} onReserve={tables ? (id, at) => { setOpenHs(null); reserve(id, at); } : undefined}
               rooms={stays?.stays.rooms} onBookRoom={stays ? (id) => { setOpenHs(null); bookRoom(id); } : undefined}
               halls={events?.events.halls} onBookHall={events ? (id) => { setOpenHs(null); setHallPick(id); setSheet('event'); } : undefined}
               onBookHere={pid ? (id) => { setOpenHs(null); setHereHs(id); setSheet('here'); } : undefined}

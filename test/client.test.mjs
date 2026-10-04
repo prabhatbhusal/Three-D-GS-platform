@@ -394,3 +394,27 @@ test('a hotspot lands on the surface in the middle of the view, not in the air',
   assert.equal(surfaceDistance(wall, { x: 0, y: 1.6, z: 0 }, { x: 0, y: 0, z: 1 }, 30, 0.04), null, 'nothing that way');
   assert.equal(surfaceDistance(null, { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: -1 }, 30, 0.04), null, 'no scene: no answer');
 });
+
+test('a table hotspot books its own dining place, never another one that happens to take bookings', async () => {
+  const { livePlaces, bookableTable } = await import('../src/lib/booking.ts');
+  const tables = (...ids) => ids.map((id) => ({ id }));
+  const site = {
+    booking: { on: true, plan: 'plan.png', tables: tables('T1', 'T2') },
+    dining: [
+      { id: 'cafe', name: 'The Café', booking: { on: false, plan: 'cafe.png', tables: tables('T1') } },
+      { id: 'bar', name: 'The Bar', booking: { on: true, plan: 'bar.png', tables: tables('T1', 'B9') } },
+      { id: 'roof', name: 'Roof', booking: { on: true, plan: '', tables: tables('R1') } }
+    ]
+  };
+  // the studio preview lists what visitors get: places taking bookings, each with its own id and name
+  const places = livePlaces(site);
+  assert.deepEqual(places.map((p) => [p.outlet ?? '', p.name ?? '']), [['', ''], ['bar', 'The Bar']]);
+
+  assert.deepEqual(bookableTable(places, '', 'T2'), { outlet: '', tableId: 'T2' }, 'main restaurant');
+  assert.deepEqual(bookableTable(places, 'bar', 'T1'), { outlet: 'bar', tableId: 'T1' }, 'the bar’s T1, not the main T1');
+  assert.equal(bookableTable(places, 'cafe', 'T1'), null, 'café booking is off: the hotspot’s own Book now, not the main restaurant');
+  assert.equal(bookableTable(places, 'roof', 'R1'), null, 'no floor plan yet: not taking bookings');
+  assert.equal(bookableTable(places, 'bar', 'T2'), null, 'a table the place no longer has');
+  assert.equal(bookableTable(places, '', ''), null, 'a hotspot not linked to a table');
+  assert.equal(bookableTable(undefined, '', 'T1'), null, 'project takes no table bookings');
+});

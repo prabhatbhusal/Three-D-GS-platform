@@ -1411,6 +1411,15 @@ test('Book now on a room, hall or table hotspot works with nothing else set up; 
   const room = await ask({ hotspot: 'h-room', date: day(5), checkout: day(7), guests: 2, item: 'Presidential Suite', price: 'Rs 1' });
   assert.equal(room.status, 201);
   assert.equal((await ask({ hotspot: 'h-hall', date: day(20), session: 'evening', guests: 300, occasion: 'Wedding' })).status, 201);
+  // a hall is one place: that evening is taken, and so is the whole day; the daytime is still free
+  assert.equal((await ask({ hotspot: 'h-hall', date: day(20), session: 'evening', guests: 80 })).status, 409, 'same evening');
+  assert.equal((await ask({ hotspot: 'h-hall', date: day(20), session: 'full', guests: 80 })).status, 409, 'the whole day clashes with the evening');
+  assert.equal((await ask({ hotspot: 'h-hall', date: day(20), session: 'day', guests: 80, occasion: 'Meeting' })).status, 201, 'the halves don’t clash');
+  // what the tour's card strikes out: both halves asked for, so the whole day is gone too; nothing personal in it
+  const taken = (d) => api('GET', `/api/sites/${pid}/requests/halls?space=hh-lobby&hotspot=h-hall&date=${d}`);
+  assert.deepEqual((await taken(day(20))).json, { date: day(20), taken: ['day', 'evening', 'full'] });
+  assert.deepEqual((await taken(day(21))).json.taken, [], 'another day is free');
+  assert.equal((await taken('soon')).status, 400);
   assert.equal((await ask({ hotspot: 'h-table', date: day(2), time: '19:30', guests: 4 })).status, 201);
 
   assert.equal((await ask({ hotspot: 'h-text', date: day(1), time: '19:30', guests: 4 })).status, 404, 'only rooms, halls and tables');
@@ -1426,7 +1435,7 @@ test('Book now on a room, hall or table hotspot works with nothing else set up; 
 
   await new Promise((r) => setTimeout(r, 200));
   const desk = mailbox.filter((m) => m.to.includes('desk@hotspothotel.test') && /Booking request/.test(m.subject));
-  assert.equal(desk.length, 3);
+  assert.equal(desk.length, 4);
   assert.match(desk.find((m) => /Deluxe Room/.test(m.subject)).text, /Rs 2,000/);
 
   signIn();
@@ -1439,7 +1448,20 @@ test('Book now on a room, hall or table hotspot works with nothing else set up; 
 
   const month = new Date().toISOString().slice(0, 7);
   const f = (await api('GET', `/api/properties/${pid}/report?month=${month}`)).json.funnel;
-  assert.deepEqual([f.requests.rooms, f.requests.events, f.requests.tables, f.confirmed.rooms], [1, 1, 1, 1], 'counted with their kind of booking');
+  assert.deepEqual([f.requests.rooms, f.requests.events, f.requests.tables, f.confirmed.rooms], [1, 2, 1, 1], 'counted with their kind of booking');
+
+  // Declined, then someone else takes that evening: reopening the first must not double-book the hall (or the table).
+  const setStatus = (id, status) => api('PATCH', `/api/sites/${pid}/reservations/${id}`, { status });
+  const evening = inbox.find((r) => r.of === 'hall' && r.session === 'evening');
+  const table = inbox.find((r) => r.of === 'table');
+  assert.equal((await setStatus(evening.id, 'declined')).status, 200);
+  assert.equal((await setStatus(table.id, 'declined')).status, 200);
+  cookie = '';
+  assert.equal((await ask({ hotspot: 'h-hall', date: day(20), session: 'evening', guests: 120, occasion: 'Party' })).status, 201, 'the evening is free again');
+  assert.equal((await ask({ hotspot: 'h-table', date: day(2), time: '19:30', guests: 2 })).status, 201, 'so is the table');
+  signIn();
+  assert.equal((await setStatus(evening.id, 'requested')).status, 409, 'reopening would double-book the hall');
+  assert.equal((await setStatus(table.id, 'requested')).status, 409, 'reopening would double-book the table');
 });
 
 test('a dining room in 3D: every table is its own hotspot, booked by the sitting, never twice at one time', async () => {
@@ -1841,4 +1863,14 @@ test('forgot password: a known email gets a one-time link by email; an unknown o
   assert.equal((await api('POST', '/api/auth/reset', { token, password: 'again-again-9' })).status, 400, 'once only');
   assert.equal((await api('POST', '/api/auth/login', { email: 'fran@geonova.com.np', password: 'plenty-long-8' })).status, 401, 'old password gone');
   assert.equal((await api('POST', '/api/auth/login', { email: 'fran@geonova.com.np', password: 'fresh-start-9' })).status, 200);
+});
+
+test('the studio warns before publishing a space whose scan files are not on this server', async () => {
+  signIn();
+  await api('PUT', '/api/scenes/no-files-here', sceneDoc('no-files-here'));
+  const check = (await api('GET', '/api/scenes/no-files-here/publish')).json;
+  assert.ok(check.warnings.some((w) => /scan files aren.t on this server/.test(w)), 'missing files are named before publishing');
+  const pub = (await api('POST', '/api/scenes/no-files-here/publish')).json;
+  assert.equal(pub.published, true, 'a warning, not a block: storage may be catching up');
+  assert.ok(pub.warnings.some((w) => /scan files aren.t on this server/.test(w)), 'and repeated when it publishes');
 });

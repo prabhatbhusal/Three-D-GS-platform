@@ -74,7 +74,10 @@ export async function convertModel(
     if (!url.startsWith(BASE)) return url; // blob:/data: made by the loaders themselves
     const rel = decodeURIComponent(url.slice(BASE.length)).replace(/\\/g, '/');
     const parts: string[] = [];
-    for (const p of rel.split('/')) p === '..' ? parts.pop() : p && p !== '.' && parts.push(p);
+    for (const p of rel.split('/')) {
+      if (p === '..') parts.pop();
+      else if (p && p !== '.') parts.push(p);
+    }
     // exact relative path, else the bare file name: FBX often stores the
     // artist's absolute path, e.g. C:/Users/artist/tex/wood.jpg
     const last = parts[parts.length - 1] ?? '';

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getHereTables, requestHere, safeUrl, type Availability, type EventSession } from '../lib/api';
+import { getHereHall, getHereTables, requestHere, safeUrl, type Availability, type EventSession } from '../lib/api';
 import { bookingHref, isoDay, nightsBetween } from '../lib/booking';
 import { countIntent } from '../lib/stats';
 import { useT } from '../lib/i18n';
@@ -79,6 +79,18 @@ export function HotspotBookCard({ project, space, hs, tables = [], preview = fal
       .catch(() => { if (live) { setAvail(null); setNoTimes(true); } });
     return () => { live = false; };
   }, [booksTables, project, space, ask.date, fresh]);
+
+  // A hall: the parts of the chosen day already asked for are struck out (the server refuses them anyway).
+  const booksHall = kind === 'hall' && !own;
+  const [hallTaken, setHallTaken] = useState<EventSession[]>([]);
+  useEffect(() => {
+    if (!booksHall || !ask.date) return;
+    let live = true;
+    getHereHall(project, space, hs.id, ask.date)
+      .then((a) => { if (live) setHallTaken(a?.taken ?? []); })
+      .catch(() => { if (live) setHallTaken([]); });
+    return () => { live = false; };
+  }, [booksHall, project, space, hs.id, ask.date, fresh]);
 
   const table = kind === 'table' ? tables.find((x) => x.id === ask.table) ?? hs : hs;
   // The times come from the hours; if they can't load, a time is typed instead (the server still checks it).
@@ -226,7 +238,9 @@ export function HotspotBookCard({ project, space, hs, tables = [], preview = fal
                   <span className="vw-sheet-field-txt">
                     <span>{t('Part of the day')}</span>
                     <select value={ask.session} onChange={(e) => set({ session: e.target.value as EventSession })}>
-                      {SESSIONS.map(([k, label]) => <option key={k} value={k}>{t(label)}</option>)}
+                      {SESSIONS.map(([k, label]) => (
+                        <option key={k} value={k} disabled={hallTaken.includes(k)}>{t(label)}{hallTaken.includes(k) ? ` · ${t('taken')}` : ''}</option>
+                      ))}
                     </select>
                   </span>
                 </label>

@@ -361,7 +361,7 @@ function Stage({ onState, viewerMode }: StageProps) {
         return `Floor moved to 0 m (it was at ${floorY.toFixed(2)} m).`;
       }
     };
-  }, [camera, gl, scene, mgr.activeId, mgr.renderer, play, playViewport, playSequence, stop]);
+  }, [camera, gl, scene, mgr.activeId, mgr.renderer, playViewport, playSequence, stop]);
 
   useEffect(() => {
     onState({

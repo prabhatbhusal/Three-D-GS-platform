@@ -141,7 +141,7 @@ export default function ReservationsPage({ params }: { params: Promise<{ propert
         {!booking?.on && !stays?.on && !events?.on && !list.some((r) => r.kind === 'request') && (
           <p className="se-warn">{staff
             ? 'Online booking isn’t switched on for this place yet. Ask whoever runs its website to turn it on.'
-            : 'Booking is off on the website. Turn on Table, Room or Event booking under Website, set it up, and publish.'}</p>
+            : 'Website booking is off. Book now on the tour’s room, hall and table hotspots still sends requests here; to take bookings on the website too, turn on Table, Room or Event booking under Website, set it up, and publish.'}</p>
         )}
         <div className="rs-tabs" role="tablist">
           {([['reply', `Needs a reply${waiting.length ? ` (${waiting.length})` : ''}`], ['upcoming', 'Upcoming'], ['past', 'Past'], ['all', 'All'], ['waitlist', `Waitlist${stillWaiting ? ` (${stillWaiting})` : ''}`]] as [Tab, string][]).map(([k, label]) => (
@@ -157,7 +157,7 @@ export default function ReservationsPage({ params }: { params: Promise<{ propert
         </div>
 
         {!shown.length && (
-          <p className="se-hint">{tab === 'reply' ? 'Nothing waiting. New requests from the website appear here.'
+          <p className="se-hint">{tab === 'reply' ? 'Nothing waiting. New requests from the website and the 3D tour appear here.'
             : tab === 'waitlist' ? 'No one is waiting. When a day or dates are full, guests can join the waitlist; if you decline or cancel a booking, the ones who now fit are told by text and email.'
               : 'No bookings here.'}</p>
         )}

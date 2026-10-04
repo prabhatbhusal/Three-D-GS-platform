@@ -88,7 +88,7 @@ export default async function HubPage({ params }: { params: Promise<{ property: 
           <h1>{name}</h1>
           <p className="hub-lede">
             {hub.spaces.length
-              ? `Walk ${hub.spaces.length === 1 ? 'the space' : `all ${hub.spaces.length} spaces`} in 3D, from any phone. Ask a question from inside the room.`
+              ? `Walk ${hub.spaces.length === 1 ? 'the space' : hub.spaces.length === 2 ? 'both spaces' : `all ${hub.spaces.length} spaces`} in 3D, from any phone. Ask a question from inside the room.`
               : 'The tour is being prepared. Ask us anything in the meantime.'}
           </p>
           {first && <a className="hub-btn hub-btn-big" href={walk(first.id)}>Start with {first.title}</a>}

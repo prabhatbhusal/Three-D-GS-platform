@@ -6,6 +6,7 @@ import {
 import { requireEditorSession } from '../middleware/auth.js';
 import { sceneGuard, optionalSession, visibleScenes } from '../access.js';
 import { record, recordScene } from '../activity.js';
+import * as storage from '../storage.js';
 
 export const scenesRouter = Router();
 export const galleryRouter = Router();
@@ -50,21 +51,38 @@ scenesRouter.get('/:id/published/thumbs/:track.jpg', wrap(async (req, res) => {
   sendDataImage(res, doc?.tracks?.find((t) => t.id === req.params.track)?.thumb);
 }));
 
+/** Is the space's scan on this server's storage at all? A checkout or server
+ *  without the uploaded files (they're never in git) serves a tour that
+ *  shows its start screen and never any 3D. A warning, not a block. */
+async function missingFiles(doc) {
+  const high = doc.splat?.variants?.high;
+  if (!high?.assetId || !high.meta || String(high.assetId).startsWith('local:')) return [];
+  try {
+    await storage.stat(high.assetId, high.meta);
+    return [];
+  } catch {
+    return [`This space’s scan files aren’t on this server (${high.assetId}). Visitors will get the start screen but no 3D. Upload the model again, or copy that folder from the computer it was uploaded on.`];
+  }
+}
+
 // Studio: publish state + what would block or warn, without publishing.
 scenesRouter.get('/:id/publish', requireEditorSession, sceneGuard, wrap(async (req, res) => {
   const draft = await getScene(req.params.id);
   if (!draft) return notFound(res, req.params.id);
+  const checks = publishChecks(draft);
   res.json({
     status: draft.status ?? 'draft',
     publishedVersion: draft.publishedVersion ?? null,
     publishedAt: draft.publishedAt ?? null,
-    ...publishChecks(draft)
+    ...checks,
+    warnings: [...await missingFiles(draft), ...checks.warnings]
   });
 }));
 
 scenesRouter.post('/:id/publish', requireEditorSession, sceneGuard, wrap(async (req, res) => {
   const result = await publishScene(req.params.id);
   if (!result) return notFound(res, req.params.id);
+  result.warnings = [...await missingFiles(await getScene(req.params.id)), ...(result.warnings ?? [])];
   if (result.published) await recordScene(req, req.params.id, 'published', `version ${result.version}`);
   res.status(result.published ? 200 : 422).json(result);
 }));

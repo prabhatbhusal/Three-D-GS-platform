@@ -70,16 +70,15 @@ export function SiteGsap() {
         return;
       }
 
-      // The hero: eyebrow, then RCAAS letter by letter, then the rest.
+      // The hero: RCAAS letter by letter, then the rest.
       const hero = q('.lp-hero')[0];
       if (hero) {
         const $ = gsap.utils.selector(hero);
         const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
-        tl.from($('.lp-eyebrow'), { autoAlpha: 0, y: -16, duration: 0.6 });
         const word = $('.lp-hero-word')[0];
         if (word) {
           const split = SplitText.create(word, { type: 'chars', mask: 'chars' });
-          tl.from(split.chars, { yPercent: 110, duration: 0.9, stagger: 0.06, ease: 'power4.out' }, '-=0.3');
+          tl.from(split.chars, { yPercent: 110, duration: 0.9, stagger: 0.06, ease: 'power4.out' }, 0.3);
         }
         tl.from($('.lp-hero-title'), { autoAlpha: 0, y: 24, duration: 0.7 }, '-=0.5')
           .from($('.lp-lede'), { autoAlpha: 0, y: 24, duration: 0.7 }, '-=0.5')

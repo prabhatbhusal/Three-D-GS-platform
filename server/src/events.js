@@ -24,6 +24,13 @@ export function hallFree(list, hallId, date, session) {
 }
 
 /** What's taken, for the guest's calendar: hall → date → the sessions held. Nothing personal. */
+/** A hall hotspot's own Book now (routes/reservations.js requests): the same
+ *  rule for the one hall that hotspot stands for. */
+export function hallHotspotFree(list, space, hotspot, date, session) {
+  return !list.some((r) => r.kind === 'request' && r.of === 'hall' && r.space === space && r.hotspot === hotspot
+    && r.date === date && LIVE.includes(r.status) && clash(r.session, session));
+}
+
 export function eventCalendar(list, cfg, today) {
   const first = addDays(today, 1), last = addDays(today, cfg.days);
   const taken = {};

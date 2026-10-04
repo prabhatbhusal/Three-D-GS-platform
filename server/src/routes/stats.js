@@ -27,7 +27,7 @@ function rateLimited(ip) {
   return list.length > RATE_MAX;
 }
 
-statsRouter.post('/', express.text({ type: () => true, limit: '2kb' }), async (req, res, next) => {
+statsRouter.post('/', express.text({ type: () => true, limit: '2kb' }), async (req, res) => {
   try {
     // Always 204: a beacon doesn't read the answer, and a refusal shouldn't teach anyone anything.
     res.status(204).end();
