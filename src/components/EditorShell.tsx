@@ -881,18 +881,16 @@ function WorldInspector({ state, pose, onBump }: { state: ViewerState; pose: Pos
 
       <Section title="Feel">
         <Slider label="Eye level" value={walkerCfg.eyeHeight}
-          min={0.2 * u} max={3 * u} step={0.01 * u}
-          display={`${(walkerCfg.eyeHeight / u).toFixed(2)} m`}
+          min={0.2 * u} max={3 * u} step={0.01 * u} scale={u} unit="m"
           onChange={(x) => { walkerCfg.eyeHeight = x; onBump(); }} />
         <Slider label="Wall clearance" value={walkerCfg.radius}
-          min={0.05 * u} max={1.5 * u} step={0.01 * u}
-          display={`${(walkerCfg.radius / u).toFixed(2)} m`}
+          min={0.05 * u} max={1.5 * u} step={0.01 * u} scale={u} unit="m"
           onChange={(x) => { walkerCfg.radius = x; onBump(); }} />
         <Slider label="Near clip — fixes edge spikes" value={walkerCfg.near}
-          min={0.02} max={1} step={0.01} display={walkerCfg.near.toFixed(2)}
+          min={0.02} max={1} step={0.01}
           onChange={(x) => { walkerCfg.near = x; onBump(); }} />
         <Slider label="Movement speed" value={walkerCfg.speedMul}
-          min={0.25} max={3} step={0.05} display={`${walkerCfg.speedMul.toFixed(2)}×`}
+          min={0.25} max={3} step={0.05} unit="×"
           onChange={(x) => { walkerCfg.speedMul = x; onBump(); }} />
         <div className="ed2-seg-mini">
           {([['Slow', 0.5], ['Normal', 1], ['Fast', 2]] as const).map(([l, v]) => (
@@ -1094,8 +1092,8 @@ function HotspotInspector({ ed, hs, activeId, onDelete, onAddTable }: HotspotIns
           <button onClick={() => ed.lookAtHotspot(hs.id)}>Look at</button>
         </div>
         <p className="ed2-muted ed2-fine">Aim the dot in the middle of the view at the wall or object it&apos;s about, then Set to current view. It sits on that surface, so it stays put as visitors walk around.</p>
-        <Slider label="Trigger radius" value={hs.radius} min={0.1} max={3} step={0.05}
-          display={`${hs.radius.toFixed(2)} m`} onChange={(x) => set({ radius: x })} />
+        <Slider label="Trigger radius" value={hs.radius} min={0.1} max={3} step={0.05} unit="m"
+          onChange={(x) => set({ radius: x })} />
       </Section>
 
       {hs.type !== 'audio' && <Section title={hs.type === 'table' || hs.type === 'room' || hs.type === 'hall' ? 'Book now' : 'Content'}>
@@ -1734,8 +1732,7 @@ function TrackInspector({ ed, track, sceneId, onDelete, onBump }: TrackInspector
       </Section>
 
       <Section title="Timing">
-        <Slider label="Length" value={track.seconds || 4} min={1} max={12} step={0.5}
-          display={`${track.seconds || 4}s`}
+        <Slider label="Length" value={track.seconds || 4} min={1} max={12} step={0.5} typedMax={60} unit="s"
           onChange={(x) => editable && (ed.setViewSeconds(track.id, x), onBump())} />
       </Section>
 
@@ -1994,20 +1991,50 @@ interface SliderProps {
   min: number;
   max: number;
   step: number;
-  display: string;
   onChange: (value: number) => void;
+  /** Shown and typed in these units: the box shows value / scale (eye level is
+   *  stored in scan units, shown in metres). */
+  scale?: number;
+  unit?: string;
+  /** A typed value may go past the slider's end, up to this (a 20 s flight on a 12 s slider). */
+  typedMax?: number;
 }
 
-function Slider({ label, value, min, max, step, display, onChange }: SliderProps) {
+/** A slider with a number box beside it: drag, or type an exact value and press
+ *  Enter (Esc puts it back). Typed values are clamped to min…typedMax. */
+function Slider({ label, value, min, max, step, onChange, scale = 1, unit = '', typedMax = max }: SliderProps) {
+  const decimals = Math.max(0, -Math.floor(Math.log10(step / scale) + 1e-9));
+  const shown = (value / scale).toFixed(decimals);
+  const [text, setText] = useState(shown);
+  useEffect(() => setText(shown), [shown]); // dragged, undone, or another item picked
+  const cancelled = useRef(false);
+  // Leaving the box saves it, once; Enter just leaves it, Esc leaves it without saving.
+  const commit = () => {
+    if (cancelled.current) { cancelled.current = false; setText(shown); return; }
+    const n = parseFloat(text);
+    if (!Number.isFinite(n)) { setText(shown); return; }
+    const v = Math.min(typedMax, Math.max(min, n * scale));
+    onChange(v);
+    setText((v / scale).toFixed(decimals));
+  };
   return (
-    <label className="ed2-slider">
+    <div className="ed2-slider">
       <span className="ed2-slider-top">
         <span>{label}</span>
-        <span className="ed2-slider-val">{display}</span>
+        <span className="ed2-slider-val">
+          <input type="number" className="ed2-slider-num" aria-label={unit ? `${label} (${unit})` : label}
+            value={text} min={min / scale} max={typedMax / scale} step={step / scale}
+            onChange={(e) => setText(e.target.value)} onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur();
+              if (e.key === 'Escape') { cancelled.current = true; e.currentTarget.blur(); }
+            }} />
+          {unit}
+        </span>
       </span>
-      <input type="range" min={min} max={max} step={step} value={value}
+      <input type="range" aria-label={label} min={min} max={max} step={step} value={Math.min(max, value)}
         onChange={(e) => onChange(parseFloat(e.target.value))} />
-    </label>
+    </div>
   );
 }
 

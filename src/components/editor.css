@@ -477,6 +477,15 @@
   color: var(--ed-text-dim);
 }
 .ed2-slider-val { color: var(--ed-text); font-family: var(--mono, monospace); font-size: 11px; font-variant-numeric: tabular-nums; }
+/* the typed value beside a slider: looks like the old read-out until you click it */
+.ed2-slider-val { display: inline-flex; align-items: center; gap: 2px; }
+.ed2-slider-num {
+  width: 5.5ch; padding: 1px 3px; border: 1px solid transparent; border-radius: 4px;
+  background: transparent; color: inherit; font: inherit; text-align: right; -moz-appearance: textfield; appearance: textfield;
+}
+.ed2-slider-num::-webkit-inner-spin-button, .ed2-slider-num::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.ed2-slider-num:hover { border-color: var(--ed-line); }
+.ed2-slider-num:focus { border-color: var(--ed-text-dim); background: var(--ed-well); outline: none; }
 .ed2-slider input[type="range"] {
   -webkit-appearance: none; appearance: none; width: 100%; height: 4px;
   border-radius: 999px; background: var(--ed-well); cursor: pointer;
