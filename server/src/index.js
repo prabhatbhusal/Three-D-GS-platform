@@ -16,6 +16,10 @@ import { reservationsRouter } from './routes/reservations.js';
 import { fileURLToPath } from 'url';
 import path from 'path';
 
+// Accounts in Postgres when DATABASE_URL is set (usersStore.js): bring its tables up to date first.
+const db = process.env.DATABASE_URL ? await import('./db.js') : null;
+if (db) await db.migrate();
+
 const app = express();
 const PORT = Number(process.env.PORT) || 4000;
 const DEV = process.env.NODE_ENV !== 'production';
@@ -46,7 +50,11 @@ app.use(express.json({ limit: '2mb' })); // scene JSON docs are small; thumbs ar
 
 // In development it says which copy of the API this is, so a new one (or
 // scripts/dev.mjs) can recognise and stop a copy an editor left running.
-app.get('/api/health', (req, res) => res.json(DEV ? { ok: true, service: 'rcaas-api', pid: process.pid, dir: HERE } : { ok: true }));
+// With a database it is also asked, so an uptime monitor sees the database go down.
+app.get('/api/health', async (req, res) => {
+  const ok = !db || (await db.pool.query('select 1').then(() => true, () => false));
+  res.status(ok ? 200 : 503).json(DEV ? { ok, service: 'rcaas-api', pid: process.pid, dir: HERE } : { ok });
+});
 app.use('/api/scenes', scenesRouter);
 app.use('/api/gallery', galleryRouter);
 app.use('/api/auth', authRouter);

@@ -8,7 +8,8 @@
     "start": "node src/index.js",
     "test": "node --test",
     "assets:push": "node scripts/push-assets.js",
-    "make-admin": "node scripts/make-admin.js"
+    "make-admin": "node scripts/make-admin.js",
+    "db:import-users": "node scripts/import-users.js"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",
@@ -16,6 +17,7 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
+    "pg": "^8.23.1",
     "yauzl": "^3.4.0"
   }
 }

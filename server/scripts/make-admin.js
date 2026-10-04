@@ -37,6 +37,7 @@ if (user.role === 'admin') {
 try {
   await setUserRole(user.id, 'admin');
   console.log(`${user.email} (${user.name}) is now an admin. Sign out and in again in the studio to see the Team panel.`);
+  process.exit(0); // with DATABASE_URL, the open connection would keep it waiting
 } catch (e) {
   console.error(e.message);
   process.exit(1);
