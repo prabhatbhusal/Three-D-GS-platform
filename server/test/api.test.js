@@ -70,6 +70,9 @@ before(async () => {
       PORT: String(PORT),
       DATA_DIR: DATA,
       ASSET_DIR: path.join(DATA, 'assets'),
+      // Never the database in server/.env: tests create and delete accounts.
+      // Set API_TEST_DATABASE_URL to run them against a throwaway Postgres.
+      DATABASE_URL: process.env.API_TEST_DATABASE_URL || '',
       SESSION_SECRET: 'test-secret',
       EDITOR_PASSWORD: 'test-pass',
       EMBED_TOKEN_SECRET: 'test-embed-secret',
@@ -1809,4 +1812,29 @@ test('a 360 camera video is a space: an MP4 in, streamed by byte range; raw INSV
   assert.equal((await api('PUT', '/api/scenes/lobby-360', doc)).status, 200);
   const pub = await api('GET', '/api/scenes/lobby-360/publish');
   assert.ok(!JSON.stringify(pub.json).includes('loads whole'), JSON.stringify(pub.json));
+});
+
+test('forgot password: a known email gets a one-time link by email; an unknown one gets the same answer and no mail', async () => {
+  await signUpUser('Forgetful Fran', 'fran@geonova.com.np');
+  mailbox.length = 0;
+  const waitMail = async () => { for (let i = 0; i < 50 && !mailbox.length; i++) await new Promise((r) => setTimeout(r, 20)); };
+
+  const unknown = await api('POST', '/api/auth/forgot', { email: 'nobody@geonova.com.np' });
+  assert.equal(unknown.status, 200);
+  await waitMail();
+  assert.equal(mailbox.length, 0, 'no mail for an email without an account');
+  assert.equal((await api('POST', '/api/auth/forgot', { email: 'not-an-email' })).status, 400);
+
+  const known = await api('POST', '/api/auth/forgot', { email: 'FRAN@geonova.com.np' });
+  assert.deepEqual([known.status, known.json], [unknown.status, unknown.json], 'same answer either way');
+  await waitMail();
+  assert.equal(mailbox.length, 1);
+  assert.deepEqual(mailbox[0].to, ['fran@geonova.com.np']);
+  const token = /\/login\?reset=([\w-]+)/.exec(mailbox[0].text)?.[1];
+  assert.ok(token, 'the mail carries the reset link');
+
+  assert.equal((await api('POST', '/api/auth/reset', { token, password: 'fresh-start-9' })).status, 200);
+  assert.equal((await api('POST', '/api/auth/reset', { token, password: 'again-again-9' })).status, 400, 'once only');
+  assert.equal((await api('POST', '/api/auth/login', { email: 'fran@geonova.com.np', password: 'plenty-long-8' })).status, 401, 'old password gone');
+  assert.equal((await api('POST', '/api/auth/login', { email: 'fran@geonova.com.np', password: 'fresh-start-9' })).status, 200);
 });

@@ -13,7 +13,8 @@
 import { Router } from 'express';
 import { timingSafeEqual } from 'crypto';
 import { issueSession, clearSession, readSession, staleReason } from '../middleware/auth.js';
-import { createUser, verifyUser, getUserById, resetPassword } from '../usersStore.js';
+import { createUser, verifyUser, getUserById, getUserByEmail, resetPassword, createResetToken } from '../usersStore.js';
+import { sendMail } from '../mailer.js';
 
 export const authRouter = Router();
 
@@ -115,6 +116,37 @@ authRouter.post('/reset', async (req, res, next) => {
     res.json({ authenticated: true, user });
   } catch (err) {
     next(err);
+  }
+});
+
+/** "Forgot password": emails the account a one-time link (the same kind an
+ *  admin makes, /login?reset=…, a day, once). The answer is the same whether
+ *  or not the email has an account, and the mail is sent after replying, so
+ *  neither the reply nor its timing tells anyone who has one. */
+authRouter.post('/forgot', async (req, res, next) => {
+  try {
+    if (rateLimited(ipOf(req))) return res.status(429).json(TOO_MANY);
+    if (!process.env.RESEND_API_KEY) {
+      return res.status(503).json({ error: 'Email isn’t set up on this server. Ask an admin for a reset link.' });
+    }
+    const email = str(req.body?.email).trim();
+    if (!EMAIL_RE.test(email) || email.length > 200) return res.status(400).json({ error: 'Enter a valid email address.' });
+    res.json({ ok: true });
+
+    const user = await getUserByEmail(email);
+    if (!user) return;
+    const link = await createResetToken(user.id);
+    const url = `${(process.env.CLIENT_ORIGIN || 'http://localhost:3000').replace(/\/$/, '')}/login?reset=${link.token}`;
+    const sent = await sendMail({
+      to: [user.email],
+      subject: 'Reset your RCAAS.tech password',
+      text: `Hello ${user.name},\n\nSomeone asked to reset the password for this account. To choose a new one, open:\n\n${url}\n\n` +
+        'The link works once, for 24 hours. If it wasn’t you, ignore this email: your password stays as it is.'
+    });
+    if (!sent.sent) console.warn('[auth] reset email not sent:', sent.reason);
+  } catch (err) {
+    if (res.headersSent) console.error('[auth] forgot:', err.message);
+    else next(err);
   }
 });
 

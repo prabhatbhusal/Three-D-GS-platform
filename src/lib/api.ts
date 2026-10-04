@@ -348,6 +348,9 @@ export const makeResetLink = (id: string) =>
   request<{ path: string; expires: string }>(`/api/team/${encodeURIComponent(id)}/reset`, { method: 'POST' });
 export const removeTeammate = (id: string) =>
   request<{ projectsReassigned: number }>(`/api/team/${encodeURIComponent(id)}`, { method: 'DELETE' });
+/** "Forgot password": the server emails a reset link if the email has an account. */
+export const requestPasswordReset = (email: string) =>
+  request<{ ok: true }>('/api/auth/forgot', { method: 'POST', body: JSON.stringify({ email }) });
 /** Set a new password from a reset link, and sign in with it. */
 export const resetPasswordWith = (token: string, password: string) =>
   request<SessionReply>('/api/auth/reset', { method: 'POST', body: JSON.stringify({ token, password }) });

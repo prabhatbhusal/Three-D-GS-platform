@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { getSession, login, resetPasswordWith, signup } from '../lib/api';
+import { getSession, login, requestPasswordReset, resetPasswordWith, signup } from '../lib/api';
 
 type Mode = 'signin' | 'signup';
 
@@ -32,6 +32,7 @@ export function AuthPanel() {
   const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [forgot, setForgot] = useState(false);
 
   // Already signed in: skip the form.
   useEffect(() => {
@@ -56,6 +57,7 @@ export function AuthPanel() {
   };
 
   if (resetToken) return <ResetPanel token={resetToken} />;
+  if (forgot) return <ForgotPanel initialEmail={email} onBack={() => setForgot(false)} />;
 
   const isSignup = mode === 'signup';
 
@@ -114,6 +116,9 @@ export function AuthPanel() {
         )}
 
         {error && <p className="auth-error" role="alert">{error}</p>}
+        {!isSignup && (
+          <button type="button" className="auth-link" onClick={() => { setForgot(true); setError(''); }}>Forgot password?</button>
+        )}
 
         <button type="submit" className="site-btn site-btn-primary site-btn-lg auth-submit" disabled={busy}>
           {busy ? (isSignup ? 'Creating account…' : 'Signing in…') : isSignup ? 'Create account' : 'Sign in'}
@@ -178,6 +183,54 @@ function ResetPanel({ token }: { token: string }) {
           {busy ? 'Saving…' : 'Set password and sign in'}
         </button>
       </form>
+    </div>
+  );
+}
+
+/** "Forgot password": asks the server to email a one-time reset link. It
+ *  says the same thing whether or not the email has an account. */
+function ForgotPanel({ initialEmail, onBack }: { initialEmail: string; onBack: () => void }) {
+  const [email, setEmail] = useState(initialEmail);
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState('');
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      await requestPasswordReset(email);
+      setSent(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong. Try again.');
+    }
+    setBusy(false);
+  };
+
+  return (
+    <div className="auth-card">
+      <h1 className="auth-title">Reset your <em>password</em></h1>
+      {sent ? (
+        <p className="auth-sub" role="status">If {email} has an account, a reset link is on its way. It works once, for 24 hours. Check spam if it hasn&apos;t arrived in a few minutes.</p>
+      ) : (
+        <>
+          <p className="auth-sub">Enter your account&apos;s email and we&apos;ll send you a link to choose a new password.</p>
+          <form className="auth-form" onSubmit={submit}>
+            <label className="auth-field">
+              <span>Email</span>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required placeholder="you@company.com" />
+            </label>
+            {error && <p className="auth-error" role="alert">{error}</p>}
+            <button type="submit" className="site-btn site-btn-primary site-btn-lg auth-submit" disabled={busy}>
+              {busy ? 'Sending…' : 'Send reset link'}
+            </button>
+          </form>
+        </>
+      )}
+      <p className="auth-foot">
+        <button type="button" className="auth-link" onClick={onBack}>Back to sign in</button>
+      </p>
     </div>
   );
 }

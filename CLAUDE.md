@@ -35,6 +35,7 @@ exist, and `deploy/` is ready for when hosting is picked up again.
 - `src/lib/useLccWalker.ts`: Walk/Fly/Orbit camera plus capsule collision via `renderer.intersectsCapsule`.
 - `src/lib/collision.ts`: floor probes, orbit line of sight, collision-box math (`capsuleBoxPush`, `withColliders`).
 - `src/lib/sceneDoc.ts`: in-memory scene doc (hotspots, colliders, booking), load/save/dirty tracking. `history.ts` handles undo/redo over it.
+- `server/src/db.js`: the Postgres pool, `tx()` and `migrate()` (`server/db/*.sql`). Used only when `DATABASE_URL` is set.
 - `server/src/store.js` holds scenes and publish snapshots (`<id>@<n>.json`); `migrate.js` migrates on read; `routes/*` are the API; `storage.js`/`storage-s3.js` are the asset drivers.
 - `deploy/`: VPS scripts (`deploy.sh`, pm2 `ecosystem.config.cjs`, `nginx.conf`, `README.md`).
 
@@ -84,6 +85,9 @@ Terms: **Property/project** = one client. **Space** = one captured room/scene do
 - **Tour start:** `/tour` reads only the opened project's published docs, not every client's. Their view thumbnails come as links (`/api/scenes/:id/published/thumbs/<track>.jpg`), not inline base64: the Basera lobby is 1 KB before its first frame, down from 470 KB. Drafts, and so the studio, keep the data URLs, because the studio saves them back.
 - **Quality downgrade mid-visit:** when the tier monitor reloads the same space at a lower quality, the visitor keeps their place, mode and flight (`useSceneManager` load, `App.tsx settledIn`). It used to teleport them back to the start view.
 - **AI concierge** (needs `ANTHROPIC_API_KEY`): answers from published info only.
+- **Accounts in Postgres (2026-10-04):** with `DATABASE_URL` in `server/.env` (Supabase, Singapore, session pooler), studio accounts live in `app.users` (`usersStore-pg.js`); without it, in JSON files (`usersStore-file.js`). `usersStore.js` picks one. Migrations are `server/db/*.sql`, applied on API start (`db.js migrate`, recorded in `app.schema_migrations`); the `app` schema isn't exposed by Supabase's Data API and has RLS on. `npm run db:import-users` copies file accounts in (ids and passwords kept). `/api/health` answers 503 when the database is down. Plain Postgres through `pg`: moving off Supabase is `pg_dump` + a new URL.
+- **Forgot password (2026-10-04):** "Forgot password?" on `/login` (`AuthPanel.tsx ForgotPanel`) → `POST /api/auth/forgot` emails a one-time link (24 h, once) through Resend. Same answer whether or not the email has an account, and the mail goes after the reply. Without `RESEND_API_KEY` it says to ask an admin for a link.
+- **Policy pages (2026-10-04):** `/terms`, `/privacy`, `/security` (`PolicyPage.tsx`, `.lp-legal` in `landing.css`), linked from every marketing page's footer. Written to match what the code does (no cookies or IPs in stats, the concierge stores nothing, providers named). Drafts: they need a lawyer's review before launch.
 - **Storage:** local disk or S3/R2 (`ASSET_DRIVER=s3`), `npm run assets:push` to migrate. Scan files are served with a 1-year immutable cache.
 
 ### Needs fixing
@@ -93,7 +97,9 @@ Terms: **Property/project** = one client. **Space** = one captured room/scene do
 - **Collision boxes:** no click-to-select in the 3D view (select from the tree), yaw-only rotation (no ramps), a box doesn't follow the model if the model is moved later (same as hotspots).
 - Studio tab converts FBX/OBJ on the main thread, so a huge model freezes the tab during upload.
 - Unreferenced uploaded files (removed audio, deleted spaces' old assets) are never garbage-collected.
-- No self-service password reset by email. Only the admin one-time link exists.
+- **Only accounts are in Postgres.** Projects, spaces, sites, bookings, leads, activity and stats are still JSON files in `DATA_DIR`. Move them one store at a time, behind the same exports. The API tests never use `server/.env`'s database (they set `DATABASE_URL` to `API_TEST_DATABASE_URL` or empty), and CI doesn't run them against Postgres yet.
+- **Forgot password sends no real email yet:** `RESEND_API_KEY` (and a verified `LEADS_FROM` domain) aren't set on this PC.
+- **Policy pages name Cloudflare storage and HTTPS,** which are only true once hosting is live (scans are on this PC's disk today).
 - **Events:** no waitlist for a taken hall (rooms and tables have one), no calendar grid (a plain date field, with taken parts of the day struck out once a hall and day are picked), and no preview of real availability in the studio's website preview.
 - **Hotspot Book now requests** for rooms and halls check no availability: two guests can ask for the same room on the same night, and the team sorts it out when confirming. Tables do check. There is no waitlist for any of them.
 - **Dining places:** a table hotspot pointing at a place whose booking is off opens the first place that takes bookings.
@@ -109,7 +115,7 @@ Terms: **Property/project** = one client. **Space** = one captured room/scene do
 3. Measure first frame on a low-end Android over 4G (target < 5 s) and fix what the numbers show.
 
 ### Not now (don't start without a decision)
-VR/headset mode, measurement tool, furniture/layout variants, side-by-side compare, CRM sync, live booking-engine availability, self-serve capture from phone video, a database migration (JSON files are fine at this scale).
+VR/headset mode, measurement tool, furniture/layout variants, side-by-side compare, CRM sync, live booking-engine availability, self-serve capture from phone video, Supabase Auth/Storage/Edge Functions (they'd tie us to Supabase; we use it as plain Postgres).
 
 ## 5. Working efficiently here (for Claude)
 

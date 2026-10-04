@@ -38,6 +38,12 @@ export function SitePage({ children, contact = true }: { children: React.ReactNo
                 <a href="https://geonova.com.np/about-us" target="_blank" rel="noreferrer">GeoNova</a>
                 <a href="https://www.linkedin.com/company/geonova-solutions-pvt-ltd/" target="_blank" rel="noreferrer">LinkedIn</a>
               </div>
+              <div>
+                <p className="lp-foot-h">Legal</p>
+                <Link href="/terms" transitionTypes={['nav-forward']}>Terms of Service</Link>
+                <Link href="/privacy" transitionTypes={['nav-forward']}>Privacy Policy</Link>
+                <Link href="/security" transitionTypes={['nav-forward']}>Security Policy</Link>
+              </div>
             </nav>
           </div>
           <div className="lp-foot-base">
