@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { POLICY_CONTACT, PolicyPage } from '../../../components/PolicyPage';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/security' },
   title: 'Security Policy',
   description: 'How RCAAS.tech protects accounts, guests’ details and client tours, and how to report a security problem.'
 };

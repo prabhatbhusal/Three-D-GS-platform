@@ -1,4 +1,5 @@
 import { SiteNav } from '../../components/SiteNav';
+import { SiteJsonLd } from '../../components/JsonLd';
 import '../../components/site.css';
 import '../../components/landing.css';
 
@@ -8,6 +9,7 @@ import '../../components/landing.css';
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
   return (
     <main className="site lp">
+      <SiteJsonLd />
       <SiteNav />
       {children}
     </main>

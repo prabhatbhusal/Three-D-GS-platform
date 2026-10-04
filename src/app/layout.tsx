@@ -1,12 +1,18 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { SITE_URL } from '../lib/shareMeta';
 
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: { default: 'RCAAS.tech', template: '%s — RCAAS.tech' },
+  description: 'Walkable 3D virtual tours of hotels, restaurants, venues, colleges and heritage sites, captured with LiDAR in Nepal, with enquiry and booking forms inside the tour.',
+  applicationName: 'RCAAS.tech',
+  openGraph: { siteName: 'RCAAS.tech', type: 'website', locale: 'en_US' },
+  twitter: { card: 'summary_large_image' },
   icons: { icon: '/favicon.svg' }
 };
 

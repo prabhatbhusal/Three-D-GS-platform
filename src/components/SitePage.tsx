@@ -43,6 +43,7 @@ export function SitePage({ children, contact = true }: { children: React.ReactNo
                 <Link href="/terms" transitionTypes={['nav-forward']}>Terms of Service</Link>
                 <Link href="/privacy" transitionTypes={['nav-forward']}>Privacy Policy</Link>
                 <Link href="/security" transitionTypes={['nav-forward']}>Security Policy</Link>
+                <Link href="/cookies" transitionTypes={['nav-forward']}>Cookie Policy</Link>
               </div>
             </nav>
           </div>

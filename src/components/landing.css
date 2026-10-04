@@ -1247,3 +1247,9 @@ html.gs :is(.lp-win, .lp-spec, .lp-four li, .lp-sectors li, .lp-svc, .lp-entry, 
 .lp-legal-list p { margin: 0 0 12px; }
 .lp-legal-list ul { margin: 0 0 12px; padding-left: 20px; }
 .lp-legal-list a { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+
+/* The FAQ (How it works): every answer visible, so crawlers and readers see the same text. */
+.lp-faq dl { max-width: 46rem; margin: 0 auto; }
+.lp-faq dl > div { padding: 22px 0; border-top: 1px solid var(--raise); }
+.lp-faq dt { font: 700 19px/1.35 var(--sans); }
+.lp-faq dd { margin: 8px 0 0; color: var(--dim); font-size: 16px; line-height: 1.65; }

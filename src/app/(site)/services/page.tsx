@@ -5,6 +5,7 @@ import { media } from '../../../lib/media';
 import { SERVICES } from '../../../lib/siteContent';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/services' },
   title: 'Services',
   description: 'Virtual tours that take enquiries, point clouds, BIM-ready models, measured drawings and heritage records, from one LiDAR walk-through.'
 };

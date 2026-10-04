@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { POLICY_CONTACT, PolicyPage } from '../../../components/PolicyPage';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/privacy' },
   title: 'Privacy Policy',
   description: 'What RCAAS.tech collects when you visit a tour, send an enquiry or book, who sees it, and how to have it removed.'
 };
@@ -24,7 +25,7 @@ const SECTIONS = [
         <li><b>Visit counts</b>: how many visits a tour gets, how long people spend in each space, and which hotspots are opened. These are totals only. We set no tracking cookies and do not store your IP address or anything else that identifies you.</li>
         <li><b>Questions to the tour concierge</b>, where a client has switched it on. Your question is sent to our AI provider to write the answer and is not stored by us.</li>
         <li><b>Studio accounts</b> for our team and our clients&apos; staff: name, email, role and password. Passwords are stored only as a salted hash, never as you typed them.</li>
-        <li><b>Settings in your browser</b>, such as language, sound on or off, picture quality and light or dark theme. They stay on your device and are not sent to us.</li>
+        <li><b>Settings in your browser</b>, such as language, sound on or off, picture quality and light or dark theme. They stay on your device and are not sent to us. The only cookie we set keeps a studio user signed in; see our <a href="/cookies">Cookie Policy</a>.</li>
       </ul>
     )
   },

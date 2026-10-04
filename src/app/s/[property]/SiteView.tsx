@@ -4,7 +4,7 @@ import { Fragment } from 'react';
 import { API_BASE_URL, photoSize, whatsappHref, type PublicSite, type SiteBooking, type SiteMenu } from '../../../lib/api';
 import type { BrandFont } from '../../../@types/config.types';
 import { inkOn } from '../../../lib/brandColor';
-import { AskAbout, BookThisHall, BookThisRoom, SiteEnquire, SiteGallery, SiteReveal, SiteTour, ViewIn3D } from './SiteParts';
+import { AskAbout, BookThisHall, BookThisRoom, SiteEnquire, SiteGallery, SiteMap, SiteReveal, SiteTour, ViewIn3D } from './SiteParts';
 import { TableBooking } from '../../../components/TableBooking';
 import { RoomBooking } from '../../../components/RoomBooking';
 import { EventBooking } from '../../../components/EventBooking';
@@ -361,8 +361,7 @@ export function SiteView({ data, preview = false, review = false }: {
           )}
         </div>
         {info.address && (
-          <iframe className="ws-map" title={`Map: ${info.address}`} loading="lazy" referrerPolicy="no-referrer-when-downgrade"
-            src={`https://www.google.com/maps?q=${encodeURIComponent(info.address)}&z=15&output=embed`} />
+          <SiteMap address={info.address} />
         )}
       </section>
 

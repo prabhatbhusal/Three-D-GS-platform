@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import '../../components/site.css';
+import { NOINDEX } from '../../lib/shareMeta';
 
-export const metadata: Metadata = { title: 'Profile' };
+export const metadata: Metadata = { title: 'Profile', robots: NOINDEX };
 
 export default function ProfilePage() {
   return (

@@ -7,6 +7,7 @@ import { frames, media } from '../../lib/media';
 import { MODES, SECTORS, SPECS, STEPS, WINS } from '../../lib/siteContent';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/' },
   title: { absolute: 'RCAAS.tech — Reality Capture As A Service' },
   description:
     'RCAAS.tech scans hotels, colleges, heritage sites and infrastructure with handheld LiDAR and publishes them as live 3D tours that open on any phone.'

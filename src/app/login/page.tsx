@@ -4,8 +4,9 @@ import { Suspense } from 'react';
 import { AuthPanel } from '../../components/AuthPanel';
 import { SplatField } from '../../components/SplatField';
 import '../../components/site.css';
+import { NOINDEX } from '../../lib/shareMeta';
 
-export const metadata: Metadata = { title: 'Sign in' };
+export const metadata: Metadata = { title: 'Sign in', robots: NOINDEX };
 
 /** Fully static now — AuthPanel reads ?mode=/?next= itself via
  *  useSearchParams(), which is what lets this page prerender at build time

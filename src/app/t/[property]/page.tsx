@@ -45,11 +45,14 @@ export async function generateMetadata({ params }: { params: Promise<{ property:
   const hub = await load(property);
   if (!hub) return { title: 'Not found' };
   const name = hub.theme.brand || hub.title;
-  return shareMeta(
+  return {
+    ...shareMeta(
     `${name} — virtual tour`,
     `Walk ${name} in 3D: ${hub.spaces.map((s) => s.title).join(', ')}. Send an enquiry from inside the room.`,
     apiUrl(hub.spaces.find((s) => s.thumb)?.thumb) ?? (hub.theme.logo ? `${API_BASE_URL}/api/assets/${hub.theme.logo}` : null)
-  );
+    ),
+    alternates: { canonical: `/t/${encodeURIComponent(property)}` }
+  };
 }
 
 export default async function HubPage({ params }: { params: Promise<{ property: string }> }) {

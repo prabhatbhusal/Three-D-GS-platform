@@ -108,3 +108,60 @@ export const STEPS = [
 ];
 
 export const KIT = ['Lixel Kity K1', 'Lixel L2 Pro', 'PortalCam', 'Lixel Studio', 'Lixel CyberColor (LCC)'];
+
+/** Who we are, in one place: the structured data (SiteJsonLd), /llms.txt
+ *  and the policy pages read it. */
+export const COMPANY = {
+  brand: 'RCAAS.tech',
+  name: 'GeoNova Solutions Pvt. Ltd.',
+  summary: 'Reality Capture As A Service: walkable 3D virtual tours of hotels, restaurants, venues, colleges and heritage sites, captured with LiDAR in Nepal, with enquiry and booking forms inside the tour.',
+  phone: '+977 984 678 9573',
+  email: 'info@geonova.com.np',
+  locality: 'Kageshwari-Manohara',
+  city: 'Kathmandu',
+  country: 'NP',
+  hours: 'Sunday to Friday, 10:00 to 17:30',
+  sameAs: ['https://geonova.com.np/about-us', 'https://www.linkedin.com/company/geonova-solutions-pvt-ltd/']
+};
+
+/** Questions people ask before booking a capture, answered in a sentence or
+ *  two from what this site already states. Shown on How it works and marked
+ *  up as FAQPage there, so search and AI answers can quote them. */
+export const FAQ = [
+  {
+    q: 'What is a Gaussian-splat virtual tour?',
+    a: 'A photographic 3D copy of a real space, made from a LiDAR scan. Visitors walk, fly or orbit through it in the browser, instead of jumping between fixed 360° photos.'
+  },
+  {
+    q: 'Do visitors need an app or a powerful computer?',
+    a: 'No. The tour opens from one link in an ordinary phone or computer browser, with no app and no plugin. It streams only what the camera sees, so large scans open quickly.'
+  },
+  {
+    q: 'How do you capture a space?',
+    a: 'We walk through it once with a handheld XGRIDS Lixel Kity K1 scanner, which records 200,000 points a second, with colour from two panoramic cameras.'
+  },
+  {
+    q: 'How accurate is the scan?',
+    a: '±1.2 cm relative accuracy, the published specification of the XGRIDS Lixel K1 scanner we use.'
+  },
+  {
+    q: 'How long does it take to get a tour on my website?',
+    a: 'Days, not months, from the first walk-through to a link on your website.'
+  },
+  {
+    q: 'Can visitors enquire or book from inside the tour?',
+    a: 'Yes. Every tour has an enquiry form inside the room. Hotels, restaurants and venues can also take room, table and event booking requests, which the business confirms or declines.'
+  },
+  {
+    q: 'Can I put the tour on my own website?',
+    a: 'Yes. We host the tour and give you one link and an embed code for your site, and we republish it when the space changes.'
+  },
+  {
+    q: 'What else can one scan produce?',
+    a: 'Besides the tour: georeferenced point clouds and BIM-ready models, floor plans, elevations and sections, heritage documentation, and infrastructure asset records.'
+  },
+  {
+    q: 'Where do you work?',
+    a: 'We are GeoNova Solutions, based in Kathmandu and an authorised XGRIDS partner in Nepal. For a space elsewhere, call or email us.'
+  }
+];

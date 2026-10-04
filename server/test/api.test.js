@@ -1149,6 +1149,10 @@ test('a project website: draft, photos, publish, and a public page that only sho
   assert.match(pub.tour.key, /^[\w-]{24}$/);
   assert.deepEqual(pub.site.rooms.map((r) => [r.title, r.space, r.view]),
     [['Lobby', 'site-lobby', 'vp-door'], ['Borrowed', '', ''], ['Bad photo', '', '']], 'another project’s space is dropped');
+  // the sitemap's list: published websites only, readable signed out
+  const listed = (await api('GET', '/api/sites')).json;
+  assert.ok(listed.some((s) => s.id === pid && s.publishedAt), 'a published website is listed');
+  assert.ok(!listed.some((s) => s.id === other), 'a project without a published website is not');
   assert.equal((await api('PUT', `/api/sites/${pid}/draft`, {})).status, 401);
 });
 

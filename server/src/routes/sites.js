@@ -230,6 +230,20 @@ export async function publicStays(pid, site) {
   return { ...cfg, rooms };
 }
 
+/** Every published website, for the sitemap: which projects, and when they
+ *  last changed. Only what /s/<project> already shows anyone. */
+sitesRouter.get('/', wrap(async (req, res) => {
+  let files;
+  try { files = await fs.readdir(SITES_DIR); } catch { files = []; }
+  const out = [];
+  for (const f of files.filter((x) => x.endsWith('.json'))) {
+    const pid = f.slice(0, -5);
+    const saved = await readSite(pid);
+    if (saved?.published && (await getProperty(pid))) out.push({ id: pid, publishedAt: saved.publishedAt ?? null });
+  }
+  res.json(out);
+}));
+
 sitesRouter.get('/:id', wrap(async (req, res) => {
   const p = await getProperty(req.params.id);
   const saved = p && (await readSite(p.id));

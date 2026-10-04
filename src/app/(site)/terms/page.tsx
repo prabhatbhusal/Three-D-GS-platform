@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { POLICY_CONTACT, PolicyPage } from '../../../components/PolicyPage';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/terms' },
   title: 'Terms of Service',
   description: 'The terms for using RCAAS.tech tours, client websites and the studio, run by GeoNova Solutions Pvt. Ltd.'
 };

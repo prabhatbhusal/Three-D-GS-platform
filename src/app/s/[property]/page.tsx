@@ -29,11 +29,14 @@ export async function generateMetadata({ params }: { params: Promise<{ property:
   const name = s.project.theme.brand || s.project.title;
   // The site's first photo, a room's, the logo, else its tour's picture if it has one.
   const photo = s.site.gallery?.[0] ?? s.site.rooms?.find((r) => r.image)?.image ?? (s.project.theme.logo || null);
-  return shareMeta(
+  return {
+    ...shareMeta(
     s.site.hero.title || name,
     s.site.hero.lede || `${name}, in 3D.`,
     photo ? `${API_BASE_URL}/api/assets/${photo}` : apiUrl(s.tour?.thumb)
-  );
+    ),
+    alternates: { canonical: `/s/${encodeURIComponent(property)}` }
+  };
 }
 
 export default async function WebsitePage({ params }: { params: Promise<{ property: string }> }) {

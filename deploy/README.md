@@ -45,6 +45,7 @@ Create `/srv/rcaas/app/.env.production` (read at build time):
 
 ```sh
 NEXT_PUBLIC_API_URL=https://example.com
+NEXT_PUBLIC_SITE_URL=https://example.com   # canonical links, sitemap.xml, robots.txt, llms.txt
 ```
 
 Then:

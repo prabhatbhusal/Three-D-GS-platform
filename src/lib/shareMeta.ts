@@ -1,5 +1,12 @@
 import type { Metadata } from 'next';
 
+/** The public address of this site, for canonical links, the sitemap and
+ *  structured data. Set NEXT_PUBLIC_SITE_URL in production (.env.production). */
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '');
+
+/** For pages that must never appear in search results (studio, sign-in, review links). */
+export const NOINDEX: Metadata['robots'] = { index: false, follow: false };
+
 /** Link-preview tags, so a link pasted into WhatsApp or Facebook shows a
  *  title, a line and a picture. `image` must be an absolute URL (api.ts apiUrl
  *  makes one from an API path). */

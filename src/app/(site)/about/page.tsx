@@ -5,6 +5,7 @@ import { media } from '../../../lib/media';
 import { KIT } from '../../../lib/siteContent';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/about' },
   title: 'About',
   description: 'RCAAS.tech is the reality-capture service of GeoNova Solutions, Kathmandu, an authorised XGRIDS partner in Nepal.'
 };

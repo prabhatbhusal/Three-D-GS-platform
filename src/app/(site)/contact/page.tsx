@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { ContactWays, PageHead, SitePage } from '../../../components/SitePage';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/contact' },
   title: 'Contact',
   description: 'Book a LiDAR capture of your hotel, campus, heritage site or building. GeoNova Solutions, Kathmandu.'
 };

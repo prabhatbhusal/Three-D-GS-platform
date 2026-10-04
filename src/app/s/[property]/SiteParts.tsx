@@ -19,6 +19,25 @@ export function SiteTour({ src, title }: { src: string; title: string }) {
 }
 
 /** Scrolls up to the tour and sends it to this room's view (Viewer.tsx listens). */
+/** The Google map beside the contact section, loaded only when the visitor
+ *  asks: until then Google sets no cookies on them (the /cookies page says so). */
+export function SiteMap({ address }: { address: string }) {
+  const [on, setOn] = useState(false);
+  if (on) {
+    return (
+      <iframe className="ws-map" title={`Map: ${address}`} referrerPolicy="no-referrer-when-downgrade"
+        src={`https://www.google.com/maps?q=${encodeURIComponent(address)}&z=15&output=embed`} />
+    );
+  }
+  return (
+    <button type="button" className="ws-map ws-map-off" onClick={() => setOn(true)}>
+      <b>Show map</b>
+      <span>{address}</span>
+      <small>Loads Google Maps</small>
+    </button>
+  );
+}
+
 export function ViewIn3D({ space, view }: { space: string; view: string }) {
   return (
     <button type="button" className="ws-link" onClick={() => {

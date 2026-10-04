@@ -2,11 +2,13 @@ import type { Metadata } from 'next';
 import { StepMedia } from '../../../components/SiteMotion';
 import { PageHead, SitePage } from '../../../components/SitePage';
 import { media } from '../../../lib/media';
-import { STEPS } from '../../../lib/siteContent';
+import { FAQ, STEPS } from '../../../lib/siteContent';
+import { FaqJsonLd } from '../../../components/JsonLd';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/how-it-works' },
   title: 'How it works',
-  description: 'Capture, process, author, publish: how a LiDAR walk-through becomes a live 3D tour on your website.'
+  description: 'Capture, process, author, publish: how a LiDAR walk-through becomes a live 3D tour on your website, and answers to common questions.'
 };
 
 export default function HowPage() {
@@ -46,6 +48,22 @@ export default function HowPage() {
           <p><b>Not a video.</b> Rendered live, sharp at any size, and it stops the moment someone wants to look around.</p>
           <p><b>Not a download.</b> Tiles stream as the camera moves, so large scans open quickly.</p>
         </div>
+      </section>
+
+      <section className="lp-band lp-faq" aria-labelledby="faq">
+        <header className="lp-head">
+          <p className="lp-label">Questions</p>
+          <h2 id="faq">Asked <em>before</em> every capture</h2>
+        </header>
+        <dl>
+          {FAQ.map((f) => (
+            <div key={f.q}>
+              <dt>{f.q}</dt>
+              <dd>{f.a}</dd>
+            </div>
+          ))}
+        </dl>
+        <FaqJsonLd />
       </section>
     </SitePage>
   );

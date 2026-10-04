@@ -5,6 +5,7 @@ import { SitePage } from '../../../components/SitePage';
 import { API_BASE_URL, withoutNightVersions, type GalleryItem } from '../../../lib/api';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/gallery' },
   title: 'Gallery',
   description: 'Published interactive 3D tours of hotels, halls and spaces.'
 };

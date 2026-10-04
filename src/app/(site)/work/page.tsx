@@ -5,6 +5,7 @@ import { media } from '../../../lib/media';
 import { STATUS, WORK } from '../../../lib/siteContent';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/work' },
   title: 'Work',
   description: 'Places RCAAS.tech has captured: Gwarko Overpass, Madan Ashrit and Nepathya colleges, and Basera Boutique Hotel.'
 };
