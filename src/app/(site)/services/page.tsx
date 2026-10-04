@@ -10,6 +10,7 @@ export const metadata: Metadata = {
   description: 'Virtual tours that take enquiries, point clouds, BIM-ready models, measured drawings and heritage records, from one LiDAR walk-through.'
 };
 
+/** Services: everything one scan can become (lib/siteContent.ts SERVICES). */
 export default function ServicesPage() {
   const items = SERVICES.map((s) => ({ ...s, media: media(`services/${s.k}`) }));
 

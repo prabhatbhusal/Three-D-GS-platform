@@ -1,3 +1,4 @@
+/** The studio and site theme (dark or light), kept in localStorage and set on <html data-theme>; layout.tsx applies it before the first paint. */
 export type Theme = 'dark' | 'light';
 
 const THEME_KEY = 'threedview-theme';

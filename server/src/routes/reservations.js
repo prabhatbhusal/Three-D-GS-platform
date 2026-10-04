@@ -79,6 +79,7 @@ reservationsRouter.get('/:id/booking', wrap(async (req, res) => {
   res.json({ booking: liveBooking(published, outletOf(req.query.outlet)), places });
 }));
 
+// Free table times on a day, at the main or another dining place (?outlet=).
 reservationsRouter.get('/:id/availability', wrap(async (req, res) => {
   await sendAvailability(req, res, await bookingOf(req.params.id, outletOf(req.query.outlet)));
 }));
@@ -127,6 +128,7 @@ reservationsRouter.get('/:id/stays', wrap(async (req, res) => {
   res.json({ stays: p ? await publicStays(p.id, (await readSite(p.id))?.published) : null });
 }));
 
+// Rooms left per night: the room booking calendar.
 reservationsRouter.get('/:id/stays/availability', wrap(async (req, res) => {
   await sendCalendar(res, await staysOf(req.params.id));
 }));
@@ -153,6 +155,7 @@ reservationsRouter.get('/:id/events', wrap(async (req, res) => {
   res.json({ events: p ? await publicEvents(p.id, (await readSite(p.id))?.published) : null });
 }));
 
+// Which halls are taken, and for which part of each day.
 reservationsRouter.get('/:id/events/availability', wrap(async (req, res) => {
   const b = await eventsOf(req.params.id);
   if (!b) return res.status(404).json(NO_EVENTS);
@@ -212,6 +215,7 @@ const shortDay = (date) => new Date(`${date}T12:00:00Z`).toLocaleDateString('en-
 const siteLink = (pid) => `${(process.env.CLIENT_ORIGIN || 'http://localhost:3000').replace(/\/$/, '')}/s/${pid}`;
 const venueOf = (p) => p.theme?.brand || p.title;
 
+// A guest's table booking request from the website.
 reservationsRouter.post('/:id/reservations', wrap(async (req, res) => {
   const g = guestFrom(req, res);
   if (!g) return;
@@ -246,6 +250,7 @@ reservationsRouter.post('/:id/reservations', wrap(async (req, res) => {
       ['Day', dayName(date)], ['Time', time], ['Notes', r.notes]]);
 }));
 
+// A guest's room booking request from the website.
 reservationsRouter.post('/:id/stays', wrap(async (req, res) => {
   const g = guestFrom(req, res);
   if (!g) return;
@@ -280,6 +285,7 @@ reservationsRouter.post('/:id/stays', wrap(async (req, res) => {
       ['Check-in', `${dayName(r.checkin)}, from ${cfg.checkin}`], ['Check-out', `${dayName(r.checkout)}, by ${cfg.checkout}`], ['Nights', nights], ['Notes', r.notes]]);
 }));
 
+// A guest's hall (event) booking request from the website.
 reservationsRouter.post('/:id/events', wrap(async (req, res) => {
   const g = guestFrom(req, res);
   if (!g) return;
@@ -362,6 +368,7 @@ const requestWhen = (r) => r.of === 'room' ? `${shortDay(r.checkin)} → ${short
   : r.of === 'hall' ? `${shortDay(r.date)}, ${SESSION_LABEL[r.session]?.toLowerCase() ?? ''}`
     : `${shortDay(r.date)} at ${r.time}`;
 
+// Book now on a table, room or hall hotspot in the tour. Tables and halls refuse a clash (409).
 reservationsRouter.post('/:id/requests', wrap(async (req, res) => {
   const g = guestFrom(req, res);
   if (!g) return;
@@ -426,6 +433,7 @@ reservationsRouter.post('/:id/requests', wrap(async (req, res) => {
       ['Event', r.occasion], ['Price', r.price], ['Deposit', r.deposit], ['Notes', r.notes]]);
 }));
 
+// Join the waitlist for a full day; the guest is told when a place frees up.
 reservationsRouter.post('/:id/waitlist', wrap(async (req, res) => {
   const g = guestFrom(req, res);
   if (!g) return;
@@ -483,6 +491,7 @@ function tellWaiter(p, w) {
   })).catch((err) => console.warn('[waitlist] notice:', err.message));
 }
 
+// The Reservations inbox: every booking and waitlist entry (the team, or the project's staff).
 reservationsRouter.get('/:id/reservations', requireEditorSession, wrap(async (req, res) => {
   const p = await staffProject(req, res);
   if (!p) return;
@@ -495,6 +504,7 @@ reservationsRouter.get('/:id/reservations', requireEditorSession, wrap(async (re
   res.json({ reservations: list, booking, stays, events, dining, today: nowIn(booking?.timezone || stays?.timezone || events?.timezone || 'Asia/Kathmandu').date });
 }));
 
+// Confirm, decline, cancel or reopen a booking, re-checked so it can't double-book; tells the guest.
 reservationsRouter.patch('/:id/reservations/:rid', requireEditorSession, wrap(async (req, res) => {
   const p = await staffProject(req, res);
   if (!p) return;

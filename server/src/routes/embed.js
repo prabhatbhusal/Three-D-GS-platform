@@ -56,6 +56,7 @@ export function siteAllowed(from, sites, own = []) {
 
 const ownSites = () => [siteOf(process.env.CLIENT_ORIGIN || 'http://localhost:3000')];
 
+// May this page embed the space's tour? Checks the embed key and the allowed sites.
 embedRouter.get('/check', wrap(async (req, res) => {
   const space = String(req.query.space ?? '');
   const key = String(req.query.key ?? '');
@@ -68,12 +69,14 @@ embedRouter.get('/check', wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// A space's embed settings and its current key.
 embedRouter.get('/:id', requireEditorSession, sceneGuard, wrap(async (req, res) => {
   const embed = await getEmbed(req.params.id);
   if (!embed) return res.status(404).json({ error: 'That space does not exist.' });
   res.json({ ...embed, key: embedKey(req.params.id, embed.version) });
 }));
 
+// Change embedding: `rotate` retires every old embed code, `sites` sets up to 20 allowed sites.
 embedRouter.post('/:id', requireEditorSession, sceneGuard, wrap(async (req, res) => {
   const current = await getEmbed(req.params.id);
   if (!current) return res.status(404).json({ error: 'That space does not exist.' });

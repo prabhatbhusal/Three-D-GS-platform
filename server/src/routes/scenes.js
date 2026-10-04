@@ -1,3 +1,4 @@
+/** Spaces (scene documents): the studio’s list, load and save, publishing with numbered snapshots, version history, and the public reads of published spaces and their pictures. */
 import { Router } from 'express';
 import {
   listScenes, getScene, saveScene, publishChecks, publishScene, unpublishScene,
@@ -46,6 +47,7 @@ scenesRouter.get('/:id/published', wrap(async (req, res) => {
   res.json({ ...doc, tracks: (doc.tracks ?? []).map((t) => (t.thumb?.startsWith?.('data:') ? { ...t, thumb: link(t) } : t)) });
 }));
 
+// A published camera track's thumbnail, as a JPEG.
 scenesRouter.get('/:id/published/thumbs/:track.jpg', wrap(async (req, res) => {
   const doc = await getPublishedScene(req.params.id);
   sendDataImage(res, doc?.tracks?.find((t) => t.id === req.params.track)?.thumb);
@@ -79,6 +81,7 @@ scenesRouter.get('/:id/publish', requireEditorSession, sceneGuard, wrap(async (r
   });
 }));
 
+// Publish: run the checks, write snapshot n, and return warnings (missing scan files among them).
 scenesRouter.post('/:id/publish', requireEditorSession, sceneGuard, wrap(async (req, res) => {
   const result = await publishScene(req.params.id);
   if (!result) return notFound(res, req.params.id);
@@ -87,6 +90,7 @@ scenesRouter.post('/:id/publish', requireEditorSession, sceneGuard, wrap(async (
   res.status(result.published ? 200 : 422).json(result);
 }));
 
+// Take the space offline; its snapshots stay as history.
 scenesRouter.post('/:id/unpublish', requireEditorSession, sceneGuard, wrap(async (req, res) => {
   const result = await unpublishScene(req.params.id);
   if (!result) return notFound(res, req.params.id);
@@ -94,6 +98,7 @@ scenesRouter.post('/:id/unpublish', requireEditorSession, sceneGuard, wrap(async
   res.json(result);
 }));
 
+// Throw away draft changes: copy the published version back into the draft.
 scenesRouter.post('/:id/revert', requireEditorSession, sceneGuard, wrap(async (req, res) => {
   const doc = await revertToPublished(req.params.id);
   if (!doc) return res.status(404).json({ error: 'Nothing to revert to — this space is not published.' });

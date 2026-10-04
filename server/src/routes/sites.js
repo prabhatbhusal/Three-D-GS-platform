@@ -244,6 +244,7 @@ sitesRouter.get('/', wrap(async (req, res) => {
   res.json(out);
 }));
 
+// A project's published website, ready to render at /s/:project.
 sitesRouter.get('/:id', wrap(async (req, res) => {
   const p = await getProperty(req.params.id);
   const saved = p && (await readSite(p.id));
@@ -304,6 +305,7 @@ async function renderSite(p, site, publishedAt) {
   };
 }
 
+// The website draft for the editor, with the project's spaces and viewpoints for its pickers.
 sitesRouter.get('/:id/draft', requireEditorSession, wrap(async (req, res) => {
   const p = await visibleProject(req, res);
   if (!p) return;
@@ -318,6 +320,7 @@ sitesRouter.get('/:id/draft', requireEditorSession, wrap(async (req, res) => {
   res.json({ draft: cleanSite(saved?.draft, p.id), publishedAt: saved?.publishedAt ?? null, scheduledAt: saved?.scheduled?.at ?? null, spaces });
 }));
 
+// Save the website draft (cleaned and capped by cleanSite).
 sitesRouter.put('/:id/draft', requireEditorSession, wrap(async (req, res) => {
   const p = await visibleProject(req, res);
   if (!p) return;
@@ -328,6 +331,7 @@ sitesRouter.put('/:id/draft', requireEditorSession, wrap(async (req, res) => {
   res.json({ draft, publishedAt: saved.publishedAt ?? null });
 }));
 
+// Publish the saved draft as the live website.
 sitesRouter.post('/:id/publish', requireEditorSession, wrap(async (req, res) => {
   const p = await visibleProject(req, res);
   if (!p) return;
@@ -359,6 +363,7 @@ sitesRouter.post('/:id/schedule', requireEditorSession, wrap(async (req, res) =>
   res.json({ scheduledAt: scheduled.at });
 }));
 
+// Cancel a scheduled publish.
 sitesRouter.delete('/:id/schedule', requireEditorSession, wrap(async (req, res) => {
   const p = await visibleProject(req, res);
   if (!p) return;
@@ -403,6 +408,7 @@ export async function reviewed(pid, key) {
   return timingSafeEqual(Buffer.from(key), Buffer.from(real)) ? saved : null;
 }
 
+// Make, or keep, the client review link for the draft.
 sitesRouter.post('/:id/review', requireEditorSession, wrap(async (req, res) => {
   const p = await visibleProject(req, res);
   if (!p) return;
@@ -416,6 +422,7 @@ sitesRouter.post('/:id/review', requireEditorSession, wrap(async (req, res) => {
   res.json({ key: review.key });
 }));
 
+// Turn the client review link off.
 sitesRouter.delete('/:id/review', requireEditorSession, wrap(async (req, res) => {
   const p = await visibleProject(req, res);
   if (!p) return;
@@ -427,6 +434,7 @@ sitesRouter.delete('/:id/review', requireEditorSession, wrap(async (req, res) =>
   res.json({ key: null });
 }));
 
+// The client's comments and approval, for the team.
 sitesRouter.get('/:id/review/feedback', requireEditorSession, wrap(async (req, res) => {
   const p = await visibleProject(req, res);
   if (!p) return;
@@ -438,6 +446,7 @@ sitesRouter.get('/:id/review/feedback', requireEditorSession, wrap(async (req, r
   });
 }));
 
+// Mark a client's comment resolved (`resolved: true`) or open again.
 sitesRouter.patch('/:id/review/comments/:cid', requireEditorSession, wrap(async (req, res) => {
   const p = await visibleProject(req, res);
   if (!p) return;
@@ -449,6 +458,7 @@ sitesRouter.patch('/:id/review/comments/:cid', requireEditorSession, wrap(async 
   res.json(c);
 }));
 
+// The draft website for a client's review link (?key=), no account needed.
 sitesRouter.get('/:id/review', wrap(async (req, res) => {
   const p = await getProperty(req.params.id);
   const saved = p && (await reviewed(p.id, req.query.key));
@@ -471,6 +481,7 @@ const reviewLimited = (ip) => {
 const plain = (v, max) => String(v ?? '').replace(/[<>]/g, '').trim().slice(0, max);
 const frac = (v) => { const n = Number(v); return Number.isFinite(n) ? Math.min(1, Math.max(0, Math.round(n * 10000) / 10000)) : 0.5; };
 
+// A client's comment on the draft, pinned to a section (review link key).
 sitesRouter.post('/:id/review/comments', wrap(async (req, res) => {
   if (reviewLimited(req.ip || 'unknown')) return res.status(429).json({ error: 'That’s a lot of comments at once. Try again in a few minutes.' });
   const p = await getProperty(req.params.id);
@@ -491,6 +502,7 @@ sitesRouter.post('/:id/review/comments', wrap(async (req, res) => {
   res.status(201).json(c);
 }));
 
+// The client approves the draft as it is now (review link key).
 sitesRouter.post('/:id/review/approve', wrap(async (req, res) => {
   if (reviewLimited(req.ip || 'unknown')) return res.status(429).json({ error: 'Try again in a few minutes.' });
   const p = await getProperty(req.params.id);
@@ -506,6 +518,7 @@ sitesRouter.post('/:id/review/approve', wrap(async (req, res) => {
 
 // Originals, straight from the camera: the website serves each screen a resized copy (next/image).
 const IMAGE_MAX = 25 * 1024 * 1024;
+// Upload a website photo (PNG, JPEG or WebP, up to 25 MB, raw body); its size goes in its name.
 sitesRouter.post('/:id/images', requireEditorSession, express.raw({ type: () => true, limit: IMAGE_MAX }), wrap(async (req, res) => {
   const p = await visibleProject(req, res);
   if (!p) return;

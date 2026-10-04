@@ -26,6 +26,7 @@ const Arrow = () => (
   <svg viewBox="0 0 24 24" aria-hidden><path d="M5 12h14M13 6l6 6-6 6" /></svg>
 );
 
+/** The home page: the hero film, why a walkable tour sells, how visitors move, the specs, the steps and the sectors. Its words live in lib/siteContent.ts. */
 export default function HomePage() {
   const hero = media('hero');
   const bleed = media('bleed');

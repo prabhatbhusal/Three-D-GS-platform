@@ -27,6 +27,7 @@ function rateLimited(ip) {
   return list.length > RATE_MAX;
 }
 
+// Tour beacon: counts visits, time per space, hotspot opens and booking intents. Totals only; always 204.
 statsRouter.post('/', express.text({ type: () => true, limit: '2kb' }), async (req, res) => {
   try {
     // Always 204: a beacon doesn't read the answer, and a refusal shouldn't teach anyone anything.

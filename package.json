@@ -9,7 +9,8 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint .",
-    "test": "node --test test/*.test.mjs && cd server && npm test"
+    "test": "node --test test/*.test.mjs && cd server && npm test",
+    "docs:dev-guide": "node scripts/dev-guide.mjs"
   },
   "dependencies": {
     "@gltf-transform/core": "^4.5.0",

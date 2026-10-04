@@ -5,6 +5,7 @@ import { NOINDEX } from '../../lib/shareMeta';
 
 export const metadata: Metadata = { title: 'Profile', robots: NOINDEX };
 
+/** A placeholder: it shows fixed sample details, not the signed-in account. */
 export default function ProfilePage() {
   return (
     <main className="site">

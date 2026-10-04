@@ -54,6 +54,7 @@ const SECTIONS = [
   { h: 'Contact', body: POLICY_CONTACT }
 ];
 
+/** The Cookie Policy: the one sign-in cookie and what stays in the browser (PolicyPage). */
 export default function CookiesPage() {
   return (
     <PolicyPage label="Cookies" title={<>Cookie <em>Policy</em></>} updated="4 October 2026" sections={SECTIONS}

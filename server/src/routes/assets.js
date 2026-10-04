@@ -70,6 +70,7 @@ async function stagedBytes(assetId, relPath) {
 /* Create — mints an assetId and its staging area                        */
 /* -------------------------------------------------------------------- */
 
+// Start an upload: a new asset id to send a scan's files to (team accounts, not staff).
 assetsRouter.post('/', requireEditorSession, async (req, res, next) => {
   try {
     if (await refuseStaff(req, res)) return;
@@ -85,6 +86,7 @@ assetsRouter.post('/', requireEditorSession, async (req, res, next) => {
 /* Init / resume-check for one file                                      */
 /* -------------------------------------------------------------------- */
 
+// One file of an upload, at its path inside the asset (chunked and resumable).
 assetsRouter.post('/:assetId/files', requireEditorSession, async (req, res, next) => {
   try {
     const relPath = safeRelPath(req.body?.relPath);
@@ -356,6 +358,7 @@ async function finalizeGlb(assetId, relPath, res) {
 }
 
 
+// Finish an upload: check every file arrived, then move it into storage (?kind= for audio and models).
 assetsRouter.post('/:assetId/finalize', requireEditorSession, assetGuard, async (req, res, next) => {
   const { assetId } = req.params;
   try {
@@ -481,6 +484,7 @@ const send = (src, res) => pipeline(src, res, (err) => {
   if (err && err.code !== 'ERR_STREAM_PREMATURE_CLOSE') console.warn('[assets] read:', err.message);
 });
 
+// Serve a stored file (scan tiles, photos, audio), with byte ranges and a one-year cache.
 assetsRouter.get('/:assetId/*', async (req, res, next) => {
   try {
     const relPath = safeRelPath(req.params[0]);
@@ -644,6 +648,7 @@ assetsRouter.put(
   }
 );
 
+// Remove the floor plan image someone uploaded; the one drawn from the scan stays.
 assetsRouter.delete('/:assetId/floorplan/upload', requireEditorSession, assetGuard, async (req, res, next) => {
   try {
     await clearUploadedPlan(req.params.assetId);
@@ -654,6 +659,7 @@ assetsRouter.delete('/:assetId/floorplan/upload', requireEditorSession, assetGua
   }
 });
 
+// Delete an asset and all its files.
 assetsRouter.delete('/:assetId', requireEditorSession, assetGuard, async (req, res, next) => {
   try {
     await recordAsset(req, req.params.assetId, 'deleted a model', req.params.assetId);

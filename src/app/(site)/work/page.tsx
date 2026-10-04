@@ -10,6 +10,7 @@ export const metadata: Metadata = {
   description: 'Places RCAAS.tech has captured: Gwarko Overpass, Madan Ashrit and Nepathya colleges, and Basera Boutique Hotel.'
 };
 
+/** Work: delivered and live projects, from lib/siteContent.ts WORK. */
 export default function WorkPage() {
   return (
     <SitePage>

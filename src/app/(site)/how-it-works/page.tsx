@@ -11,6 +11,7 @@ export const metadata: Metadata = {
   description: 'Capture, process, author, publish: how a LiDAR walk-through becomes a live 3D tour on your website, and answers to common questions.'
 };
 
+/** How it works: capture, process, author, publish, and the FAQ, marked up as FAQPage for search and AI answers. */
 export default function HowPage() {
   const items = STEPS.map((s, i) => ({ ...s, media: media(`how/${i + 1}`) }));
 

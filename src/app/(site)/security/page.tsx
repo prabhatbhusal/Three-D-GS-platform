@@ -58,6 +58,7 @@ const SECTIONS = [
   { h: 'Contact', body: POLICY_CONTACT }
 ];
 
+/** The Security Policy: how accounts and data are protected, and how to report a problem (PolicyPage). */
 export default function SecurityPage() {
   return (
     <PolicyPage label="Security" title={<>Security <em>Policy</em></>} updated="4 October 2026" sections={SECTIONS}

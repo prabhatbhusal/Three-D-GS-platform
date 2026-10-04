@@ -72,6 +72,7 @@ export async function staffProject(req, res) {
 }
 const projectLeads = async (id) => (await listLeads()).filter((l) => l.propertyId === id);
 
+// A project's enquiries, and the addresses their emails go to.
 propertiesRouter.get('/:id/leads', requireEditorSession, wrap(async (req, res) => {
   const p = await staffProject(req, res);
   if (!p) return;
@@ -178,6 +179,7 @@ propertiesRouter.put('/:id/theme', requireEditorSession, wrap(async (req, res) =
  *  `brand_<project>`, so it's served like any other asset. A new one
  *  replaces it; `?v=` in the path makes browsers fetch the new one. */
 const LOGO_MAX = 2 * 1024 * 1024;
+// Upload the project's logo (PNG, JPEG or WebP, as the raw body).
 propertiesRouter.put('/:id/logo', requireEditorSession, express.raw({ type: () => true, limit: LOGO_MAX }), wrap(async (req, res) => {
   const p = await manageable(req, res);
   if (!p) return;
@@ -195,6 +197,7 @@ propertiesRouter.put('/:id/logo', requireEditorSession, express.raw({ type: () =
   next(err);
 });
 
+// Remove the project's logo.
 propertiesRouter.delete('/:id/logo', requireEditorSession, wrap(async (req, res) => {
   const p = await manageable(req, res);
   if (!p) return;
@@ -243,6 +246,7 @@ propertiesRouter.post('/:id/claim', requireEditorSession, wrap(async (req, res) 
   res.json(claimed);
 }));
 
+// One project with its members' names; a staff account gets only what staff may see.
 propertiesRouter.get('/:id', requireEditorSession, wrap(async (req, res) => {
   const session = await freshSession(req);
   const p = await getProperty(req.params.id);
@@ -267,6 +271,7 @@ propertiesRouter.get('/:id', requireEditorSession, wrap(async (req, res) => {
 /** What the client's staff see of a project: its name and brand, no one's details. */
 const staffView = (p) => ({ id: p.id, title: p.title, theme: p.theme ?? {}, ownerId: p.ownerId, members: [], staff: [], access: 'staff', spaceCount: 0 });
 
+// Create a project (team accounts only).
 propertiesRouter.post('/', requireEditorSession, wrap(async (req, res) => {
   if (await refuseStaff(req, res)) return;
   const p = await createProperty(req.body?.title, req.session.sub ?? null);
@@ -334,6 +339,7 @@ propertiesRouter.post('/:id/members', requireEditorSession, wrap(async (req, res
   res.json(shared);
 }));
 
+// Take someone off a project (its owner only).
 propertiesRouter.delete('/:id/members/:userId', requireEditorSession, wrap(async (req, res) => {
   const session = await freshSession(req);
   const existing = await getProperty(req.params.id);

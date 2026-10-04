@@ -5,6 +5,7 @@ import { NOINDEX } from '../../lib/shareMeta';
 
 export const metadata: Metadata = { title: 'Settings', robots: NOINDEX };
 
+/** A placeholder: it shows fixed sample settings, not the signed-in account’s. */
 export default function SettingsPage() {
   return (
     <main className="site">

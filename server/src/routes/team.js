@@ -22,10 +22,12 @@ const withStatus = (fn) => wrap(async (req, res) => {
   }
 });
 
+// Every account, for the admin's Team panel.
 teamRouter.get('/', requireAdmin, wrap(async (req, res) => {
   res.json(await listUsers());
 }));
 
+// Make an account admin or editor, never leaving the team with no admin.
 teamRouter.patch('/:id/role', requireAdmin, withStatus(async (req, res) => {
   const role = req.body?.role;
   if (role !== 'admin' && role !== 'editor') return res.status(400).json({ error: 'role must be "admin" or "editor".' });
@@ -41,6 +43,7 @@ teamRouter.post('/:id/reset', requireAdmin, wrap(async (req, res) => {
   res.json({ path: `/login?reset=${r.token}`, expires: r.expires, user: r.user });
 }));
 
+// Remove an account (not your own, never the last admin); its projects move to you.
 teamRouter.delete('/:id', requireAdmin, withStatus(async (req, res) => {
   if (req.params.id === req.session.sub) return res.status(400).json({ error: 'You can’t remove your own account.' });
   const gone = await deleteUser(req.params.id);

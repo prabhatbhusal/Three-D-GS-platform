@@ -63,6 +63,7 @@ const SECTIONS = [
   { h: 'Contact', body: POLICY_CONTACT }
 ];
 
+/** The Terms of Service (PolicyPage). */
 export default function TermsPage() {
   return (
     <PolicyPage label="Terms" title={<>Terms of <em>Service</em></>} updated="4 October 2026" sections={SECTIONS}

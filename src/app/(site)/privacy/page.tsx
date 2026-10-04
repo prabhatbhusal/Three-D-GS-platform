@@ -76,6 +76,7 @@ const SECTIONS = [
   { h: 'Contact', body: POLICY_CONTACT }
 ];
 
+/** The Privacy Policy, written to match what the code collects and sends (PolicyPage). */
 export default function PrivacyPage() {
   return (
     <PolicyPage label="Privacy" title={<>Privacy <em>Policy</em></>} updated="4 October 2026" sections={SECTIONS}

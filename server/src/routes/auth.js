@@ -43,6 +43,7 @@ function teamCodeMatches(code) {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+// Create a studio account with the team access code. The first account ever becomes admin.
 authRouter.post('/signup', async (req, res, next) => {
   try {
     if (rateLimited(ipOf(req))) return res.status(429).json(TOO_MANY);
@@ -72,6 +73,7 @@ authRouter.post('/signup', async (req, res, next) => {
   }
 });
 
+// Sign in with email and password, or with only a password, the old shared team sign-in.
 authRouter.post('/login', async (req, res, next) => {
   try {
     if (rateLimited(ipOf(req))) return res.status(429).json(TOO_MANY);
@@ -95,6 +97,7 @@ authRouter.post('/login', async (req, res, next) => {
   }
 });
 
+// Sign out: clear the session cookie.
 authRouter.post('/logout', (req, res) => {
   clearSession(res);
   res.json({ authenticated: false });
@@ -150,6 +153,7 @@ authRouter.post('/forgot', async (req, res, next) => {
   }
 });
 
+// Who is signed in, with their current role (read from the account, not the cookie).
 authRouter.get('/session', async (req, res) => {
   let s = readSession(req);
   // removed, or signed in before a password reset: signed out

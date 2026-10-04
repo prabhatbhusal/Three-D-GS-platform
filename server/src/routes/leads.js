@@ -37,6 +37,7 @@ function rateLimited(ip) {
 /** No HTML in anything we store or ever render back. */
 const clean = (s) => String(s ?? '').replace(/[<>]/g, '').trim();
 
+// An enquiry from a tour or website: filed with its project and emailed to its team (rate-limited).
 leadsRouter.post('/', async (req, res, next) => {
   try {
     const ip = req.ip || req.socket?.remoteAddress || 'unknown';

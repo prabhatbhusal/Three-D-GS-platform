@@ -1,3 +1,4 @@
+/** The layout of the policy pages (terms, privacy, security, cookies) and the contact block they share. */
 import { PageHead, SitePage } from './SitePage';
 
 export type PolicySection = { h: string; body: React.ReactNode };

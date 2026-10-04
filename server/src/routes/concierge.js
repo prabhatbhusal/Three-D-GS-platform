@@ -107,10 +107,12 @@ const REPLY_TOOL = {
   }
 };
 
+// Whether the AI concierge is switched on for this project.
 conciergeRouter.get('/:project', wrap(async (req, res) => {
   res.json({ on: on() && !!(await getProperty(req.params.project)) });
 }));
 
+// Ask the concierge; it answers only from what the project published (rate-limited).
 conciergeRouter.post('/:project', wrap(async (req, res) => {
   if (!on()) return res.status(404).json({ error: 'The concierge isn’t switched on here.' });
   if (rateLimited(req.ip || 'unknown')) return res.status(429).json({ error: 'That’s a lot of questions. Try again in a few minutes, or send an enquiry.' });
