@@ -2,8 +2,8 @@
 
 import { use, useEffect, useState } from 'react';
 import { API_BASE_URL, assetUrl, getProperty, getScene } from '../../../../../lib/api';
-import { loadPlan, type FloorPlan } from '../../../../../lib/floorMap';
-import { useStudioSession } from '../../../../../lib/useStudioSession';
+import { loadPlan, type FloorPlan } from '../../../../../features/tour/floorMapData';
+import { useStudioSession } from '../../../../../features/auth/useStudioSession';
 import type { Property } from '../../../../../@types/scene.types';
 import '../../report/report.css';
 

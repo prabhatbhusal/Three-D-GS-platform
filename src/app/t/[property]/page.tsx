@@ -3,11 +3,11 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import { API_BASE_URL, apiUrl, withoutNightVersions, type GalleryItem } from '../../../lib/api';
-import { EnquiryPanel } from '../../../components/EnquiryPanel';
+import { EnquiryPanel } from '../../../features/enquiry/EnquiryPanel';
 import type { BrandFont, ProjectTheme } from '../../../@types/config.types';
 import { inkOn } from '../../../lib/brandColor';
 import { shareMeta } from '../../../lib/shareMeta';
-import '../../../components/viewer.css';
+import '../../../features/tour/viewer.css';
 import './hub.css';
 
 /**

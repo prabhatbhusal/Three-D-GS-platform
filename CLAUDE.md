@@ -29,13 +29,32 @@ exist, and `deploy/` is ready for when hosting is picked up again.
 
 ## 2. Map
 
-- `src/components/App.tsx`: the Canvas. `Stage` wires scene manager, walker, camera director, gizmo, collision boxes, and the `EditorApi`.
-- `src/components/EditorShell.tsx` (~1.9k lines): the whole studio UI (tree, inspectors, publish, save). **Grep it and Read by offset; don't read it whole.**
-- `src/components/Viewer.tsx`: the visitor tour UI.
-- `src/lib/useSceneManager.ts`: loads one space at a time (LCC SDK, or `meshModel.ts` for .glb, or `panoModel.ts` for 360 video). Wraps each renderer with `withColliders`.
-- `src/lib/useLccWalker.ts`: Walk/Fly/Orbit camera plus capsule collision via `renderer.intersectsCapsule`.
-- `src/lib/collision.ts`: floor probes, orbit line of sight, collision-box math (`capsuleBoxPush`, `withColliders`).
-- `src/lib/sceneDoc.ts`: in-memory scene doc (hotspots, colliders, booking), load/save/dirty tracking. `history.ts` handles undo/redo over it.
+**Folders (2026-10-05):** the site is organised by feature. A feature's components, logic, hooks and CSS live together in `src/features/<feature>/`:
+- `auth`: sign-in and account.
+- `booking`: website and Book now booking forms and rules.
+- `hotspots`: markers, icons and layout.
+- `scene`: the 3D engine the tour and studio share (App, sceneDoc, loaders, walker, collision).
+- `tour`: the visitor UI, floor map and concierge.
+- `enquiry`: the enquiry form.
+- `studio`: EditorShell, gizmos, uploader, dialogs, undo.
+- `website`: clients' `/s/` sites.
+- `marketing`: `home/` and `work/` sections, `layout/` (Navbar, AccountMenu, SitePage, ContactBand, Footer), policy pages, and siteContent.
+
+Shared pieces go elsewhere:
+- `src/components/ui`: `Button`, `Section`, `PageHead`, `ThemeToggle`.
+- `src/hooks`: `useClickOutside`.
+- `src/lib`: plumbing every feature uses (`api.ts`, `i18n.ts`, `shareMeta.ts`, `uiConfig.ts`, `theme.ts`, `brandColor.ts`, `audio.ts`, `stats.ts`).
+- `src/app`: routes only.
+
+A new feature gets a folder. Use `Button` for buttons, and colour tokens by role (top of `site.css`).
+
+- `src/features/scene/App.tsx`: the Canvas. `Stage` wires scene manager, walker, camera director, gizmo, collision boxes, and the `EditorApi`.
+- `src/features/studio/EditorShell.tsx` (~1.9k lines): the whole studio UI (tree, inspectors, publish, save). **Grep it and Read by offset; don't read it whole.**
+- `src/features/tour/Viewer.tsx`: the visitor tour UI.
+- `src/features/scene/useSceneManager.ts`: loads one space at a time (LCC SDK, or `meshModel.ts` for .glb, or `panoModel.ts` for 360 video). Wraps each renderer with `withColliders`.
+- `src/features/scene/useLccWalker.ts`: Walk/Fly/Orbit camera plus capsule collision via `renderer.intersectsCapsule`.
+- `src/features/scene/collision.ts`: floor probes, orbit line of sight, collision-box math (`capsuleBoxPush`, `withColliders`).
+- `src/features/scene/sceneDoc.ts`: in-memory scene doc (hotspots, colliders, booking), load/save/dirty tracking. `history.ts` handles undo/redo over it.
 - `server/src/db.js`: the Postgres pool, `tx()` and `migrate()` (`server/db/*.sql`). Used only when `DATABASE_URL` is set.
 - `server/src/store.js` holds scenes and publish snapshots (`<id>@<n>.json`); `migrate.js` migrates on read; `routes/*` are the API; `storage.js`/`storage-s3.js` are the asset drivers.
 - `deploy/`: VPS scripts (`deploy.sh`, pm2 `ecosystem.config.cjs`, `nginx.conf`, `README.md`).
@@ -61,6 +80,7 @@ Terms: **Property/project** = one client. **Space** = one captured room/scene do
 ### Working
 - **Tour:** LCC splat streaming with auto quality tier (guess, then FPS-measured downgrade); Viewpoints / Walk / Fly / Orbit; touch controls; camera tracks with narration + captions; floor map with "you are here"; day/night switch; multi-building/floor layers rail; EN / नेपाली / 中文.
 - **Hotspots:** text, image, video, audio, link, portal, table, room, hall; reveal near/always; copy to other spaces.
+  - **Look (2026-10-05):** a 30px dark lens with a white rim and a line icon per type (`HotspotIcon.tsx`, the same icons in the card and the studio tree); it turns white on hover, pulses softly (not with reduced motion), and the studio's selected one takes the signal colour.
   - **Book from the 3D space (2026-09-30):** **table**, **room** and **hall** hotspots each have a Book now that works with nothing else set up. The studio types what visitors see on the hotspot itself (payload `capacity`, `standing`, `price`, `deposit`; tables show no price). The visitor fills in dates/day/time, guests and name/phone in `HotspotBookCard.tsx`, and it lands in Reservations as kind `request` (`of` room/hall/table, `POST /api/reservations/:id/requests`, published hotspots only). The team confirms or declines there, and the guest gets a text/email. It is counted in the report. **Tables in 3D:** a dining room has many tables, each its own table hotspot (numbered "Table N", 4 seats by default; the sidebar's "＋ Next table" places the next one where the dot is). They are booked by the sitting on the hours under Website → Table booking (09:00–21:30, 90 min, if unset; on or off). `GET /api/sites/:id/requests/tables?space=&date=` says which are free when (`tables`: the published ones it knows; a table only in the draft gets the hours with nothing taken, so the studio's card still has times). If the times can't load, the card falls back to a typed time. The card lists the room's tables, strikes out taken times, and offers the ones free at that time. The server refuses a second request for the same table and sitting (409), a time off the hours, and more guests than the table seats. With `bookUrl` set, Book now goes to the hotel's own booking page instead, with `{checkin}` `{checkout}` `{guests}` `{nights}` filled in. Optionally a hotspot can point at a website item (`outlet`+`tableId`, `roomId`, `hallId`), and then it uses that live booking with availability instead (`HotspotMarkers.tsx HotspotPanel`, studio `EditorShell.tsx BookablePicker`).
   - **Placement (2026-09-29):** H, the tree's ＋ and "Set to current view" put a hotspot on the surface under the studio's centre dot (`sceneDoc.ts spotInView` → `collision.ts surfaceDistance`), not 2 units ahead in mid-air, where it slid about as the camera moved. With nothing in view, it falls back to 2 units ahead.
 - **Opening (2026-09-29, replaced the curtain):** the room streams in behind the start screen, seen from a step back (`App.tsx standBack`, stopped by the first wall behind). It sits behind frosted glass with a light sweep on mouse devices; phones get a plain veil, since blur costs them frames. On Start the glass dissolves while the camera glides to the start view (`arrive`, 2.6 s, interruptible). Every later space gets the same focus pull and glide (`.vw-arrive`); day/night keeps its view and only dissolves. A 360 video or reduced motion gets no glide. Full page loads (home → `/tour`) use the browser's cross-document view transition.
@@ -68,6 +88,7 @@ Terms: **Property/project** = one client. **Space** = one captured room/scene do
 - **Camera tracks (viewpoints):** each waypoint has **Go** (camera there) and **Set here** (move just that one to the camera). The last waypoint is where visitors arrive, and its thumbnail follows it. "Set to current" still replaces the whole path.
 - **Embeds on a client's own site:** tapping Start inside an iframe takes the tour full screen (`Viewer.tsx enter`). Esc or the full-screen button returns to their page. iPhone Safari has no element full screen, so there the tour plays in place.
 - **Collision boxes (2026-09-29):** invisible walls/floors for holes in a scan. Studio: add from the tree (＋), drag the arrows, size/turn steppers, colour picker (studio only). Tour: invisible but solid. Saved in the scene doc as `colliders[]`, covered by undo/redo, and published with the space.
+  - **Placement (2026-10-05):** a new box, and "Move to the dot", land where the centre dot meets the scan (`collision.ts boxSpotInView`, boxes left out of the measuring so one never lands on itself), facing the camera and standing on the floor. Put 2 m ahead in mid-air, a box seemed to slide about as the camera moved, as hotspots once did. A placed box moves only by its arrows, steppers or Move to the dot.
 - **Other space types:** 3D models (FBX/OBJ/PLY/glTF → meshopt .glb in the browser, BVH collision); 360 camera video.
 - **Studio:** upload (chunked, resumable), model placement gizmo, start view, save/dirty tracking, undo/redo, publish/unpublish/revert, version history, activity log, projects with owner/member/staff roles, team invites, admin reset link.
 - **Conversion:** enquiry panel, Book now card (dates passed to the hotel's link), table booking on the floor plan, room booking with per-night availability, waitlist, reservations inbox, email (Resend) + SMS (Sparrow) + WhatsApp (Cloud API) notices, leads CSV.
@@ -94,6 +115,7 @@ Terms: **Property/project** = one client. **Space** = one captured room/scene do
 - **Cookies (2026-10-04):** `/cookies` lists the one cookie (`splatspace_session`, studio sign-in only) and what's kept in local storage. A client website's Google map loads only after "Show map" (`SiteParts.tsx SiteMap`), so visitors get no third-party cookies unasked and no banner is needed.
 - **Fixed 2026-10-04 (bug sweep):** a table hotspot books only at its own dining place (`booking.ts bookableTable`; before, a place with booking off sent it to the main restaurant, and two places' "T1" could collide), and the studio's tour preview tags each place with its id (`livePlaces`). A hall hotspot refuses a clashing part of the day (409), its card strikes out what's taken (`GET /api/sites/:id/requests/halls`). Branded 404 (`app/not-found.tsx`, styled in `globals.css`: root not-found CSS imports don't load in dev). Lint no longer scans `.next-*` build folders; `{ ip, ...rest }` and `_arg` are allowed.
 - **Developer guide (2026-10-04):** `docs/RCAAS-Developer-Guide.pdf`, built by `scripts/dev-guide.mjs` through headless Chrome: architecture and three request walk-throughs, setup, data model, auth, every API route (its description is the comment above it in `routes/`, so every route has one), pages, the 3D engine, the module index (each file's header comment), tests, settings, deploy, recipes, and this file's rules and Needs fixing. A route or file without a comment shows up as a gap in it.
+  - **2026-10-05:** new chapters: a plan for learning the code in a day, every workflow file by file (sign-in, opening a tour, Book now, website booking, save and publish, enquiries), how a page is put together (layout chains read from `src/app`), frontend conventions (folders, Button, colour tokens, CSS files), how the files link (every file's imports and importers, read from the code), and where the code should go next.
 - **Contact and About as a surveyor's field book (2026-10-04):** `fieldbook.css`. Contact is a ruled field sheet (`ContactSheet.tsx`: the space, where, how big, what's needed, a phone) whose "Write the email" opens the visitor's email app with the answers filled in (no backend), beside the phone and a contour-map plate marking the office. About is a register of measured sites from `siteContent.ts WORK`, the mission on a contour plate (`ContourPlate.tsx`, drawn at build time; the lines draw in once, not with reduced motion), and the kit and partners. One added colour, contour brown, for line work only.
 - **Policy pages (2026-10-04):** `/terms`, `/privacy`, `/security` (`PolicyPage.tsx`, `.lp-legal` in `landing.css`), linked from every marketing page's footer. Written to match what the code does (no cookies or IPs in stats, the concierge stores nothing, providers named). Drafts: they need a lawyer's review before launch.
 - **Storage:** local disk or S3/R2 (`ASSET_DRIVER=s3`), `npm run assets:push` to migrate. Scan files are served with a 1-year immutable cache.
@@ -111,6 +133,7 @@ Terms: **Property/project** = one client. **Space** = one captured room/scene do
 - **Events:** no waitlist for a taken hall (rooms and tables have one), no calendar grid (a plain date field, with taken parts of the day struck out once a hall and day are picked), and no preview of real availability in the studio's website preview.
 - **Room hotspot Book now checks no availability:** two guests can ask for the same room on the same night, and the team sorts it out when confirming. Undecided on purpose: a room hotspot may stand for one room or a room type with several. Halls and tables do check (2026-10-04), and reopening a declined request re-checks them. No waitlist for any of them.
 - **Scan files aren't in git** (`server/src/data/assets/` is ignored). A new checkout or server has the scene JSON but no scans, and those tours show the start screen with no 3D. The studio's publish panel now warns (`routes/scenes.js missingFiles`). On 2026-10-04 eight were copied over from the older checkout; three exist nowhere on this PC and need uploading again: `computer-lab2`, `demo-project-map-plan`, `space-3d-model`. Long-term fix: `ASSET_DRIVER=s3` (R2), so every PC and server reads the same files.
+- **Found 2026-10-05 (bug hunt, `qa-bug-hunt/`, repros there):** (1) the tour's Book now card fills room and hall dates from the visitor's clock (`isoDay`), but the server uses the venue's: a visitor west of Nepal in their evening is told the pre-filled check-in is "in the past". (2) A declined table at a second dining place emails a link to the main restaurant's booking (`#reserve`, the SMS has `#reserve-<place>`). (3) The team's Book now subject lacks a space: "Booking request:Table 1".
 - Lint: 6 warnings (5 deliberate `<img>`, and `App.tsx` onState deps, checked: camera is stable and every `mgr` value is listed).
 
 ### Next up (candidates for the production build, in order)

@@ -3,7 +3,7 @@ import path from 'path';
 import type { NextConfig } from 'next';
 
 // Deploy under a sub-path (e.g. GitHub Pages) by setting NEXT_PUBLIC_BASE_PATH
-// to the same value for both the Next router and src/lib/scenes.ts's asset
+// to the same value for both the Next router and src/features/scene/scenes.ts's asset
 // root — Next does not rewrite hand-written `/public` asset paths itself.
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 const api = new URL(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000');

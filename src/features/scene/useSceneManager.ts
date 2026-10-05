@@ -1,0 +1,312 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
+import * as THREE from 'three';
+import { LCCRender } from '../../vendor/sdk/lcc-web-sdk.js';
+import { SCENE_BY_ID, metaPath, spawnFor, firstScene } from './scenes';
+import { buildLoadOptions, tuneCameraForRoom, resolveTier } from './lccConfig';
+import { persistMeasuredTier, createFpsMonitor, logTierLine } from './deviceTier';
+import { walkerCfg, scaleWalkerCfg } from './walkerConfig';
+import { withColliders } from './collision';
+import { collidersFor } from './sceneDoc';
+
+/** The SDK's per-scene renderer handle (collision, raycast, bounds — untyped,
+ *  see @types/vendor.d.ts) plus our own load bookkeeping. */
+interface SceneEntry {
+  id: string;
+  /** 'mesh' = a 3D-model space: `renderer` is a MeshModel (meshModel.ts)
+   *  with the same collision/bounds methods, and no LCCRender involved. */
+  kind: 'lcc' | 'mesh';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- vendor SDK renderer handle, see @types/vendor.d.ts
+  renderer: any;
+  mesh: THREE.Object3D | null;
+  state: 'loading' | 'ready' | 'error';
+  t0: number;
+  loadMs?: number;
+  unitScale?: number;
+}
+
+/**
+ * Fallback guess for world-units-per-metre from the scan's bbox, used only when
+ * a scene has no explicit `unitScale`. Lixel Studio exports are metric almost
+ * without exception and the meta bbox is often inflated by stray splats far
+ * from the room (bar-restro's spans ~58 units), so this defaults to 1 and only
+ * scales up when the whole scan is clearly sub-metre. Set an explicit
+ * `unitScale` in scenes.js for any scene that is genuinely not in metres.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- vendor SDK renderer handle
+function unitScaleFromBounds(renderer: any): number {
+  try {
+    const b = renderer?.getBounds?.();
+    if (!b) return 1;
+    const diag = Math.hypot(b.max.x - b.min.x, b.max.y - b.min.y, b.max.z - b.min.z);
+    if (!isFinite(diag) || diag <= 0) return 1;
+    if (diag < 1.5) return Math.min(3 / diag, 20);
+    return 1;
+  } catch {
+    return 1;
+  }
+}
+
+/**
+ * LCC is Z-up, Three is Y-up. Correct it on the MODEL, not the camera, so
+ * gravity stays at -Y and every controller assumption stays simple. This exact
+ * matrix is from the SDK's own three.html example.
+ */
+export const LCC_MODEL_MATRIX = new THREE.Matrix4(
+  -1, 0, 0, 0,
+   0, 0, 1, 0,
+   0, 1, 0, 0,
+   0, 0, 0, 1
+);
+
+/** A 3D model is converted upright, in metres, before upload
+ *  (modelConvert.ts), so it gets no base correction. */
+export const MESH_MODEL_MATRIX = new THREE.Matrix4();
+
+/** Spaces loaded by our own code, not the XGRIDS SDK: a 3D model
+ *  (meshModel.ts) or a 360 camera video (panoModel.ts). */
+const isMeshFormat = (f: string | undefined) => f === 'glb' || f === 'video360';
+
+/**
+ * Loads exactly ONE hotel scene at a time.
+ *
+ * The campus demo kept 5 rooms resident with LRU eviction and graph prefetch
+ * because you could walk between them. These two scans are unrelated spaces
+ * picked from a menu, so the rule is simpler and lighter: load the chosen
+ * scene, unload whatever was loaded before, done.
+ *
+ * `LCCRender.load()` returns a per-scene renderer (collision, raycast,
+ * setVisible); `LCCRender.unload(renderer)` calls destroyRenderer() internally,
+ * which is what actually frees GPU memory.
+ */
+export function useSceneManager({ dev = false, appKey = null }: { dev?: boolean; appKey?: string | null } = {}) {
+  const { scene, camera, gl } = useThree() as { scene: THREE.Scene; camera: THREE.PerspectiveCamera; gl: THREE.WebGLRenderer };
+
+  // CLAUDE.md §8.1: a GUESS, corrected by measurement. tierRef is mutable
+  // (not the resolved value straight into a const) because the FPS monitor
+  // below can downgrade it once, mid-session, and reload at the new tier.
+  const resolved = useRef(resolveTier()).current; // { tier, guessed, source, deviceStorageKey }
+  const tierRef = useRef(resolved.tier);
+  const downgradedRef = useRef(false);
+  const fpsMonitor = useRef<ReturnType<typeof createFpsMonitor> | null>(null);
+
+  const current = useRef<SceneEntry | null>(null);
+  const [activeId, setActiveId] = useState(firstScene);
+  const [loading, setLoading] = useState(true);
+  const [progress, setProgress] = useState(0);
+  const [ready, setReady] = useState(false);
+  // The last load failed (missing files, a network error). The viewer keeps
+  // its chrome up so the visitor can pick another space instead of staring
+  // at a black screen with no way out.
+  const [failed, setFailed] = useState(false);
+  // Surfaced as state (not read off the ref during render) so consumers
+  // re-render when they land.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- vendor SDK renderer handle
+  const [renderer, setRenderer] = useState<any>(null);
+  const [unitScale, setUnitScale] = useState(1);
+
+  const load = useCallback(
+    (sceneId: string) => {
+      const conf = SCENE_BY_ID[sceneId];
+      if (!conf) {
+        console.error(`[scene] unknown scene "${sceneId}"`);
+        return;
+      }
+
+      // Tear down the previous scene first — one renderer at a time.
+      const prev = current.current;
+      if (prev?.kind === 'mesh') {
+        prev.renderer?.dispose();
+      } else if (prev?.renderer) {
+        LCCRender.unload(prev.renderer);
+        if (prev.mesh?.parent) {
+          prev.mesh.parent.remove(prev.mesh);
+        }
+      }
+
+      const kind = isMeshFormat(conf.format) ? 'mesh' : 'lcc';
+      const entry: SceneEntry = { id: sceneId, kind, renderer: null, mesh: null, state: 'loading', t0: performance.now() };
+      current.current = entry;
+
+      setActiveId(sceneId);
+      setRenderer(null);
+      setReady(false);
+      setFailed(false);
+      setLoading(true);
+      setProgress(0);
+
+      const tier = tierRef.current;
+      // The same space again is the tier monitor's reload at a lower quality
+      // (below): the visitor stays where they are (App.tsx keeps them there too).
+      if (prev?.id !== sceneId) camera.position.set(...spawnFor(sceneId).spawn);
+      tuneCameraForRoom(camera, { outdoor: !!conf.outdoor, tier });
+
+      const onLoaded = (mesh: THREE.Object3D) => {
+        if (current.current !== entry) return; // superseded mid-load
+        entry.mesh = mesh;
+        entry.state = 'ready';
+        entry.loadMs = Math.round(performance.now() - entry.t0);
+
+        // Bind the SDK's sorter/culler to this exact camera instance.
+        if (kind === 'lcc') LCCRender.setCamera?.(camera);
+
+        // World-units-per-metre: an explicit `unitScale` in scenes.js wins;
+        // otherwise measure the scan's bbox. The measurement drives eye
+        // height, speeds, collision radius, gravity and the near plane, so a
+        // wrong value here is what makes you fall through the floor or spawn
+        // in the ceiling.
+        const measured = unitScaleFromBounds(entry.renderer);
+        const u = typeof conf.unitScale === 'number' && Number.isFinite(conf.unitScale) && conf.unitScale > 0
+          ? conf.unitScale
+          : measured;
+        scaleWalkerCfg(u);
+        // A 360 video is one point of view: look round, don't walk (the next
+        // space's scaleWalkerCfg puts the speed back).
+        if (conf.format === 'video360') walkerCfg.speed = 0;
+        const b = entry.renderer?.getBounds?.();
+        if (b) {
+          const diag = Math.hypot(b.max.x - b.min.x, b.max.y - b.min.y, b.max.z - b.min.z);
+          walkerCfg.far = Math.max(diag * 4, 60 * u);
+        }
+        camera.near = walkerCfg.near;
+        camera.far = walkerCfg.far;
+        camera.updateProjectionMatrix();
+        entry.unitScale = u;
+
+        // CLAUDE.md §8.1: one log line every load, tier + why. Also arms the
+        // measured-downgrade monitor (sampled in the useFrame below) unless
+        // this load IS the downgrade (nothing lower than 'low' to fall to).
+        logTierLine({ tier, guessed: resolved.guessed, downgraded: downgradedRef.current, variant: tier });
+        fpsMonitor.current = createFpsMonitor({
+          tier,
+          onDowngrade: (nextTier: typeof tier, medianFps: number) => {
+            console.warn(`[tier] median ${medianFps.toFixed(1)}fps on "${tier}" — downgrading to "${nextTier}"`);
+            downgradedRef.current = true;
+            tierRef.current = nextTier;
+            persistMeasuredTier(resolved.deviceStorageKey, nextTier);
+            load(sceneId); // once — createFpsMonitor won't fire a second time
+          }
+        });
+
+        if (dev) {
+          window.__LCC = LCCRender;
+          window.__scene = entry.renderer;
+          window.__camera = camera;
+          console.log(
+            `[scene] "${sceneId}" ready in ${entry.loadMs}ms`,
+            `\n  collision=${!!entry.renderer?.hasCollision?.()}`,
+            `shCoef=${!!entry.renderer?.hasShcoef?.()}`,
+            `env=${!!entry.renderer?.hasEnvironment?.()}`,
+            b ? `\n  bounds=${JSON.stringify(b)}` : '',
+            `\n  unitScale=${u.toFixed(3)} ${conf.unitScale ? '(pinned in scenes.js)' : `(auto; bbox fallback = ${measured.toFixed(2)})`}`,
+            `\n  eyeHeight=${walkerCfg.eyeHeight.toFixed(2)} radius=${walkerCfg.radius.toFixed(2)}`,
+            `near=${walkerCfg.near.toFixed(3)} far=${walkerCfg.far.toFixed(0)}`
+          );
+        }
+        setProgress(1);
+        setUnitScale(u);
+        // The author's collision boxes join the scan's own collision here, once.
+        setRenderer(withColliders(entry.renderer, () => collidersFor(sceneId)));
+        setReady(true);
+        setLoading(false);
+      };
+      const onProgress = (p: number) => {
+        if (current.current === entry) setProgress(p);
+      };
+      const onError = () => {
+        if (current.current !== entry) return;
+        entry.state = 'error';
+        setFailed(true);
+        setLoading(false);
+        console.error(`[scene] "${sceneId}" failed to load — ${metaPath(sceneId)}`);
+      };
+
+      if (kind === 'mesh') {
+        // A 3D model (.glb): three's GLTFLoader, a handle with the SDK renderer's methods
+        // (meshModel.ts); a 360 video, the same handle (panoModel.ts). Imported
+        // on demand so LCC spaces never load either.
+        (conf.format === 'video360'
+          ? import('./panoModel').then(({ loadPanoVideo }) => loadPanoVideo(metaPath(sceneId), onProgress))
+          : import('./meshModel').then(({ loadMeshModel }) => loadMeshModel(metaPath(sceneId), onProgress)))
+          .then((model) => {
+            if (current.current !== entry) { model.dispose(); return; } // superseded mid-load
+            scene.add(model.root);
+            entry.renderer = model;
+            onLoaded(model.root);
+          })
+          .catch((err: unknown) => { console.error(err); onError(); });
+        return;
+      }
+
+      entry.renderer = LCCRender.load(
+        buildLoadOptions({
+          camera, scene, renderer: gl, canvas: gl.domElement, THREE,
+          dataPath: metaPath(sceneId),
+          modelMatrix: LCC_MODEL_MATRIX,
+          appKey,
+          visible: true,
+          tier
+        }),
+        onLoaded,
+        onProgress,
+        onError
+      );
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tierRef/resolved/downgradedRef are refs, stable identity
+    [scene, camera, gl, appKey, dev]
+  );
+
+  const select = useCallback(
+    (sceneId: string) => {
+      if (sceneId === current.current?.id) return;
+      load(sceneId);
+    },
+    [load]
+  );
+
+  // Initial load + teardown.
+  useEffect(() => {
+    load(firstScene());
+    return () => {
+      if (current.current?.kind === 'mesh') current.current.renderer?.dispose();
+      LCCRender.dispose();
+      current.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // CLAUDE.md §8.1 rule 6: verify the guess by measurement. Runs every frame,
+  // but the monitor itself only checks its rolling window every ~5s and only
+  // acts (downgrade, once, never upgrade) if it's stayed bad for 3 of them.
+  useFrame((_, dt) => {
+    fpsMonitor.current?.sample(dt);
+  });
+
+  const conf = SCENE_BY_ID[activeId];
+
+  return {
+    activeId,
+    activeName: conf?.name ?? '',
+    tagline: conf?.tagline ?? '',
+    loading,
+    progress,
+    ready,
+    failed,
+    select,
+    /** Pass to the walker so it only collides with the live scene. */
+    renderer,
+    unitScale,
+    /** What the author transform sits on: LCC's Z-up fix, or nothing for a model (converted upright). */
+    baseMatrix: isMeshFormat(conf?.format) ? MESH_MODEL_MATRIX : LCC_MODEL_MATRIX,
+    stats: () => ({
+      tier: tierRef.current,
+      scene: activeId,
+      renderers: LCCRender.getAllRenderers?.()?.length ?? 0,
+      drawCalls: gl.info.render.calls,
+      textures: gl.info.memory.textures,
+      geometries: gl.info.memory.geometries,
+      far: camera.far,
+      loadMs: current.current?.loadMs ?? null
+    })
+  };
+}

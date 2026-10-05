@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
-import { StepMedia } from '../../../components/SiteMotion';
-import { PageHead, SitePage } from '../../../components/SitePage';
-import { media } from '../../../lib/media';
-import { FAQ, STEPS } from '../../../lib/siteContent';
-import { FaqJsonLd } from '../../../components/JsonLd';
+import { StepMedia } from '../../../features/marketing/SiteMotion';
+import { SitePage } from '../../../features/marketing/layout/SitePage';
+import { PageHead } from '../../../components/ui/PageHead';
+import { Section } from '../../../components/ui/Section';
+import { media } from '../../../features/marketing/media';
+import { FAQ, STEPS } from '../../../features/marketing/siteContent';
+import { FaqJsonLd } from '../../../features/marketing/JsonLd';
 
 export const metadata: Metadata = {
   alternates: { canonical: '/how-it-works' },
@@ -51,11 +53,7 @@ export default function HowPage() {
         </div>
       </section>
 
-      <section className="lp-band lp-faq" aria-labelledby="faq">
-        <header className="lp-head">
-          <p className="lp-label">Questions</p>
-          <h2 id="faq">Asked <em>before</em> every capture</h2>
-        </header>
+      <Section className="lp-faq" id="faq" label="Questions" title={<>Asked <em>before</em> every capture</>}>
         <dl>
           {FAQ.map((f) => (
             <div key={f.q}>
@@ -65,7 +63,7 @@ export default function HowPage() {
           ))}
         </dl>
         <FaqJsonLd />
-      </section>
+      </Section>
     </SitePage>
   );
 }

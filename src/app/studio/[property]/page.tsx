@@ -3,15 +3,15 @@
 import dynamic from 'next/dynamic';
 import { use, useEffect, useState } from 'react';
 import { getProperty, getScenes, LAST_PROJECT_KEY } from '../../../lib/api';
-import { hydrateScenes, scopeToProperty } from '../../../lib/scenes';
-import { useStudioSession } from '../../../lib/useStudioSession';
+import { hydrateScenes, scopeToProperty } from '../../../features/scene/scenes';
+import { useStudioSession } from '../../../features/auth/useStudioSession';
 import { applyTheme } from '../../../lib/uiConfig';
-import { Uploader } from '../../../components/Uploader';
+import { Uploader } from '../../../features/studio/Uploader';
 import type { Property } from '../../../@types/scene.types';
-import '../../../components/editor.css';
+import '../../../features/studio/editor.css';
 
 // Client-only: LCCRender is a module singleton that breaks under a server render pass.
-const App = dynamic(() => import('../../../components/App'), { ssr: false });
+const App = dynamic(() => import('../../../features/scene/App'), { ssr: false });
 
 type Gate =
   | { kind: 'loading' }

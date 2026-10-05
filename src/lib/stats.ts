@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { API_BASE_URL } from './api';
-import { isPublicTour } from './scenes';
+import { isPublicTour } from '../features/scene/scenes';
 
 /** Visit and time counts for the monthly client report (server/src/stats.js).
  *  sendBeacon with text/plain: it survives the tab closing and needs no preflight. */

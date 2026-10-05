@@ -4,8 +4,8 @@ import { use, useCallback, useEffect, useState } from 'react';
 import {
   getProperty, getReservations, setReservationStatus, type Reservation, type ReservationStatus, type SiteBooking, type SiteEvents, type SiteStays
 } from '../../../../lib/api';
-import { useStudioSession } from '../../../../lib/useStudioSession';
-import '../../../../components/editor.css';
+import { useStudioSession } from '../../../../features/auth/useStudioSession';
+import '../../../../features/studio/editor.css';
 import '../site/site-editor.css';
 
 type Tab = 'reply' | 'upcoming' | 'past' | 'all' | 'waitlist';

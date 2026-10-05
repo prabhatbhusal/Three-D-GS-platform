@@ -5,15 +5,15 @@ import {
   createProperty, deleteProperty, claimProperty, getProperties, getProperty, getScenes, moveSceneToProperty, renameProperty,
   addPropertyMember, removePropertyMember, getSession, getActivity, getProjectLeads, setProjectLeadEmails, projectLeadsCsvUrl, type ProjectLeads, setProjectTheme, setProjectInfo, uploadProjectLogo, removeProjectLogo, API_BASE_URL, LAST_PROJECT_KEY, type SessionUser, type ActivityEntry
 } from '../../lib/api';
-import { useStudioSession } from '../../lib/useStudioSession';
-import { ThemeToggle } from '../../components/ThemeToggle';
-import { NewProjectDialog } from '../../components/NewProjectDialog';
-import { BrandInfoFields, infoProblem } from '../../components/BrandInfoFields';
+import { useStudioSession } from '../../features/auth/useStudioSession';
+import { ThemeToggle } from '../../components/ui/ThemeToggle';
+import { NewProjectDialog } from '../../features/studio/NewProjectDialog';
+import { BrandInfoFields, infoProblem } from '../../features/studio/BrandInfoFields';
 import { inkOn, paletteFromImage } from '../../lib/brandColor';
-import { TeamDialog } from '../../components/TeamDialog';
+import { TeamDialog } from '../../features/studio/TeamDialog';
 import type { ApiScene, Property } from '../../@types/scene.types';
 import type { BrandFont, ProjectInfo, ProjectTheme } from '../../@types/config.types';
-import '../../components/editor.css';
+import '../../features/studio/editor.css';
 
 /** Only its owner can rename, delete, rebrand or share it (an admin too sees
  *  only their own projects). The shared team password, with no account, can. */

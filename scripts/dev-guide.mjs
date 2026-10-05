@@ -133,16 +133,58 @@ const scripts = (p) => Object.entries(JSON.parse(read(p)).scripts ?? {});
 const routes = apiRoutes();
 const byFile = Object.groupBy(routes, (r) => r.file);
 const table = (head, rows, cls = '') => `<table${cls ? ` class="${cls}"` : ''}><thead><tr>${head.map((h) => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`;
+/** The repo files a source file imports (its relative imports, resolved; CSS and packages left out). */
+function localImports(file) {
+  const out = new Set();
+  for (const m of read(file).matchAll(/(?:import|export)\s[^'"]*?from\s+['"](\.[^'"]+)['"]|import\(\s*['"](\.[^'"]+)['"]\s*\)/g)) {
+    const spec = m[1] ?? m[2];
+    if (/\.css$/.test(spec)) continue;
+    const base = path.posix.normalize(path.posix.join(path.posix.dirname(file), spec));
+    const hit = ['', '.ts', '.tsx', '.js', '.mjs', '/index.ts', '/index.tsx']
+      .map((e) => base + e).find((p) => existsSync(path.join(ROOT, p)) && statSync(path.join(ROOT, p)).isFile());
+    if (hit) out.add(hit);
+  }
+  return [...out].sort();
+}
+/** Who imports whom, across the site (src/) and the API (server/src). */
+const graph = (() => {
+  const files = [...walk('src', /\.(ts|tsx)$/), ...walk('server/src', /\.(js|mjs)$/)]
+    .filter((f) => !/\.d\.ts$/.test(f) && !f.startsWith('src/vendor/'));
+  const uses = Object.fromEntries(files.map((f) => [f, localImports(f)]));
+  const usedBy = Object.fromEntries(files.map((f) => [f, []]));
+  for (const [f, list] of Object.entries(uses)) for (const d of list) usedBy[d]?.push(f);
+  return { files, uses, usedBy };
+})();
+const short = (f) => f.replace(/^src\//, '').replace(/^server\/src\//, 'server/');
+/** Each page: the layouts wrapping it, outermost first, and the components it puts on screen itself. */
+function pageChains() {
+  return walk('src/app', /^page\.tsx$/).map((f) => {
+    const dirs = path.posix.dirname(f).split('/');
+    const layouts = dirs.map((_, i) => `${dirs.slice(0, i + 1).join('/')}/layout.tsx`).filter((l) => existsSync(path.join(ROOT, l)));
+    const url = '/' + f.replace(/^src\/app\/?/, '').replace(/\/?page\.tsx$/, '').split('/').filter((s) => s && !/^\(.*\)$/.test(s)).join('/');
+    const parts = graph.uses[f]?.filter((d) => /^src\/(components|features|app)\//.test(d)) ?? [];
+    return { url: url.replace(/\[(\w+)\]/g, ':$1'), file: f, layouts, parts };
+  });
+}
+const codeList = (list) => list.map((x) => `<code>${esc(short(x))}</code>`).join(' ') || '<span class="dim">none</span>';
+/** A workflow as a table: each step's file and function, and what happens there. */
+const flow = (title, steps) => `<h3>${title}</h3>${table(['', 'Where', 'What happens'],
+  steps.map(([where, what], i) => `<tr><td class="num">${i + 1}</td><td>${where}</td><td>${what}</td></tr>`), 'flow')}`;
+
 const moduleTable = (list) => table(['File', 'Lines', 'What it is for'],
   list.map((m) => `<tr><td><code>${esc(m.file)}</code></td><td class="num">${m.lines}</td><td>${esc(m.about) || '<span class="dim">No header comment.</span>'}</td></tr>`), 'mods');
 
 const CHAPTERS = [
-  ['start', 'Read this first'], ['product', 'What the product does'], ['arch', 'How it fits together'], ['setup', 'Running it on your computer'],
-  ['repo', 'Where things are'], ['rules', 'Rules that override feature requests'], ['data', 'The data'], ['auth', 'Accounts and permissions'],
-  ['api', 'API reference'], ['pages', 'Pages'], ['three', 'The 3D tour engine'], ['modules', 'Module index'], ['tests', 'Testing'],
-  ['config', 'Settings'], ['deploy', 'Deploying'], ['recipes', 'Recipes for common changes'], ['gaps', 'Known gaps']
+  ['start', 'Read this first'], ['learn', 'Learning the codebase in a day'], ['product', 'What the product does'], ['arch', 'How it fits together'],
+  ['flows', 'Workflows, file by file'], ['setup', 'Running it on your computer'], ['repo', 'Where things are'],
+  ['layout', 'How a page is put together'], ['frontend', 'Frontend conventions'], ['rules', 'Rules that override feature requests'],
+  ['data', 'The data'], ['auth', 'Accounts and permissions'], ['api', 'API reference'], ['pages', 'Pages'], ['three', 'The 3D tour engine'],
+  ['modules', 'Module index'], ['links', 'How the files link'], ['tests', 'Testing'], ['config', 'Settings'], ['deploy', 'Deploying'],
+  ['recipes', 'Recipes for common changes'], ['improve', 'Where the code should go next'], ['gaps', 'Known gaps']
 ];
-const h = (id, n) => `<h1 id="${id}"><span class="n">${n}</span>${CHAPTERS.find((c) => c[0] === id)[1]}</h1>`;
+/** A chapter heading, numbered by its place in CHAPTERS. */
+const h = (id) => `<h1 id="${id}"><span class="n">${CHAPTERS.findIndex((c) => c[0] === id) + 1}</span>${CHAPTERS.find((c) => c[0] === id)[1]}</h1>`;
+const ch = (id) => `chapter ${CHAPTERS.findIndex((c) => c[0] === id) + 1} (${CHAPTERS.find((c) => c[0] === id)[1]})`;
 
 const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>RCAAS.tech Developer Guide</title><style>
 @page { size: A4; margin: 18mm 17mm 20mm; }
@@ -162,7 +204,10 @@ table { width: 100%; border-collapse: collapse; margin: 6pt 0 12pt; font-size: 8
 th { text-align: left; padding: 4pt 6pt 4pt 0; border-bottom: 1pt solid var(--brown); color: var(--dim); font-weight: 600; }
 td { padding: 4pt 6pt 4pt 0; border-bottom: 0.5pt solid var(--line); vertical-align: top; }
 tr { break-inside: avoid; }
-table.api, table.mods { table-layout: fixed; }
+table.api, table.mods, table.links, table.flow { table-layout: fixed; }
+table.flow th:nth-child(1) { width: 4%; } table.flow th:nth-child(2) { width: 38%; }
+table.links th:nth-child(1) { width: 30%; } table.links td code, table.flow td code { overflow-wrap: anywhere; }
+.tree { margin: 8pt 0 12pt; padding: 10pt; border: 1pt solid var(--line); font: 8.2pt/1.55 Consolas, monospace; white-space: pre; break-inside: avoid; }
 table.api th:nth-child(1) { width: 9%; } table.api th:nth-child(2) { width: 33%; } table.api th:nth-child(3) { width: 14%; }
 table.mods th:nth-child(1) { width: 34%; } table.mods th:nth-child(2) { width: 7%; }
 table.api td:nth-child(2) code, table.mods td:nth-child(1) code { overflow-wrap: anywhere; }
@@ -209,7 +254,28 @@ ${h('start', 1)}
 <li><b>Data is JSON files</b> in a data folder (<code>DATA_DIR</code>), behind small store modules. Only studio accounts can live in Postgres so far. A store's functions are its contract, so a database can replace one store at a time.</li>
 <li><b>Publishing is a snapshot.</b> Editing in the studio never changes a live tour. Publishing writes a numbered copy, and visitors only ever read those copies.</li>
 </ul>
-<div class="note">New here? Read chapters 3 to 8 in order, then keep chapters 9 and 12 open as a reference while you work.</div>
+<div class="note">New here? Start with ${ch('learn')}: it is a plan for your first day. Keep ${ch('api')} and ${ch('links')} open as a reference while you work.</div>
+
+${h('learn')}
+<p>Nobody needs to read every file. The code is about ${Math.round(graph.files.reduce((n, f) => n + read(f).split('\n').length, 0) / 1000)} thousand lines across ${graph.files.length} files, and most of a day's understanding comes from following a few requests from the button to the file on disk. This plan gets a developer (or the owner) to the point of making a safe change by the end of one day.</p>
+${table(['When', 'Do this', 'Read'], [
+  ['Hour 1', 'Run it and use it like a client. Open the home page, a tour, the studio, a project\'s website (<code>/s/:project</code>) and the Reservations inbox. Book a table from a hotspot and confirm it.', `${ch('setup')}, ${ch('product')}`],
+  ['Hour 2', 'Learn the shape: two programs (the Next.js site and the Express API), and how a page is built from layouts and components.', `${ch('arch')}, ${ch('layout')}. Files: <code>src/app/layout.tsx</code>, <code>src/app/(site)/layout.tsx</code>, <code>src/features/marketing/layout/SitePage.tsx</code>, <code>src/app/(site)/page.tsx</code>`],
+  ['Hour 3', 'Follow one request end to end, with the files open side by side: a guest\'s Book now on a table hotspot.', `${ch('flows')}. Files: <code>HotspotBookCard.tsx</code> → <code>lib/api.ts requestHere</code> → <code>server/src/routes/reservations.js</code> → <code>server/src/reservations.js</code>`],
+  ['Hour 4', 'See the data. Open the data folder (<code>server/src/data</code> in development) and read a space\'s JSON, a published copy (<code>:id@n.json</code>), a website and a reservations file.', `${ch('data')}`],
+  ['Hour 5', 'The 3D tour: how a scan loads, how the camera walks, how hotspots follow the view.', `${ch('three')}. Files: <code>App.tsx</code> (<code>Stage</code>), <code>useSceneManager.ts</code>, <code>useLccWalker.ts</code>, <code>sceneDoc.ts</code>, <code>HotspotMarkers.tsx</code>`],
+  ['Hour 6', 'The studio: how an edit becomes a save, and a save becomes a publish. Search <code>EditorShell.tsx</code>, don\'t read it top to bottom.', `${ch('flows')} (studio), ${ch('auth')}`],
+  ['Hour 7', 'Read the tests as the specification: each test name is a rule the product keeps. Run <code>npm test</code>.', `${ch('tests')}. Files: <code>test/client.test.mjs</code>, <code>server/test/api.test.js</code>`],
+  ['Hour 8', 'Make a small change with a recipe, then run the checks.', `${ch('recipes')}, ${ch('rules')}`]
+].map(([a, b, c]) => `<tr><td>${a}</td><td>${b}</td><td>${c}</td></tr>`))}
+<h2>Ways to find your way without reading everything</h2>
+<ul class="bullets">
+<li><b>Search for the URL.</b> Every API call is written once in <code>src/lib/api.ts</code> and once in <code>server/src/routes/</code>. Searching for <code>/requests/tables</code>, for example, finds both ends at once.</li>
+<li><b>Every file says what it is for</b> in its first comment. ${ch('modules')} lists them all with that comment, and ${ch('links')} shows who uses each file.</li>
+<li><b>Class names tell you the surface:</b> <code>lp-</code> marketing pages, <code>site-</code> the site's shared chrome, <code>ed2-</code> the studio, <code>vw-</code> the tour, <code>hs-</code> hotspots, <code>ws-</code> and <code>[data-style]</code> client websites. Search a class to find its CSS file.</li>
+<li><b>CLAUDE.md is the current brief:</b> what works, what is broken and what is next. It is updated with every change.</li>
+<li><b>Look, don't guess:</b> <code>node scripts/shot.mjs &lt;url&gt; &lt;out.png&gt;</code> takes a full-page screenshot, which is quicker than imagining what a CSS change does.</li>
+</ul>
 
 ${h('product', 2)}
 <p>A client (a hotel, restaurant, venue, college or heritage site) is a <b>project</b>. Each scanned room or area is a <b>space</b>. A space holds a scan, a start view, <b>hotspots</b> (information, media, links to other spaces, and Book now on tables, rooms and halls), <b>camera tracks</b> (authored flythroughs, stored in <code>tracks</code>), invisible <b>collision boxes</b>, and settings such as day and night versions.</p>
@@ -245,7 +311,7 @@ ${h('arch', 3)}
 <h3>The team edits and publishes a space</h3>
 <ol>
 <li><code>/studio/:project</code> loads the draft with <code>GET /api/scenes/:id</code>. Access is checked by <code>sceneGuard</code> (<code>server/src/access.js</code>).</li>
-<li>Edits change the in-memory scene document in <code>src/lib/sceneDoc.ts</code>. <code>history.ts</code> gives undo and redo, and the header shows unsaved changes.</li>
+<li>Edits change the in-memory scene document in <code>src/features/scene/sceneDoc.ts</code>. <code>history.ts</code> gives undo and redo, and the header shows unsaved changes.</li>
 <li>Save sends the whole document with <code>PUT /api/scenes/:id</code>. The server keeps publish fields it owns and never lets a stale tab overwrite them.</li>
 <li>Publish (<code>POST /api/scenes/:id/publish</code>) runs <code>publishChecks</code>, then writes <code>scenes/:id@n.json</code> once and never again. Revert, restore and version history work from those files.</li>
 </ol>
@@ -256,6 +322,53 @@ ${h('arch', 3)}
 <li>The request is stored in <code>reservations/:project.json</code>, and the team gets an email and text (<code>notify.js</code>, <code>mailer.js</code>).</li>
 <li>The team confirms or declines in Reservations (<code>PATCH /api/sites/:project/reservations/:rid</code>), and the guest is told by text, WhatsApp or email.</li>
 </ol>
+
+${h('flows')}
+<p>Each table follows one thing a person does, from the button they press to the file the server writes. Left column: the file and the function. Every browser-to-server step goes through <code>src/lib/api.ts</code>, which has one function per endpoint; the server side starts in the router named in the API reference.</p>
+${flow('Signing in, and staying signed in', [
+  ['<code>features/auth/AuthPanel.tsx</code> · <code>submit</code>', 'The sign-in form on <code>/login</code> calls <code>login(password, email)</code>.'],
+  ['<code>lib/api.ts</code> · <code>login</code>', '<code>POST /api/auth/login</code>, with the browser sending and keeping cookies (<code>credentials: include</code>).'],
+  ['<code>server/routes/auth.js</code> · <code>/login</code>', 'Rate-limited per IP. <code>verifyUser</code> checks the password (scrypt) against the account.'],
+  ['<code>server/usersStore.js</code>', 'Picks the account store: <code>usersStore-pg.js</code> (Postgres <code>app.users</code>) when <code>DATABASE_URL</code> is set, else <code>usersStore-file.js</code> (JSON files).'],
+  ['<code>server/middleware/auth.js</code> · <code>issueSession</code>', 'Sets the httpOnly cookie <code>splatspace_session</code>: a signed JWT with the account id, name, email and when it was issued, good for 12 hours.'],
+  ['<code>features/auth/useStudioSession.ts</code>, <code>features/auth/useSession.ts</code>', 'Studio pages and the nav ask <code>GET /api/auth/session</code> who is signed in. Signed out, the studio sends you to <code>/login?next=…</code>.'],
+  ['<code>server/middleware/auth.js</code> · <code>requireEditorSession</code>, <code>staleReason</code>; <code>server/access.js</code> · <code>freshSession</code>', 'On every studio request: the cookie must be valid, the account must still exist, and the session must be newer than the last password change. The role is read fresh from the account, not from the cookie.']
+])}
+${flow('A visitor opens a tour', [
+  ['<code>app/tour/page.tsx</code>', 'Server part: link-preview tags (<code>lib/shareMeta.ts</code>). It renders <code>TourClient</code>.'],
+  ['<code>app/tour/TourClient.tsx</code>', 'Reads the project\'s published spaces (<code>getGallery</code>), its brand (<code>getProjectTheme</code> → <code>lib/uiConfig.ts applyTheme</code>), checks an embed key if framed (<code>checkEmbed</code>), and loads the published scene docs (<code>features/scene/sceneDoc.ts loadSceneDoc</code>).'],
+  ['<code>server/routes/scenes.js</code> · <code>GET /:id/published</code>', '<code>store.js getPublishedScene</code> returns the newest snapshot (<code>scenes/:id@n.json</code>). Drafts never reach visitors.'],
+  ['<code>features/scene/App.tsx</code> (loaded in the browser only)', '<code>Stage</code> builds the 3D view; <code>App</code> puts the visitor UI (<code>Viewer.tsx</code>) over it. In the studio the same <code>App</code> shows <code>EditorShell.tsx</code> instead.'],
+  ['<code>features/scene/useSceneManager.ts</code>', 'Loads the scan through the LCC SDK from <code>/api/assets/:assetId/…</code> (<code>server/routes/assets.js</code> → <code>storage.js</code>, disk or S3/R2), or a .glb (<code>meshModel.ts</code>), or a 360 video (<code>panoModel.ts</code>). Wraps it with <code>collision.ts withColliders</code>.'],
+  ['<code>features/scene/useLccWalker.ts</code>', 'Walk, Fly, Orbit: keys, mouse and touch move the camera; <code>collision.ts</code> keeps it out of walls and on the floor.'],
+  ['<code>features/hotspots/HotspotMarkers.tsx</code>', 'Each frame, <code>hotspotProjector.ts</code> projects hotspots to the screen; <code>hotspotLayout.ts</code> places their cards. A tap opens <code>HotspotPanel</code>.'],
+  ['<code>features/tour/Viewer.tsx</code> → <code>lib/api.ts</code>', 'Visit counts go to <code>POST /api/stats</code> (<code>server/stats.js</code>, totals only).']
+])}
+${flow('A guest books a table from a hotspot (Book now)', [
+  ['<code>features/hotspots/HotspotMarkers.tsx</code> · <code>HotspotPanel</code>', 'A table, room or hall hotspot shows Book now.'],
+  ['<code>features/booking/HotspotBookCard.tsx</code>', 'Asks which times are free (<code>getHereTables</code> → <code>GET /api/sites/:id/requests/tables</code>; for a hall <code>getHereHall</code>), then sends the guest\'s answers with <code>requestHere</code>.'],
+  ['<code>server/routes/reservations.js</code> · <code>POST /:id/requests</code>', 'Checks the hotspot is published in that project, the day and time are on the hours, and the guests fit. What is booked comes from the published hotspot, never from the request.'],
+  ['<code>server/reservations.js</code> · <code>withReservations</code>', 'One write at a time per project: re-checks <code>tableFree</code> (or <code>events.js hallHotspotFree</code>) and appends the request to <code>reservations/:id.json</code>. A clash answers 409.'],
+  ['<code>server/routes/reservations.js</code> · <code>tellTheTeam</code> → <code>server/mailer.js sendMail</code>', 'Emails the project\'s team through Resend.'],
+  ['<code>app/studio/[property]/reservations/page.tsx</code>', 'The team presses Confirm or Decline: <code>PATCH /api/sites/:id/reservations/:rid</code> re-checks availability, then tells the guest (<code>server/notify.js textGuest</code> by SMS or WhatsApp, and <code>sendMail</code>).']
+])}
+${flow('A guest books on a client\'s website', [
+  ['<code>app/s/[property]/page.tsx</code>', 'Server-rendered: fetches the published website (<code>GET /api/sites/:id</code>, <code>server/routes/sites.js</code>, cleaned by <code>cleanSite</code>) and renders <code>SiteView.tsx</code>.'],
+  ['<code>app/s/[property]/SiteView.tsx</code>', 'Lays out the sections: rooms (<code>RoomBooking.tsx</code>), tables (<code>TableBooking.tsx</code>), halls (<code>EventBooking.tsx</code>), menu, offers, reviews, FAQ, map.'],
+  ['<code>features/booking/TableBooking.tsx</code>', '<code>getAvailability</code> → <code>GET /api/sites/:id/availability</code>, then <code>reserveTable</code> → <code>POST /api/sites/:id/reservations</code>. Rooms use <code>requestStay</code>, halls <code>requestEvent</code>.'],
+  ['<code>server/routes/reservations.js</code> → <code>server/reservations.js</code>, <code>stays.js</code>, <code>events.js</code>', 'The same queue and rules as above: <code>tableFree</code>/<code>bestTable</code>, <code>roomsFree</code>, <code>hallFree</code>.']
+])}
+${flow('The team edits, saves and publishes a space', [
+  ['<code>app/studio/[property]/page.tsx</code>', 'Checks the session (<code>useStudioSession</code>), loads the project\'s spaces, and shows <code>App</code> with <code>EditorShell</code>.'],
+  ['<code>features/studio/EditorShell.tsx</code>', 'The tree, inspectors and buttons. Every edit goes through <code>features/scene/sceneDoc.ts</code> (hotspots, colliders, booking), <code>viewpoints.ts</code> (tracks) or <code>transform.ts</code> (model placement); <code>history.ts</code> records undo steps.'],
+  ['<code>features/scene/sceneDoc.ts</code> · <code>sceneDocFor</code> → <code>lib/api.ts saveScene</code>', 'Save sends the whole document: <code>PUT /api/scenes/:id</code>.'],
+  ['<code>server/routes/scenes.js</code> → <code>access.js sceneGuard</code> → <code>store.js saveScene</code>', 'Checks the account may work on this space (and on the project it goes into), writes <code>scenes/:id.json</code>, and logs it (<code>activity.js record</code>).'],
+  ['<code>server/routes/scenes.js</code> · <code>GET /:id/publish</code>, <code>POST /:id/publish</code>', 'The publish panel first shows warnings (<code>publishChecks</code>, <code>missingFiles</code>), then <code>store.js publishScene</code> writes the next numbered snapshot. Visitors see it at once.']
+])}
+${flow('A visitor sends an enquiry', [
+  ['<code>features/enquiry/EnquiryPanel.tsx</code>', 'The form in the tour, on project pages and on client websites calls <code>submitLead</code>.'],
+  ['<code>server/routes/leads.js</code> · <code>POST /</code>', 'Rate-limited, checks a bot-trap field and how fast the form was filled, then <code>leadsStore.js saveLead</code>. After the visitor has their answer, <code>sendLeadEmail</code> (<code>mailer.js</code>) emails the project\'s team, and a failed send is recorded on the enquiry.']
+])}
 
 ${h('setup', 4)}
 <pre><code># Node 24 (the tests run TypeScript directly), and Chrome for screenshots and this guide
@@ -278,9 +391,19 @@ ${table(['Where', 'Command', 'Runs'], [...scripts('package.json').map(([k, v]) =
 
 ${h('repo', 5)}
 ${table(['Folder', 'What is in it'], [
-  ['src/app', 'Next.js routes. <code>(site)</code> is the marketing site, <code>studio</code> the authoring app, <code>tour</code> and <code>t</code> the tours, <code>s</code> client websites. Chapter 10 lists every page.'],
-  ['src/components', 'React components. <code>App.tsx</code> is the 3D canvas, <code>EditorShell.tsx</code> the whole studio UI (about 2,000 lines: search it, don\'t read it whole), <code>Viewer.tsx</code> the visitor\'s tour UI.'],
-  ['src/lib', 'Client logic without UI: the scene document, camera and collision maths, booking rules, API calls (<code>api.ts</code>), translations (<code>i18n.ts</code>).'],
+  ['src/app', `Next.js routes. <code>(site)</code> is the marketing site, <code>studio</code> the authoring app, <code>tour</code> and <code>t</code> the tours, <code>s</code> client websites. ${ch('layout')} shows how each page is put together, and ${ch('pages')} lists them all.`],
+  ['src/features/auth', 'Sign-in, sign-up, forgot and change password (<code>AuthPanel</code>, <code>PasswordChange</code>), and who is signed in (<code>useSession</code>, <code>useStudioSession</code>).'],
+  ['src/features/booking', 'Booking rules (<code>booking.ts</code>) and every booking form: tables, rooms, halls, the waitlist, and Book now on a hotspot (<code>HotspotBookCard</code>).'],
+  ['src/features/hotspots', 'Hotspot markers and cards over the 3D view, their icons, and the maths that places them.'],
+  ['src/features/scene', 'The 3D engine the tour and the studio share: <code>App.tsx</code> (the canvas), <code>sceneDoc.ts</code> (the scene document), loading scans, models and 360 video, the walker and collision.'],
+  ['src/features/tour', 'The visitor\'s UI over the 3D (<code>Viewer.tsx</code>), the floor map and the AI concierge.'],
+  ['src/features/enquiry', 'The enquiry form used in the tour, on project pages and on client websites.'],
+  ['src/features/studio', 'The studio UI (<code>EditorShell.tsx</code>, about 2,000 lines: search it, don\'t read it whole), gizmos, collision boxes, the uploader and model converter, dialogs, undo history.'],
+  ['src/features/website', 'Clients\' websites at <code>/s/:project</code>: <code>SiteView</code>, <code>SiteParts</code>, <code>website.css</code>.'],
+  ['src/features/marketing', 'The marketing site: <code>layout/</code> (Navbar, AccountMenu, SitePage, ContactBand, Footer), <code>home/</code> and <code>work/</code> sections, policy pages, and the words (<code>siteContent.ts</code>).'],
+  ['src/components/ui', 'Small pieces any page reuses: <code>Button</code>, <code>Section</code>, <code>PageHead</code>, <code>ThemeToggle</code>.'],
+  ['src/hooks', 'Reusable React logic that belongs to no one feature: <code>useClickOutside</code>.'],
+  ['src/lib', 'Plumbing every feature uses: the API client (<code>api.ts</code>, one function per endpoint), translations, page metadata, theme and brand colours, audio, visit stats.'],
   ['src/@types', 'Shared TypeScript types: hotspots, scenes, viewpoints, uploads, the vendor SDK.'],
   ['src/vendor', 'The XGRIDS LCC Web SDK and its README, the only documentation for it.'],
   ['server/src', 'The API: <code>index.js</code> wires it up, <code>routes/</code> are the endpoints, and the stores (<code>store.js</code>, <code>usersStore*.js</code>, <code>reservations.js</code>, <code>leadsStore.js</code>, <code>stats.js</code>, <code>activity.js</code>) own the data.'],
@@ -291,6 +414,70 @@ ${table(['Folder', 'What is in it'], [
   ['deploy', 'VPS deploy: <code>deploy.sh</code>, pm2 <code>ecosystem.config.cjs</code>, <code>nginx.conf</code>, and its <code>README.md</code>.'],
   ['public', 'Static files shipped to every visitor. Never put masters here: they go in <code>media-src/</code> (ignored by git).']
 ].map(([a, b]) => `<tr><td><code>${a}</code></td><td>${b}</td></tr>`))}
+
+${h('layout')}
+<p>Next.js builds every page from the folders in <code>src/app</code>. A <code>layout.tsx</code> wraps every page below it and stays on screen while you move between those pages; a <code>page.tsx</code> is one URL. A folder in brackets, like <code>(site)</code>, groups pages under one layout without adding to the URL. That is why the nav never reloads on the marketing site: it lives in the group's layout, not in each page.</p>
+<h2>The marketing site</h2>
+<div class="tree">src/app/layout.tsx                    every page: &lt;html&gt;, the Inter font, globals.css, the theme
+│                                     script (dark or light before first paint), site-wide metadata
+└─ src/app/(site)/layout.tsx          the marketing pages: &lt;main class="site lp"&gt; (the scroll
+   │                                  container), site.css + landing.css, JSON-LD, and the Navbar
+   ├─ features/marketing/layout/Navbar.tsx    stays put while pages change; AccountMenu when signed in
+   └─ src/app/(site)/page.tsx         one page, e.g. the home page
+      └─ features/marketing/layout/SitePage.tsx   slides in and out between pages, then adds:
+         ├─ the page's own sections   home: features/marketing/home/Hero, ScanStory,
+         │                            WhyTours, ProvenSpecs, WaysIn, FourSteps, EnquiryBleed, Sectors
+         ├─ features/marketing/layout/ContactBand.tsx   "Have a space worth walking?" (contact={false} hides it)
+         └─ features/marketing/layout/Footer.tsx        links: add a page to its COLUMNS list</div>
+<h2>The tour and the studio</h2>
+<div class="tree">src/app/tour/page.tsx → TourClient.tsx → features/scene/App.tsx (browser only)
+                                           ├─ Stage: the 3D canvas (scan, camera, hotspots)
+                                           └─ Viewer.tsx: the visitor's buttons, panels, enquiry
+
+src/app/studio/layout.tsx (keeps the studio out of search)
+├─ studio/page.tsx                 the project list
+└─ studio/[property]/page.tsx → features/scene/App.tsx
+                                           ├─ Stage: the same 3D canvas
+                                           └─ EditorShell.tsx: tree, inspectors, save, publish
+   ├─ [property]/site/page.tsx         the website editor
+   ├─ [property]/reservations/page.tsx the bookings inbox
+   └─ [property]/report/page.tsx       the monthly report</div>
+<p>A client's website is <code>src/app/s/[property]/page.tsx</code> → <code>SiteView.tsx</code> (sections) and <code>SiteParts.tsx</code> (smaller pieces), styled by <code>website.css</code> and its three looks. It does not use the marketing site's layout.</p>
+<h2>Every page, its layouts and what it puts on screen</h2>
+<p>Read from the code on each run. "Layouts" are outermost first; "Shows" are the components the page file imports itself (each of those imports more: see ${ch('links')}).</p>
+${table(['URL', 'Layouts', 'Shows'], pageChains().map((p) => `<tr><td><code>${esc(p.url)}</code></td><td>${codeList(p.layouts)}</td><td>${codeList(p.parts)}</td></tr>`), 'links')}
+
+${h('frontend')}
+<h2>Where a component goes</h2>
+${table(['Folder', 'What goes there'], [
+  ['src/features/&lt;feature&gt;', 'Everything one feature needs, together: its components, logic, hooks and CSS. A new feature gets a new folder. Sections of a page get a file each (<code>marketing/home/Hero.tsx</code>, <code>marketing/work/WorkEntry.tsx</code>), with their words in <code>marketing/siteContent.ts</code>.'],
+  ['src/components/ui', 'Small pieces any page reuses: <code>Button</code> (every button and button-like link), <code>Section</code> (a band with its heading), <code>PageHead</code> (a page\'s opening banner with its one h1), <code>ThemeToggle</code>.'],
+  ['src/hooks', 'Reusable React logic shared by several features: <code>useClickOutside</code>. A hook one feature owns lives in that feature (<code>auth/useSession</code>, <code>scene/useSceneManager</code>).'],
+  ['src/lib', 'Plumbing, not features: the API client, translations, page metadata, theme. Pure functions anywhere get a test in <code>test/client.test.mjs</code>.'],
+].map(([a, b]) => `<tr><td><code>${a}</code></td><td>${b}</td></tr>`))}
+<h2>Buttons</h2>
+<p>Use <code>&lt;Button&gt;</code> from <code>components/ui/Button.tsx</code>, never a hand-written class list. With <code>href</code> it is a link (add <code>reload</code> for the tour and the studio, which need a full page load); without it, a <code>&lt;button&gt;</code>.</p>
+<pre><code>&lt;Button href="/contact" variant="pill-solid" transitionTypes={['nav-forward']}&gt;Book a capture&lt;/Button&gt;
+&lt;Button href="/tour" reload&gt;Walk a live tour&lt;/Button&gt;
+&lt;Button type="submit" variant="primary" large disabled={busy}&gt;Sign in&lt;/Button&gt;</code></pre>
+${table(['Variant', 'Looks like', 'Use it for'], [
+  ['pill', 'Outlined pill', 'Secondary actions on marketing pages: "How it works", "Open the gallery".'],
+  ['pill-solid', 'Filled pill in the brand blue', 'The one main action of a section: "Book a capture".'],
+  ['primary', 'Filled button in the brand blue', 'The main action in the nav and in forms: "Create account", "Sign in".'],
+  ['ghost', 'Outlined button', 'A secondary action next to a primary one.'],
+  ['quiet', 'Text-like button', 'A low-key action in the nav: "Sign in".']
+].map(([a, b, c]) => `<tr><td><code>${a}</code></td><td>${b}</td><td>${c}</td></tr>`))}
+<h2>Colours</h2>
+<p>Components never write a colour. They use a token named for its role, and the token is set once for dark and once for light. Each surface has its own set:</p>
+${table(['Token (marketing site, on <code>.site</code> in site.css)', 'Role'], [
+  ['--bg', 'The page'], ['--panel', 'A card or a field'], ['--raise', 'A tile inside a card; hover fills'],
+  ['--line, --line-lit', 'Borders, and borders when hovered'], ['--text, --dim', 'Text, and quieter text'],
+  ['--accent', 'The brand blue for text, links and focus lines'], ['--accent-fill, --accent-ink', 'Filled buttons and the current tab, and the text on them'],
+  ['--accent-glow', 'The focus halo around fields'], ['--danger, --danger-ink', 'Errors and Log out, and the text on them'], ['--teal, --violet', 'The hero gradient only']
+].map(([a, b]) => `<tr><td><code>${a}</code></td><td>${b}</td></tr>`))}
+<p>The studio uses the same roles under <code>--ed-*</code> names (<code>editor.css</code>: black and white, with <code>--ed-signal</code> for the selection and <code>--ed-danger</code>). The tour uses <code>--gold</code> and <code>--paper</code> (<code>globals.css</code>, <code>viewer.css</code>) plus the client's brand colour. A client's website takes its brand accent and one of three looks (<code>website.css [data-style]</code>).</p>
+<h2>CSS files</h2>
+<p>One stylesheet per surface, each with its own class prefix: <code>site.css</code> (<code>site-</code>, shared chrome, tokens), <code>landing.css</code> (<code>lp-</code>, marketing pages), <code>fieldbook.css</code> (Contact and About), <code>editor.css</code> (<code>ed2-</code>), <code>viewer.css</code> (<code>vw-</code>), <code>hotspots.css</code> (<code>hs-</code>), <code>website.css</code> (client websites). A layout or page imports the stylesheets it needs.</p>
 
 ${h('rules', 6)}
 <p>These come from <code>CLAUDE.md</code> and win over any feature request. Each exists because breaking it caused, or would cause, a real problem.</p>
@@ -312,7 +499,7 @@ ${table(['Path', 'Owner', 'Holds'], [
   ['assets/:assetId/…', 'storage.js', 'Scans, models, photos, audio, floor plans. Or the S3/R2 bucket with <code>ASSET_DRIVER=s3</code>. Always addressed by asset id, never by path.']
 ].map(([a, b, c]) => `<tr><td><code>${a}</code></td><td><code>${b}</code></td><td>${c}</td></tr>`))}
 <h2>The scene document</h2>
-<p>One JSON document per space, renderer-agnostic: nothing in it is specific to the SDK. <code>server/src/migrate.js</code> upgrades old documents when they are read (current version ${esc(/CURRENT_VERSION = (\d+)/.exec(read('server/src/migrate.js'))?.[1])}), and <code>src/lib/sceneDoc.ts</code> defaults anything missing when the studio loads one. A new field must survive being absent.</p>
+<p>One JSON document per space, renderer-agnostic: nothing in it is specific to the SDK. <code>server/src/migrate.js</code> upgrades old documents when they are read (current version ${esc(/CURRENT_VERSION = (\d+)/.exec(read('server/src/migrate.js'))?.[1])}), and <code>src/features/scene/sceneDoc.ts</code> defaults anything missing when the studio loads one. A new field must survive being absent.</p>
 ${table(['Field', 'Holds'], [
   ['id, version, title, tagline', 'Identity and the schema version.'],
   ['propertyId, ownerId', 'The project it belongs to, and who created it (decides access while it is in no project).'],
@@ -359,10 +546,16 @@ ${h('three', 11)}
 
 ${h('modules', 12)}
 <p>Every source file and the first comment in it, read when this guide was built. A file without a comment is a hint that one is owed.</p>
-<h2>Client logic: <code>src/lib</code></h2>${moduleTable(modules('src/lib'))}
-<h2>Components: <code>src/components</code></h2>${moduleTable(modules('src/components'))}
+${readdirSync(path.join(ROOT, 'src/features')).sort().map((f) => `<h2>Feature: <code>src/features/${f}</code></h2>${moduleTable(modules(`src/features/${f}`))}`).join('\n')}
+<h2>Shared: <code>src/components/ui</code>, <code>src/hooks</code>, <code>src/lib</code></h2>${moduleTable([...modules('src/components'), ...modules('src/hooks'), ...modules('src/lib')])}
+<h2>Route files: <code>src/app</code></h2>${moduleTable(modules('src/app'))}
 <h2>API: <code>server/src</code></h2>${moduleTable(modules('server/src'))}
 <h2>Scripts</h2>${moduleTable([...modules('scripts'), ...modules('server/scripts')])}
+
+${h('links')}
+<p>Every source file, what it uses from this repository and what uses it, read from the import lines on each run. Use it to answer "if I change this file, what can break?" (look at "Used by") and "where does this data come from?" (follow "Uses"). Packages and stylesheets are left out.</p>
+${table(['File', 'Uses', 'Used by'], graph.files.filter((f) => !f.startsWith('src/app/') || /(page|layout)\.tsx$|Client\.tsx$|View\.tsx$|Parts\.tsx$/.test(f))
+  .map((f) => `<tr><td><code>${esc(short(f))}</code></td><td>${codeList(graph.uses[f])}</td><td>${codeList(graph.usedBy[f])}</td></tr>`), 'links')}
 
 ${h('tests', 13)}
 <ul class="bullets">
@@ -409,6 +602,18 @@ ${h('recipes', 16)}
 <pre><code>npx tsc --noEmit &amp;&amp; npm test &amp;&amp; npm run lint
 npm run docs:dev-guide        # if routes, modules or settings changed</code></pre>
 <p>Then update <code>CLAUDE.md</code>, section 4, in the same change: a feature added, fixed or broken lands under Working, Needs fixing or Next up.</p>
+
+${h('improve')}
+<p>The code works and is tested, but a few places make it harder to learn and to change than it needs to be. In order of how much each would help:</p>
+<ol>
+<li><b>Split the studio's one big file.</b> <code>EditorShell.tsx</code> is about 2,000 lines: the top bar, the scene tree, every inspector, publishing and the account menu. Move each into its own file under the studio feature folder (<code>SceneTree</code>, <code>HotspotInspector</code>, <code>ColliderInspector</code>, <code>TrackInspector</code>, <code>PublishPanel</code>, <code>StudioAccount</code>), as the marketing site's sections were split on 2026-10-05. Do <code>Viewer.tsx</code> the same way. This is the single biggest help to a new developer.</li>
+<li><b>One source for rules both sides use.</b> Booking rules exist twice: in the browser (<code>booking.ts</code>) and on the server (<code>reservations.js</code>, <code>stays.js</code>, <code>events.js</code>). When they drift, guests see errors: the Book now card picks "today" from the visitor's clock while the server uses the venue's (found 2026-10-05). Move the shared rules into one module both import.</li>
+<li><b>Type the server.</b> The API is plain JavaScript. Adding <code>// @ts-check</code> and JSDoc types to the stores and routes, or moving to TypeScript one file at a time, would catch wrong field names before a guest does.</li>
+<li><b>Move the rest of the data to Postgres,</b> one store at a time behind the same exports, bookings first. Today the per-project write queue (<code>withReservations</code>) only works with one server process, and a database transaction would remove that limit.</li>
+<li><b>Browser tests for the money paths.</b> The unit and API tests are strong. Add a few Playwright tests that click through sign-in, publishing, Book now and a website booking, so a layout change can't silently break them.</li>
+<li><b>Errors you can see.</b> Before launch, add error reporting for the browser and the API, and an uptime check, so a broken booking form is noticed in minutes, not days.</li>
+<li><b>Keep the documents honest automatically.</b> Run <code>npm run docs:dev-guide</code> in CI and fail the build when a route or a file has no comment explaining it.</li>
+</ol>
 
 ${h('gaps', 17)}
 <p>From <code>CLAUDE.md</code>, "Needs fixing", when this guide was built:</p>

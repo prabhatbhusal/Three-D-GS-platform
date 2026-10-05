@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { connection } from 'next/server';
-import { SitePage } from '../../../components/SitePage';
+import { SitePage } from '../../../features/marketing/layout/SitePage';
 import { API_BASE_URL, withoutNightVersions, type GalleryItem } from '../../../lib/api';
 
 export const metadata: Metadata = {

@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
-import { MediaFill } from '../../../components/SiteMotion';
-import { PageHead, SitePage } from '../../../components/SitePage';
-import { media } from '../../../lib/media';
-import { STATUS, WORK } from '../../../lib/siteContent';
+import { SitePage } from '../../../features/marketing/layout/SitePage';
+import { PageHead } from '../../../components/ui/PageHead';
+import { WorkEntry } from '../../../features/marketing/work/WorkEntry';
+import { WORK } from '../../../features/marketing/siteContent';
 
 export const metadata: Metadata = {
   alternates: { canonical: '/work' },
@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   description: 'Places RCAAS.tech has captured: Gwarko Overpass, Madan Ashrit and Nepathya colleges, and Basera Boutique Hotel.'
 };
 
-/** Work: delivered and live projects, from lib/siteContent.ts WORK. */
+/** Work: delivered and live projects, one WorkEntry each, from features/marketing/siteContent.ts WORK. */
 export default function WorkPage() {
   return (
     <SitePage>
@@ -19,42 +19,7 @@ export default function WorkPage() {
           Places we have <em>captured</em>
         </PageHead>
         <ol className="lp-log">
-          {WORK.map((w) => {
-            const m = media(`work/${w.slug}`);
-            return (
-              <li key={w.place} className={`lp-entry is-${w.status}`}>
-                {/* the site's footage opens out to full width as it scrolls in */}
-                {m && <div className="lp-grow" aria-hidden><MediaFill m={m} lazy /></div>}
-                <div className="lp-entry-meta">
-                  <span className={`lp-status is-${w.status}`}>
-                    {w.status === 'now' && <span className="lp-rec" aria-hidden />}{STATUS[w.status]}
-                  </span>
-                  {w.when && <span className="lp-entry-when">{w.when}</span>}
-                  <span className="lp-entry-sector">{w.sector}</span>
-                </div>
-                <div className="lp-entry-main">
-                  <h2>{w.place}</h2>
-                  <p className="lp-entry-where">{w.where}</p>
-                  <p className="lp-entry-body">{w.body}</p>
-                  {w.ships && (
-                    <ul className="lp-ships" aria-label="Delivered">
-                      {w.ships.map((d) => <li key={d}>{d}</li>)}
-                    </ul>
-                  )}
-                  {w.href && (
-                    <a className="lp-entry-link" href={w.href} target="_blank" rel="noreferrer">Read the case study</a>
-                  )}
-                </div>
-                {w.stats && (
-                  <dl className="lp-entry-stats">
-                    {w.stats.map(([v, k]) => (
-                      <div key={k}><dt>{k}</dt><dd>{v}</dd></div>
-                    ))}
-                  </dl>
-                )}
-              </li>
-            );
-          })}
+          {WORK.map((w) => <WorkEntry key={w.place} w={w} />)}
         </ol>
       </section>
     </SitePage>

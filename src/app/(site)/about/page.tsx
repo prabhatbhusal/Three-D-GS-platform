@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
-import { SitePage } from '../../../components/SitePage';
-import '../../../components/fieldbook.css';
-import { ContourPlate } from '../../../components/ContourPlate';
-import { MediaFill } from '../../../components/SiteMotion';
-import { media } from '../../../lib/media';
-import { KIT, STATUS, WORK } from '../../../lib/siteContent';
+import { SitePage } from '../../../features/marketing/layout/SitePage';
+import '../../../features/marketing/fieldbook.css';
+import { ContourPlate } from '../../../features/marketing/ContourPlate';
+import { MediaFill } from '../../../features/marketing/SiteMotion';
+import { media } from '../../../features/marketing/media';
+import { KIT, STATUS, WORK } from '../../../features/marketing/siteContent';
 
 export const metadata: Metadata = {
   alternates: { canonical: '/about' },

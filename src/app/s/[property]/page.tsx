@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import { API_BASE_URL, apiUrl, type PublicSite } from '../../../lib/api';
-import { SiteView } from './SiteView';
+import { SiteView } from '../../../features/website/SiteView';
 import { shareMeta } from '../../../lib/shareMeta';
 
 /**

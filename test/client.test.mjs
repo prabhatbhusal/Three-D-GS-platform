@@ -4,10 +4,10 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cardBox, nearestIds, showsCard, NEAR_DISTANCE, CARD_W, CARD_H } from '../src/lib/hotspotLayout.ts';
+import { cardBox, nearestIds, showsCard, NEAR_DISTANCE, CARD_W, CARD_H } from '../src/features/hotspots/hotspotLayout.ts';
 import { safeUrl, resolveAsset, assetUrl } from '../src/lib/api.ts';
-import { bookingHref, stayProblem, nightsBetween, isoDay, freeForStay, roomsNeeded } from '../src/lib/booking.ts';
-import { resolveInitialTier } from '../src/lib/deviceTier.ts';
+import { bookingHref, stayProblem, nightsBetween, isoDay, freeForStay, roomsNeeded } from '../src/features/booking/booking.ts';
+import { resolveInitialTier } from '../src/features/scene/deviceTier.ts';
 
 test('booking link carries the visitor\'s dates and guests', () => {
   const t = 'https://basera.com/book?arrive={checkin}&depart={checkout}&adults={guests}&n={nights}';
@@ -163,9 +163,9 @@ test('manual and URL quality overrides are ignored; auto detection decides the t
 
 // three's FileLoader reports progress with ProgressEvent, which Node lacks.
 globalThis.ProgressEvent ??= class extends Event { constructor(t, init = {}) { super(t); Object.assign(this, init); } };
-const { loadMeshModel } = await import('../src/lib/meshModel.ts');
-const { findFloorBelow, isClear } = await import('../src/lib/collision.ts');
-const { guessUpAxis, pointCloudFloor } = await import('../src/lib/modelPrep.ts');
+const { loadMeshModel } = await import('../src/features/scene/meshModel.ts');
+const { findFloorBelow, isClear } = await import('../src/features/scene/collision.ts');
+const { guessUpAxis, pointCloudFloor } = await import('../src/features/studio/modelPrep.ts');
 const { Document, NodeIO } = await import('@gltf-transform/core');
 const { ALL_EXTENSIONS, EXTMeshoptCompression } = await import('@gltf-transform/extensions');
 const { MeshoptEncoder } = await import('meshoptimizer');
@@ -264,8 +264,8 @@ test('a point cloud gets a floor to stand on, and walls it can\'t walk through',
 test('every tour string has a Nepali and a Chinese translation', async () => {
   const { DICT, translate } = await import('../src/lib/i18n.ts');
   const { readFileSync } = await import('node:fs');
-  const files = ['Viewer', 'EnquiryPanel', 'FloorMap', 'BookingCard', 'TouchControls', 'HotspotMarkers', 'TableCard', 'RoomCard', 'ConciergePanel']
-    .map((f) => readFileSync(new URL(`../src/components/${f}.tsx`, import.meta.url), 'utf8'));
+  const files = ['tour/Viewer', 'enquiry/EnquiryPanel', 'tour/FloorMap', 'booking/BookingCard', 'scene/TouchControls', 'hotspots/HotspotMarkers', 'booking/TableCard', 'booking/RoomCard', 'tour/ConciergePanel']
+    .map((f) => readFileSync(new URL(`../src/features/${f}.tsx`, import.meta.url), 'utf8'));
   const keys = new Set(files.flatMap((src) => [...src.matchAll(/\bt[r]?\('([^']+)'/g)].map((m) => m[1])));
   // passed to t() through a variable
   for (const k of ['Viewpoints', 'Walk', 'Fly', 'Orbit', 'Glide between the best spots', 'Move freely, as if you’re there',
@@ -289,7 +289,7 @@ test('a night version is reached from its day space, not listed on its own', asy
   register('data:text/javascript,' + encodeURIComponent(
     'export async function resolve(s, c, next) { try { return await next(s, c); } catch (e) {' +
     ' if (s.startsWith(".") && !s.split("/").pop().includes(".")) return next(s + ".ts", c); throw e; } }'));
-  const { hydrateScenes, limitTour, tourSpaces, dayNightPair, sameTimeOfDay } = await import('../src/lib/scenes.ts');
+  const { hydrateScenes, limitTour, tourSpaces, dayNightPair, sameTimeOfDay } = await import('../src/features/scene/scenes.ts');
   hydrateScenes([
     { id: 'dn-a', title: 'A', night: 'dn-an' }, { id: 'dn-an', title: 'A at night' },
     { id: 'dn-b', title: 'B', night: 'dn-bn' }, { id: 'dn-bn', title: 'B at night' },
@@ -309,7 +309,7 @@ test('a night version is reached from its day space, not listed on its own', asy
 
 test('a large site’s spaces group by building, then floor, lowest floor first', async () => {
   // scenes.ts was already loaded (with its import resolver) by the night-version test above
-  const { hydrateScenes, limitTour, placesMap, hasPlaces, floorRank } = await import('../src/lib/scenes.ts');
+  const { hydrateScenes, limitTour, placesMap, hasPlaces, floorRank } = await import('../src/features/scene/scenes.ts');
   assert.deepEqual(['Roof terrace', '2nd floor', 'Ground floor', 'Basement', 'First floor', 'Level 3'].sort((a, b) => floorRank(a) - floorRank(b)),
     ['Basement', 'Ground floor', 'First floor', '2nd floor', 'Level 3', 'Roof terrace']);
   hydrateScenes([
@@ -356,7 +356,7 @@ test('a logo’s colours: the brand colour, not its background, outline or edges
 });
 
 test('collision boxes: stand on one, get pushed off a turned wall, and pass untouched beside it', async () => {
-  const { capsuleBoxPush, withColliders } = await import('../src/lib/collision.ts');
+  const { capsuleBoxPush, withColliders } = await import('../src/features/scene/collision.ts');
   const cap = (x, bottom, z, r = 0.3) => ({ start: { x, y: bottom + r, z }, end: { x, y: bottom + 1.65 - r, z }, radius: r });
   const close = (p, x, y, z) => assert.ok(p && Math.abs(p.x - x) < 1e-3 && Math.abs(p.y - y) < 1e-3 && Math.abs(p.z - z) < 1e-3, JSON.stringify(p));
 
@@ -386,7 +386,7 @@ test('collision boxes: stand on one, get pushed off a turned wall, and pass unto
 });
 
 test('a hotspot lands on the surface in the middle of the view, not in the air', async () => {
-  const { surfaceDistance } = await import('../src/lib/collision.ts');
+  const { surfaceDistance } = await import('../src/features/scene/collision.ts');
   // a wall across the view at z = -5: a ball touches it once its front reaches the wall
   const wall = { intersectsCapsule: ({ start, radius }) => ({ hit: start.z - radius <= -5 }) };
   const d = surfaceDistance(wall, { x: 0, y: 1.6, z: 0 }, { x: 0, y: 0, z: -1 }, 30, 0.04);
@@ -395,8 +395,29 @@ test('a hotspot lands on the surface in the middle of the view, not in the air',
   assert.equal(surfaceDistance(null, { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: -1 }, 30, 0.04), null, 'no scene: no answer');
 });
 
+test('a collision box lands where the middle of the view meets the scan, not 2 m ahead in mid-air', async () => {
+  const { withColliders, boxSpotInView } = await import('../src/features/scene/collision.ts');
+  // the scan: a wall across the view at z = -5; the boxes are added on top, as useSceneManager does
+  const scan = { intersectsCapsule: ({ start, radius }) => ({ hit: start.z - radius <= -5 }) };
+  let boxes = [];
+  const r = withColliders(scan, () => boxes);
+  const ahead = { x: 0, y: 0, z: -1 };
+
+  const at = boxSpotInView(r, { x: 0, y: 1.6, z: 0 }, ahead, 1);
+  assert.ok(Math.abs(at.z + 5) < 0.1 && Math.abs(at.x) < 1e-6, `at the wall: ${JSON.stringify(at)}`);
+  assert.equal(Math.abs(at.yaw), 180, 'faces the camera');
+
+  // the box being moved sits in the way: it must not land on its own front
+  boxes = [{ position: [0, 1.25, -2], size: [4, 2.5, 0.2], yaw: 180 }];
+  const past = boxSpotInView(r, { x: 1, y: 1.6, z: 0 }, ahead, 1);
+  assert.ok(Math.abs(past.z + 5) < 0.1 && Math.abs(past.x - 1) < 1e-6, `past itself, to the wall: ${JSON.stringify(past)}`);
+
+  const blind = boxSpotInView(null, { x: 0, y: 1.6, z: 0 }, ahead, 1); // nothing to measure: 2 ahead, as before
+  assert.ok(Math.abs(blind.z + 2) < 1e-6, JSON.stringify(blind));
+});
+
 test('a table hotspot books its own dining place, never another one that happens to take bookings', async () => {
-  const { livePlaces, bookableTable } = await import('../src/lib/booking.ts');
+  const { livePlaces, bookableTable } = await import('../src/features/booking/booking.ts');
   const tables = (...ids) => ids.map((id) => ({ id }));
   const site = {
     booking: { on: true, plan: 'plan.png', tables: tables('T1', 'T2') },

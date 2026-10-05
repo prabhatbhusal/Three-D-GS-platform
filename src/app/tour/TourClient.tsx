@@ -5,13 +5,13 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { checkEmbed, getGallery, getProjectTheme } from '../../lib/api';
 import { applyTheme } from '../../lib/uiConfig';
-import { hydrateScenes, limitTour } from '../../lib/scenes';
-import { loadSceneDoc } from '../../lib/sceneDoc';
+import { hydrateScenes, limitTour } from '../../features/scene/scenes';
+import { loadSceneDoc } from '../../features/scene/sceneDoc';
 import type { ApiScene, SceneDoc } from '../../@types/scene.types';
 
 // Interim visitor route until /t/<property>/<space> exists (CLAUDE.md §12) —
 // that needs the property document, which isn't built yet.
-const App = dynamic(() => import('../../components/App'), { ssr: false });
+const App = dynamic(() => import('../../features/scene/App'), { ssr: false });
 
 type Gate =
   | { kind: 'checking' }

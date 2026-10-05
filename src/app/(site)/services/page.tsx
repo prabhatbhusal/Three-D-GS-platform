@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
-import { StepMedia } from '../../../components/SiteMotion';
-import { PageHead, SitePage } from '../../../components/SitePage';
-import { media } from '../../../lib/media';
-import { SERVICES } from '../../../lib/siteContent';
+import { StepMedia } from '../../../features/marketing/SiteMotion';
+import { SitePage } from '../../../features/marketing/layout/SitePage';
+import { PageHead } from '../../../components/ui/PageHead';
+import { media } from '../../../features/marketing/media';
+import { SERVICES } from '../../../features/marketing/siteContent';
 
 export const metadata: Metadata = {
   alternates: { canonical: '/services' },
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
   description: 'Virtual tours that take enquiries, point clouds, BIM-ready models, measured drawings and heritage records, from one LiDAR walk-through.'
 };
 
-/** Services: everything one scan can become (lib/siteContent.ts SERVICES). */
+/** Services: everything one scan can become (features/marketing/siteContent.ts SERVICES). */
 export default function ServicesPage() {
   const items = SERVICES.map((s) => ({ ...s, media: media(`services/${s.k}`) }));
 

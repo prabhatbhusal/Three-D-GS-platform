@@ -7,8 +7,8 @@ import {
   scheduleSite, shareSiteForReview, stopSiteReview, uploadSiteImage, type ReviewFeedback,
   type DiningPlace, type EventHall, type SiteBooking, type SiteDoc, type SiteEvents, type SiteMenu, type SiteSpace, type SiteStays, type SiteStyle, type SiteTable, type StayRoom
 } from '../../../../lib/api';
-import { useStudioSession } from '../../../../lib/useStudioSession';
-import '../../../../components/editor.css';
+import { useStudioSession } from '../../../../features/auth/useStudioSession';
+import '../../../../features/studio/editor.css';
 import './site-editor.css';
 
 const asset = (p: string) => `${API_BASE_URL}/api/assets/${p}`;

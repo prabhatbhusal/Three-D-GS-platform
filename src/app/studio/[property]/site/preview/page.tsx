@@ -2,8 +2,8 @@
 
 import { use, useEffect, useState } from 'react';
 import { getSitePreview, type PublicSite } from '../../../../../lib/api';
-import { useStudioSession } from '../../../../../lib/useStudioSession';
-import { SiteView } from '../../../../s/[property]/SiteView';
+import { useStudioSession } from '../../../../../features/auth/useStudioSession';
+import { SiteView } from '../../../../../features/website/SiteView';
 
 /**
  * The website editor's Preview (/studio/<project>/site/preview): the saved

@@ -1,16 +1,16 @@
-import { SiteNav } from '../../components/SiteNav';
-import { SiteJsonLd } from '../../components/JsonLd';
-import '../../components/site.css';
-import '../../components/landing.css';
+import { Navbar } from '../../features/marketing/layout/Navbar';
+import { SiteJsonLd } from '../../features/marketing/JsonLd';
+import '../../features/marketing/site.css';
+import '../../features/marketing/landing.css';
 
-/* The marketing pages share one scroll container and one nav. The nav is here
+/* The marketing pages share one scroll container and one nav. The nav (Navbar) is here
  * so it survives navigation: its active pill glides from link to link while
  * the page body (SitePage) slides underneath it. */
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
   return (
     <main className="site lp">
       <SiteJsonLd />
-      <SiteNav />
+      <Navbar />
       {children}
     </main>
   );

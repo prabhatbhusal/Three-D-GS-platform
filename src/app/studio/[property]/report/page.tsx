@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from 'react';
 import { API_BASE_URL, getProjectReport, type ProjectReport } from '../../../../lib/api';
-import { useStudioSession } from '../../../../lib/useStudioSession';
+import { useStudioSession } from '../../../../features/auth/useStudioSession';
 import './report.css';
 
 const thisMonth = () => new Date().toISOString().slice(0, 7); // the server counts in UTC months too

@@ -125,9 +125,9 @@ export interface Track {
 
 /** How a space's model is stored (§5.2 splat.format). lcc2 streams through
  *  the XGRIDS SDK; glb is a 3D model (FBX/OBJ/PLY/glTF converted in the
- *  studio, src/lib/modelConvert.ts) loaded whole by src/lib/meshModel.ts;
+ *  studio, src/features/studio/modelConvert.ts) loaded whole by src/features/scene/meshModel.ts;
  *  video360 is an equirectangular 360 camera video, streamed and shown
- *  around the viewer by src/lib/panoModel.ts. */
+ *  around the viewer by src/features/scene/panoModel.ts. */
 export type ModelFormat = 'lcc2' | 'glb' | 'video360';
 
 export interface SplatVariant {
@@ -180,9 +180,9 @@ export interface SceneDoc {
   /** Absent on docs saved before 2026-09-21 -> null (migrate.js). */
   booking: Booking | null;
   neighbours: string[];
-  /** This space's night version: another space's id (lib/scenes.ts dayNightPair). */
+  /** This space's night version: another space's id (features/scene/scenes.ts dayNightPair). */
   night?: string | null;
-  /** Its building and floor, for sites with several (lib/scenes.ts placesMap). */
+  /** Its building and floor, for sites with several (features/scene/scenes.ts placesMap). */
   building?: string;
   floor?: string;
   status: 'draft' | 'published';

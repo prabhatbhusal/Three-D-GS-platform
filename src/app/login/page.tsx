@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Suspense } from 'react';
-import { AuthPanel } from '../../components/AuthPanel';
-import { SplatField } from '../../components/SplatField';
-import '../../components/site.css';
+import { AuthPanel } from '../../features/auth/AuthPanel';
+import { SplatField } from '../../features/marketing/SplatField';
+import '../../features/marketing/site.css';
 import { NOINDEX } from '../../lib/shareMeta';
 
 export const metadata: Metadata = { title: 'Sign in', robots: NOINDEX };

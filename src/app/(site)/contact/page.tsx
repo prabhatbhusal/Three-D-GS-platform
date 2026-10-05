@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
-import { SitePage } from '../../../components/SitePage';
-import '../../../components/fieldbook.css';
-import { ContactSheet } from '../../../components/ContactSheet';
-import { ContourPlate } from '../../../components/ContourPlate';
-import { COMPANY } from '../../../lib/siteContent';
+import { SitePage } from '../../../features/marketing/layout/SitePage';
+import '../../../features/marketing/fieldbook.css';
+import { ContactSheet } from '../../../features/marketing/ContactSheet';
+import { ContourPlate } from '../../../features/marketing/ContourPlate';
+import { COMPANY } from '../../../features/marketing/siteContent';
 
 export const metadata: Metadata = {
   alternates: { canonical: '/contact' },

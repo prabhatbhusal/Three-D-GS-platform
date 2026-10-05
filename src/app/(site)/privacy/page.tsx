@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { POLICY_CONTACT, PolicyPage } from '../../../components/PolicyPage';
+import { POLICY_CONTACT, PolicyPage } from '../../../features/marketing/PolicyPage';
 
 export const metadata: Metadata = {
   alternates: { canonical: '/privacy' },

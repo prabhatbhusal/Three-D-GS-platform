@@ -4,7 +4,7 @@ import { use, useCallback, useEffect, useReducer, useRef, useState } from 'react
 import {
   approveSiteReview, getSiteReview, postReviewComment, setReviewKey, type PublicSite, type ReviewApproval, type ReviewComment
 } from '../../../../lib/api';
-import { SiteView } from '../SiteView';
+import { SiteView } from '../../../../features/website/SiteView';
 import './review.css';
 
 const NAME_KEY = 'rcaas.reviewer';
