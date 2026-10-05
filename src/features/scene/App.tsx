@@ -8,7 +8,7 @@ import { Gizmo, useSceneTransform } from '../studio/Gizmo';
 import { ColliderBoxes } from '../studio/ColliderBoxes';
 import { transformFor, setTransform, IDENTITY } from './transform';
 import { walkerCfg } from './walkerConfig';
-import { clearOrbitDistance, findFloorBelow, findStandingSpot } from './collision';
+import { clearOrbitDistance, findFloorBelow, findStandingSpot, scanOf } from './collision';
 import { useCameraDirector } from './useCameraDirector';
 import { useLccWalker } from './useLccWalker';
 import { spawnFor, setSessionSpawn, hydrateScenes, SCENE_BY_ID, firstScene, isPublicTour } from './scenes';
@@ -68,7 +68,8 @@ function Stage({ onState, viewerMode }: StageProps) {
   });
 
   const walker = useLccWalker({
-    renderer: mgr.renderer,
+    // the studio's camera passes through collision boxes (collision.ts scanOf); visitors and Preview bump into them
+    renderer: viewerMode ? mgr.renderer : scanOf(mgr.renderer),
     sceneId: mgr.activeId,
     enabled: mgr.ready && !mgr.loading && !flying,
     pointerLock: viewerMode,

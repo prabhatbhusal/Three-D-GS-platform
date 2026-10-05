@@ -1,0 +1,961 @@
+/*!**************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[15].oneOf[10].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[15].oneOf[10].use[3]!./src/features/tour/viewer.css ***!
+  \**************************************************************************************************************************************************************************************************************************************************************************/
+/* ================================================================= */
+/*  Viewer — the visitor tour. Cinematic, warm, minimal chrome.       */
+/* ================================================================= */
+
+.vw {
+  position: fixed; inset: 0; z-index: 6; pointer-events: none;
+  font: 400 13px/1.45 var(--sans, 'Segoe UI', system-ui, sans-serif);
+  color: var(--paper, #f6f1e7);
+  --glass: rgba(22, 18, 14, 0.76);
+  --glass-2: rgba(28, 23, 18, 0.88);
+  --line: rgba(246, 241, 231, 0.16);
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+.vw > * { pointer-events: auto; }
+
+/* legibility scrims over bright white splat rooms */
+.vw::before, .vw::after {
+  content: ''; position: fixed; left: 0; right: 0; height: 160px;
+  pointer-events: none; z-index: 0;
+}
+.vw::before { top: 0; background: linear-gradient(rgba(0, 0, 0, 0.34), transparent); }
+.vw::after { bottom: 0; background: linear-gradient(transparent, rgba(0, 0, 0, 0.42)); }
+
+@keyframes vw-fade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes vw-rise { from { opacity: 0; transform: translate(-50%, 20px) } to { opacity: 1; transform: translate(-50%, 0) } }
+@keyframes vw-rise-sheet { from { transform: translateY(100%) } to { transform: translateY(0) } }
+@keyframes vw-up { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: translateY(0) } }
+@keyframes vw-pulse { 0% { transform: scale(0.8); opacity: 1 } 70% { transform: scale(1.5); opacity: 0 } 100% { opacity: 0 } }
+
+/* ---- loading ring --------------------------------------------- */
+.vw-load {
+  position: fixed; inset: 0; z-index: 12; display: grid; place-items: center;
+  background: rgba(8, 7, 6, 0.94); pointer-events: none;
+}
+.vw-load-ring {
+  width: 44px; height: 44px; border-radius: 50%;
+  background:
+    radial-gradient(closest-side, rgba(8, 7, 6, 0.86) 76%, transparent 77%),
+    conic-gradient(var(--gold) calc(var(--p) * 1%), rgba(246, 241, 231, 0.12) 0);
+  animation: vw-fade 0.3s ease;
+}
+
+/* ---- enter gate --------------------------------------------- */
+/* A hero over the room itself: the scene streams in behind it, darkened on
+ * the left where the words sit. (The no-WebGL fallback reuses these
+ * classes over plain black.) */
+.vw-enter {
+  position: fixed; inset: 0; z-index: 14; display: flex; align-items: center;
+  overflow: hidden; animation: vw-fade 0.4s ease;
+  background:
+    linear-gradient(90deg, rgba(8, 6, 5, 0.86) 0%, rgba(8, 6, 5, 0.55) 38%, rgba(8, 6, 5, 0.12) 70%),
+    linear-gradient(0deg, rgba(8, 6, 5, 0.5), transparent 40%);
+}
+.vw-enter-in { position: relative; padding: 24px clamp(24px, 7vw, 96px); max-width: 640px; }
+.vw-enter-brand {
+  margin: 0 0 14px; font: 600 14px/1.2 var(--sans); color: rgba(246, 241, 231, 0.78);
+  animation: vw-up 0.6s var(--ease) 0.05s both;
+}
+.vw-enter-sub {
+  margin: 14px 0 0; max-width: 30rem; font: 400 15px/1.55 var(--sans); color: rgba(246, 241, 231, 0.72);
+  animation: vw-up 0.7s var(--ease) 0.16s both;
+}
+.vw-enter-play { display: grid; place-items: center; }
+.vw-enter-play svg { width: 14px; height: 14px; fill: currentColor; }
+.vw-enter-mark {
+  margin: 0; font: 400 clamp(38px, 6vw, 68px)/1.04 var(--serif, Georgia, serif);
+  letter-spacing: 0.015em; color: #fff;
+  text-shadow: 0 6px 50px rgba(0, 0, 0, 0.6);
+  animation: vw-up 0.7s var(--ease) 0.12s both;
+}
+.vw-enter-btn {
+  position: relative; overflow: hidden; margin-top: 30px;
+  display: inline-flex; align-items: center; gap: 12px;
+  appearance: none; cursor: pointer; border: 1px solid rgba(246, 241, 231, 0.4);
+  padding: 15px 28px 15px 22px; border-radius: 999px; background: rgba(8, 6, 5, 0.35);
+  font: 600 14px/1 var(--sans);
+  color: var(--paper); animation: vw-up 0.7s var(--ease) 0.2s both;
+  transition: color 0.25s, border-color 0.25s, transform 0.16s;
+}
+.vw-enter-btn::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; transform: translateX(-101%);
+  background: var(--paper); transition: transform 0.3s var(--ease);
+}
+.vw-enter-btn:hover:not(:disabled) { color: #14110e; border-color: var(--paper); transform: translateY(-2px); }
+.vw-enter-btn:hover:not(:disabled)::before { transform: translateX(0); }
+.vw-enter-btn:disabled { cursor: default; color: rgba(246, 241, 231, 0.6); border-color: rgba(246, 241, 231, 0.14); }
+.vw-enter-btn > span { position: relative; }
+.vw-enter-prog {
+  display: block; height: 2px; margin-top: 10px; border-radius: 2px;
+  background: rgba(246, 241, 231, 0.12); overflow: hidden;
+}
+.vw-enter-prog > span {
+  display: block; height: 100%; width: calc(var(--p) * 1%);
+  background: var(--gold); transition: width 0.3s ease;
+}
+
+/* ---- opening: the room streams in behind the start screen, then arrives ---- */
+/* On a mouse-driven screen it streams in behind frosted glass; phones keep
+ * the plain veil (a live blur costs them frames, §10.2). While it streams, a
+ * soft light sweeps the glass, then stops once the space is ready. */
+@media (pointer: fine) {
+  .vw-enter { -webkit-backdrop-filter: blur(14px) saturate(1.15); backdrop-filter: blur(14px) saturate(1.15); }
+}
+.vw-enter.is-loading::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, 0.07) 50%, transparent 65%);
+  animation: vw-sweep 2.6s linear infinite;
+}
+@keyframes vw-sweep { from { translate: -100% 0; } to { translate: 100% 0; } }
+.vw-enter-prog { width: min(280px, 100%); }
+/* Start: the words lift away and the glass dissolves while the view glides in (App.tsx arrive). */
+.vw-enter.is-leaving { pointer-events: none; animation: vw-leave 0.7s var(--ease) both; }
+.vw-enter.is-leaving .vw-enter-in { animation: vw-leave-in 0.6s var(--ease) both; }
+@keyframes vw-leave { to { opacity: 0; } }
+@keyframes vw-leave-in { to { opacity: 0; translate: 0 -18px; filter: blur(6px); } }
+/* Each arrival (a new space too): the room pulls into focus, from dark on a phone. */
+.vw-arrive { position: fixed; inset: 0; z-index: 13; pointer-events: none; animation: vw-arrive 1.6s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@keyframes vw-arrive { from { background: rgba(8, 6, 5, 0.7); } to { background: rgba(8, 6, 5, 0); } }
+@media (pointer: fine) {
+  .vw-arrive { animation-name: vw-arrive-focus; }
+  @keyframes vw-arrive-focus {
+    from { -webkit-backdrop-filter: blur(14px) saturate(1.15); backdrop-filter: blur(14px) saturate(1.15); background: rgba(8, 6, 5, 0.4); }
+    to { -webkit-backdrop-filter: blur(0) saturate(1); backdrop-filter: blur(0) saturate(1); background: rgba(8, 6, 5, 0); }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vw-enter.is-loading::after { animation: none; }
+  .vw-arrive { animation-duration: 0.4s; }
+}
+
+/* ---- chrome: icon buttons ---------------------------------- */
+/* Dark, round and translucent over the room — the room stays the subject.
+ * No backdrop blur: it costs frames on the phones that matter (§10.2). */
+.vw-tr {
+  /* above the cards' backdrop: Book now works while the enquiry card is open */
+  position: fixed; top: 16px; right: 16px; z-index: 14;
+  display: flex; align-items: center; gap: 8px; animation: vw-fade 0.4s var(--ease) both;
+}
+.vw-ib, .vw-hd {
+  appearance: none; cursor: pointer; display: grid; place-items: center;
+  width: 40px; height: 40px; border-radius: 999px; padding: 0;
+  color: #fff; background: rgba(16, 13, 11, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.vw-ib:hover, .vw-hd:hover { background: rgba(16, 13, 11, 0.82); border-color: rgba(255, 255, 255, 0.4); }
+.vw-ib.on { color: #14110e; background: var(--paper); border-color: var(--paper); }
+.vw-ib svg, .vw-tb svg, .vw-exit svg {
+  width: 18px; height: 18px; fill: none; stroke: currentColor;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+.vw-hd { width: auto; padding: 0 12px; font: 800 11px/1 var(--sans); letter-spacing: 0.04em; color: rgba(255, 255, 255, 0.5); }
+.vw-hd.on { color: #fff; }
+/* Language (lib/i18n.ts): a native select dressed as the HD pill, and on the start screen a quiet outline. */
+.vw-lang { appearance: none; -webkit-appearance: none; text-align: center; cursor: pointer; }
+.vw-lang.vw-hd { color: #fff; font: 700 12px/1 var(--sans); letter-spacing: 0; }
+.vw-lang option { color: #14110e; background: #fff; }
+.vw-enter-lang {
+  display: block; margin-top: 18px; height: 34px; padding: 0 16px; border-radius: 999px;
+  color: rgba(246, 241, 231, 0.8); background: transparent; border: 1px solid rgba(246, 241, 231, 0.25);
+  font: 600 13px/1 var(--sans);
+}
+.vw-enter-lang:hover { border-color: rgba(246, 241, 231, 0.6); }
+/* Book now (§7.6): the hotel's accent, the one filled pill up here. */
+.vw-book {
+  display: inline-flex; align-items: center; height: 40px; padding: 0 20px; margin-left: 4px;
+  border-radius: 999px; text-decoration: none; white-space: nowrap;
+  font: 700 13px/1 var(--sans); color: var(--gold-ink, #14110e); background: var(--gold);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3); transition: filter 0.15s;
+}
+.vw-book:hover { filter: brightness(1.08); }
+.vw-exit {
+  display: inline-flex; align-items: center; gap: 8px; margin-left: 4px;
+  height: 40px; padding: 0 16px; border-radius: 999px; text-decoration: none;
+  font: 700 13px/1 var(--sans); color: #14110e; background: #fff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22); transition: transform 0.15s;
+}
+.vw-exit:hover { transform: translateY(-1px); }
+
+/* place name, top-left — place names are the hero (§10.2) */
+.vw-place {
+  position: fixed; top: 18px; left: 20px; z-index: 9; max-width: calc(100vw - 420px);
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  pointer-events: none; text-shadow: 0 1px 14px rgba(0, 0, 0, 0.6);
+  animation: vw-fade 0.5s var(--ease) both;
+}
+.vw-place-brand { font: 600 12px/1.2 var(--sans); opacity: 0.82; }
+.vw-place-name {
+  font: 400 30px/1.1 var(--serif); color: #fff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
+
+/* ---- bottom: tray, transport, segmented progress ------------- */
+/* One centred column: views tray, transport, progress, then the mode switch
+ * lowest of all. */
+.vw-bottom {
+  position: fixed; left: 16px; right: 16px; bottom: 14px; z-index: 10;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  pointer-events: none;
+}
+.vw-bottom > * { pointer-events: auto; }
+
+/* The filmstrip: a photo card per scene, its name over the bottom edge; the
+ * current one outlined in the accent. */
+.vw-tray {
+  display: flex; gap: 8px; padding: 8px; max-width: min(100%, 820px);
+  overflow-x: auto; scrollbar-width: none; border-radius: 18px;
+  background: rgba(16, 13, 11, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.36);
+  animation: vw-up 0.3s var(--ease) both;
+}
+.vw-tray::-webkit-scrollbar { display: none; }
+.vw-card {
+  position: relative; flex: 0 0 auto; width: 152px; height: 88px; padding: 0;
+  border: 0; border-radius: 12px; overflow: hidden; cursor: pointer;
+  background: radial-gradient(120% 100% at 30% 15%, #4a3d31, #1a1511 75%);
+  transition: transform 0.2s var(--ease), box-shadow 0.2s;
+}
+.vw-card:hover { transform: translateY(-2px); }
+.vw-card.on { box-shadow: inset 0 0 0 2px var(--gold), 0 0 0 3px rgba(176, 141, 87, 0.22); }
+.vw-card-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.vw-card-ph { position: absolute; inset: 0 0 18px; display: grid; place-items: center; color: rgba(246, 241, 231, 0.26); }
+.vw-card-ph svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; }
+.vw-card-nm {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 10px 9px;
+  text-align: left; font: 700 13px/1.2 var(--sans); color: #fff;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.78));
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* The tour bar: a compact pill — ‹ Scenes, start over | play/pause ›. */
+.vw-tourbar {
+  display: flex; align-items: center; gap: 2px; padding: 5px; border-radius: 999px; color: #fff;
+  background: rgba(16, 13, 11, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.36);
+}
+.vw-tourbar svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.vw-tourbar-btn {
+  appearance: none; cursor: pointer; display: grid; place-items: center;
+  width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%;
+  color: rgba(255, 255, 255, 0.78); background: transparent; transition: color 0.15s, background 0.15s;
+}
+.vw-tourbar-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.1); }
+.vw-tourbar:not(.is-playing) .vw-tourbar-play svg { fill: currentColor; stroke-width: 1.2; transform: translateX(1px); }
+.vw-tourbar-sep { width: 1px; height: 22px; margin: 0 4px; background: rgba(255, 255, 255, 0.18); }
+.vw-tourbar-views {
+  display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 18px; cursor: pointer;
+  border: 0; border-radius: 999px; background: transparent;
+  font: 600 14px/1 var(--sans); color: rgba(255, 255, 255, 0.86); transition: background 0.15s, color 0.15s;
+}
+.vw-tourbar-views:hover { background: rgba(255, 255, 255, 0.1); }
+.vw-tourbar-views.on { color: #14110e; background: var(--paper); }
+
+/* Fly mode's bar: zoom, reset, exit — where the views bar usually sits. */
+.vw-flybar { display: flex; align-items: center; gap: 6px; }
+.vw-speed {
+  min-width: 46px; text-align: center; font: 600 12.5px/1 var(--mono, monospace);
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums; color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
+}
+/* .vw-tb (later in this file) fixes a 34px square; these two carry a label. */
+.vw-tb.vw-tb-wide { width: auto; display: inline-flex; gap: 7px; padding: 0 13px; white-space: nowrap; font: 600 12.5px/1 var(--sans); }
+.vw-tb-wide svg { width: 16px; height: 16px; }
+
+/* Layers: the project's spaces as a floor-picker spine down the left edge —
+ * a node per space, an accent marker gliding to the one you're in, its name
+ * in the display serif. The space loading shows a turning ring. */
+.vw-layers {
+  /* above the loading screen: you watch the marker reach the space that's loading */
+  position: fixed; left: 16px; top: 50%; transform: translateY(-50%); z-index: 13;
+  display: flex; flex-direction: column; gap: 8px; width: 214px; max-height: 62vh;
+  padding: 13px 12px 10px 10px; border-radius: 20px; color: #fff;
+  background: linear-gradient(180deg, rgba(30, 24, 19, 0.86), rgba(13, 10, 8, 0.8));
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  animation: vw-fade 0.4s var(--ease) both;
+}
+.vw-layers-head { padding-left: 29px; font: 600 11px/1 var(--sans); color: rgba(246, 241, 231, 0.55); }
+.vw-layers-list { position: relative; display: flex; flex-direction: column; overflow-y: auto; scrollbar-width: none; }
+.vw-layers-list::-webkit-scrollbar { display: none; }
+.vw-layers-spine {
+  position: absolute; left: 9px; top: 18px; bottom: 18px; width: 1px; pointer-events: none;
+  background: linear-gradient(rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.3) 20%, rgba(255, 255, 255, 0.3) 80%, rgba(255, 255, 255, 0.06));
+}
+.vw-layers-marker {
+  position: absolute; left: 3px; top: 0; z-index: 1; width: 13px; height: 13px; border-radius: 50%; pointer-events: none;
+  background: var(--gold); box-shadow: 0 0 0 4px rgba(176, 141, 87, 0.2), 0 0 14px rgba(176, 141, 87, 0.75);
+  transform: translateY(calc(var(--at, 0) * 36px + 11.5px));
+  transition: transform 0.42s var(--ease);
+}
+.vw-layer {
+  position: relative; display: flex; align-items: center; gap: 9px; height: 36px; flex: 0 0 auto;
+  padding: 0 8px 0 0; border: 0; border-radius: 10px; cursor: pointer; text-align: left;
+  color: rgba(255, 255, 255, 0.6); background: transparent; transition: color 0.15s;
+}
+.vw-layer-node { position: relative; flex: 0 0 auto; display: grid; place-items: center; width: 19px; height: 19px; }
+.vw-layer-node::after {
+  content: ''; width: 7px; height: 7px; border-radius: 50%;
+  background: #15110e; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.42); transition: box-shadow 0.15s;
+}
+.vw-layer-no { flex: 0 0 auto; width: 17px; font: 600 10.5px/1 var(--mono, monospace); font-feature-settings: "tnum"; font-variant-numeric: tabular-nums; color: rgba(255, 255, 255, 0.36); }
+.vw-layer-name { min-width: 0; font: 500 13px/1.2 var(--sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vw-layer:hover:not(:disabled) { color: #fff; }
+.vw-layer:hover:not(:disabled) .vw-layer-node::after { box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.85); }
+.vw-layer.on { color: #fff; cursor: default; }
+.vw-layer.on .vw-layer-name { font: 400 16px/1.1 var(--serif, Georgia, serif); }
+.vw-layer.on .vw-layer-no { color: var(--gold); }
+.vw-layer:disabled { cursor: default; opacity: 0.45; }
+.vw-layer.is-loading .vw-layer-node::before {
+  content: ''; position: absolute; inset: -3px; border-radius: 50%;
+  border: 1.5px solid transparent; border-top-color: #fff; animation: vw-spin 0.8s linear infinite;
+}
+@keyframes vw-spin { to { transform: rotate(360deg) } }
+.vw-phone-only { display: none; }
+
+/* ---- the mode rail, right edge, halfway down ----------------------- */
+/* All four modes as round icon buttons in a column. A gold ring glides to
+ * the current one; its name and one-line promise sit to its left, and any
+ * other mode's name shows on hover. Warm and solid, no blur (§10.2). */
+.vw-rail {
+  --btn: 44px; --gap: 8px;
+  position: fixed; right: 14px; top: 50%; transform: translateY(-50%); z-index: 11; /* under the cards (12–13) that open on the right */
+  display: flex; flex-direction: column; gap: var(--gap); padding: 7px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(30, 24, 19, 0.86), rgba(13, 10, 8, 0.8));
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  animation: vw-fade 0.4s var(--ease) both;
+}
+.vw-rail-ring {
+  position: absolute; left: 7px; top: 7px; width: var(--btn); height: var(--btn); border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.04) 70%);
+  box-shadow: inset 0 0 0 1.5px var(--gold), 0 0 16px rgba(176, 141, 87, 0.45);
+  transform: translateY(calc(var(--i) * (var(--btn) + var(--gap))));
+  transition: transform 0.38s var(--ease);
+}
+.vw-rail-btn {
+  appearance: none; cursor: pointer; position: relative; display: grid; place-items: center;
+  width: var(--btn); height: var(--btn); padding: 0; border: 0; border-radius: 50%;
+  color: rgba(255, 255, 255, 0.62); background: transparent;
+  transition: color 0.15s, background 0.15s;
+}
+.vw-rail-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
+.vw-rail-btn.on { color: #fff; background: transparent; }
+.vw-rail-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.vw-rail-btn svg {
+  width: 19px; height: 19px; fill: none; stroke: currentColor;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+/* the label, to the left of the rail */
+.vw-rail-tip {
+  position: absolute; right: calc(100% + 16px); top: 50%; transform: translate(6px, -50%);
+  display: flex; flex-direction: column; align-items: flex-end; gap: 3px;
+  padding: 7px 12px; border-radius: 12px; white-space: nowrap; pointer-events: none;
+  background: rgba(13, 10, 8, 0.82); border: 1px solid rgba(255, 255, 255, 0.12);
+  opacity: 0; transition: opacity 0.18s, transform 0.28s var(--ease);
+}
+.vw-rail-btn:hover .vw-rail-tip, .vw-rail-btn:focus-visible .vw-rail-tip { opacity: 1; transform: translate(0, -50%); }
+/* the current mode's label shows for a moment after it changes, then only on hover */
+.vw-rail-btn.on .vw-rail-tip { animation: vw-rail-say 2.6s var(--ease) both; }
+@keyframes vw-rail-say {
+  0% { opacity: 0; transform: translate(6px, -50%); }
+  12%, 78% { opacity: 1; transform: translate(0, -50%); }
+  100% { opacity: 0; transform: translate(0, -50%); }
+}
+.vw-rail-name { font: 400 18px/1 var(--serif, Georgia, serif); letter-spacing: 0.01em; color: #fff; }
+.vw-rail-promise { font: 500 11.5px/1.2 var(--sans); color: rgba(246, 241, 231, 0.62); }
+
+@media (prefers-reduced-motion: reduce) {
+  .vw-rail-ring, .vw-layers-marker { transition: none; }
+  .vw-rail-btn.on .vw-rail-tip { animation: none; }
+}
+.vw-tb {
+  appearance: none; cursor: pointer; display: grid; place-items: center;
+  width: 34px; height: 34px; padding: 0; border-radius: 9px;
+  color: var(--paper); background: rgba(20, 17, 14, 0.7); border: 1px solid var(--line);
+  transition: background 0.15s;
+}
+.vw-tb:hover { background: rgba(20, 17, 14, 0.92); }
+
+/* ---- popovers: spaces, controls ------------------------------ */
+.vw-pop {
+  position: fixed; top: 16px; z-index: 12; width: 280px; padding: 14px;
+  border-radius: 16px; background: rgba(20, 17, 14, 0.92); border: 1px solid var(--line);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45); animation: vw-up 0.25s var(--ease) both;
+}
+.vw-pop-spaces, .vw-pop-help { right: 16px; top: 68px; }
+.vw-pop-title { margin: 0 0 10px; font: 400 20px/1 var(--serif); }
+.vw-space {
+  appearance: none; cursor: pointer; width: 100%; display: flex; align-items: center; gap: 12px;
+  padding: 8px; margin-top: 2px; border-radius: 10px; border: 1px solid transparent;
+  text-align: left; color: var(--paper); background: transparent;
+}
+.vw-space:hover:not(:disabled) { background: rgba(246, 241, 231, 0.08); }
+.vw-space.on { border-color: var(--line); background: rgba(246, 241, 231, 0.1); }
+.vw-space:disabled { opacity: 0.5; cursor: default; }
+.vw-space-tile {
+  width: 40px; height: 40px; flex: 0 0 auto; border-radius: 8px; display: grid; place-items: center;
+  font: 400 20px/1 var(--serif); color: var(--gold-ink, #14110e); background: var(--gold);
+}
+.vw-space-txt { display: flex; flex-direction: column; min-width: 0; }
+.vw-space-nm { font: 600 13.5px/1.3 var(--sans); }
+.vw-space-sub { font-size: 12px; color: rgba(246, 241, 231, 0.6); }
+.vw-help-row { display: flex; justify-content: space-between; gap: 12px; margin: 8px 0 0; font-size: 13px; }
+.vw-help-k { font-weight: 700; }
+.vw-pop-close {
+  appearance: none; cursor: pointer; width: 100%; margin-top: 14px; padding: 9px;
+  border-radius: 9px; border: 1px solid var(--line); background: transparent;
+  font: 600 12.5px var(--sans); color: var(--paper);
+}
+
+/* ---- crosshair + first-run hint --------------------- */
+.vw-cross {
+  position: fixed; top: 50%; left: 50%; width: 16px; height: 16px;
+  margin: -8px 0 0 -8px; border-radius: 50%;
+  border: 1px solid rgba(246, 241, 231, 0.4);
+  pointer-events: none; z-index: 5; animation: vw-fade 0.5s ease;
+}
+.vw-cross::after {
+  content: ''; position: absolute; top: 50%; left: 50%; width: 3px; height: 3px;
+  margin: -1.5px 0 0 -1.5px; border-radius: 50%; background: rgba(246, 241, 231, 0.9);
+}
+/* A space whose model didn't load: say so in the middle, keep the rest up. */
+.vw-failed {
+  position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 9;
+  width: min(420px, calc(100vw - 32px)); padding: 22px 24px; border-radius: 18px; text-align: center;
+  color: var(--paper); background: rgba(16, 13, 11, 0.86); border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+}
+.vw-failed h2 { margin: 0 0 8px; font: 400 24px/1.2 var(--serif, Georgia, serif); color: #fff; }
+.vw-failed p { margin: 0; font: 400 13.5px/1.55 var(--sans); color: rgba(246, 241, 231, 0.72); }
+
+/* Under the mode dial, top centre. */
+.vw-hint {
+  position: fixed; left: 50%; top: 18px; transform: translateX(-50%);
+  z-index: 5; display: flex; align-items: center; gap: 8px;
+  padding: 8px 16px; border-radius: 999px; pointer-events: none;
+  background: rgba(8, 6, 5, 0.74); border: 1px solid var(--line);
+  white-space: nowrap;
+  font: 400 11px/1 var(--sans); letter-spacing: 0.02em; color: rgba(246, 241, 231, 0.72);
+  animation: vw-fade 0.6s ease 0.4s both; transition: opacity 0.6s;
+}
+.vw-hint-k {
+  font-weight: 700; letter-spacing: 0.08em; color: var(--paper);
+}
+.vw-hint-sep { width: 3px; height: 3px; border-radius: 50%; background: rgba(246, 241, 231, 0.35); }
+
+/* ---- touch controls -------------------------------- */
+.tc { position: fixed; inset: 0; z-index: 8; pointer-events: none; }
+.tc-zone {
+  position: absolute; left: 0; bottom: 0; width: 46%; height: 42%;
+  pointer-events: auto; touch-action: none;
+}
+.tc-hintdot {
+  position: absolute; left: 56px; bottom: 60px;
+  width: 96px; height: 96px; border-radius: 50%;
+  border: 1.5px dashed rgba(246, 241, 231, 0.2);
+  display: grid; place-items: center;
+  font: 600 10px/1 var(--sans); letter-spacing: 0.14em; text-transform: uppercase;
+  color: rgba(246, 241, 231, 0.28);
+}
+.tc-base, .tc-knob {
+  position: fixed; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none;
+}
+.tc-base {
+  width: 110px; height: 110px;
+  background: rgba(18, 15, 12, 0.6); border: 1px solid rgba(246, 241, 231, 0.16);
+}
+.tc-knob {
+  width: 52px; height: 52px;
+  background: rgba(246, 241, 231, 0.92); box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55);
+}
+.tc-btns {
+  position: absolute; right: 20px; bottom: calc(30px + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; gap: 14px; pointer-events: auto;
+}
+.tc-b {
+  width: 72px; height: 72px; border-radius: 50%; cursor: pointer;
+  font: 600 12px/1 var(--sans); letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--paper); background: rgba(18, 15, 12, 0.66);
+  border: 1px solid rgba(246, 241, 231, 0.16);
+  touch-action: none; -webkit-user-select: none; user-select: none;
+}
+.tc-b.on { color: var(--gold-ink, #14110e); background: var(--gold); border-color: var(--gold); box-shadow: 0 0 22px rgba(176, 141, 87, 0.5); }
+.tc-b-jump { background: rgba(176, 141, 87, 0.26); }
+
+/* ---- fallback screen (no WebGL2 — CLAUDE.md §3 constraint 5) ------- */
+.vw-fallback-note {
+  margin: 14px 0 0; max-width: 340px;
+  font: 400 13px/1.5 var(--sans); color: rgba(246, 241, 231, 0.6);
+}
+
+/* ---- persistent CTA (CLAUDE.md §6.4) ------------------------------ */
+/* Desktop: a pill bottom-right, clear of the centred bottom column. Mobile: a
+ * full-width bar (see the media query below) that reserves its own strip, so
+ * it never covers the joystick or the mode switch (§6.4, §10.2). */
+.vw-cta-btn {
+  position: fixed; right: 18px; bottom: 24px; z-index: 11;
+  display: flex; align-items: center; gap: 10px;
+  appearance: none; cursor: pointer; padding: 13px 20px 13px 16px; border: 0; border-radius: 999px;
+  font: 700 13px/1 var(--sans);
+  color: var(--gold-ink, #14110e); background: var(--gold);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  animation: vw-fade 0.5s ease 0.25s both;
+  transition: transform 0.16s, filter 0.16s;
+}
+.vw-cta-btn:hover { transform: translateY(-2px); filter: brightness(1.06); }
+.vw-cta-btn.on { filter: brightness(0.94); }
+.vw-cta-btn svg, .vw-sheet-field svg {
+  width: 18px; height: 18px; flex: 0 0 auto; fill: none; stroke: currentColor;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+.vw-cta-hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; } /* honeypot */
+.vw-book.on { filter: brightness(0.94); }
+button.vw-book { border: 0; cursor: pointer; }
+
+/* ---- cards: Book now + Ask about this space ------------------------ */
+/* A light, warm card over the room — the scene keeps rendering behind it,
+ * only lightly dimmed (§6.4). Desktop: floats at the right under the top
+ * buttons. Mobile: a bottom sheet. No backdrop blur (§10.2). */
+.vw-sheet-scrim {
+  position: fixed; inset: 0; z-index: 12; background: rgba(6, 5, 4, 0.28);
+  animation: vw-fade 0.2s ease;
+}
+.vw-sheet {
+  --ink: #1d1814; --ink-dim: #6e655b; --edge: rgba(29, 24, 20, 0.1); --field: #fff;
+  position: fixed; right: 16px; top: 68px; z-index: 13;
+  width: 360px; max-height: calc(100vh - 150px); overflow-y: auto;
+  padding: 22px 22px 20px; border-radius: 20px;
+  color: var(--ink); background: #fbf8f3; border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  animation: vw-up 0.25s var(--ease) both;
+}
+.vw-sheet h2 { margin: 0 32px 4px 0; font: 400 26px/1.15 var(--serif, Georgia, serif); color: var(--ink); }
+.vw-sheet-sub { margin: 0 0 16px; font: 400 13px/1.45 var(--sans); color: var(--ink-dim); }
+.vw-sheet-x {
+  position: absolute; top: 14px; right: 14px; width: 30px; height: 30px; border-radius: 50%;
+  border: 0; cursor: pointer; font-size: 13px; color: var(--ink-dim); background: rgba(29, 24, 20, 0.06);
+}
+.vw-sheet-x:hover { color: var(--ink); background: rgba(29, 24, 20, 0.11); }
+
+/* Book now: date / guest rows with an icon, like the reference */
+.vw-stay { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.vw-sheet-field {
+  display: flex; align-items: center; gap: 12px; padding: 9px 12px;
+  border-radius: 12px; background: var(--field); border: 1px solid var(--edge); color: var(--ink-dim);
+  cursor: pointer;
+}
+.vw-sheet-field:focus-within { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(176, 141, 87, 0.18); }
+.vw-sheet-field-txt { display: flex; flex-direction: column; gap: 1px; flex: 1 1; min-width: 0; }
+.vw-sheet-field-txt > span { font: 600 10.5px/1.2 var(--sans); color: var(--ink-dim); }
+.vw-sheet-field input, .vw-sheet-field select {
+  width: 100%; padding: 0; border: 0; outline: none; background: transparent; appearance: none;
+  font: 600 14px/1.35 var(--sans); color: var(--ink); cursor: pointer;
+}
+/* Which dining place, when there's more than one (TableCard, and over the floor plan) */
+.vw-sheet-field-wide { margin-bottom: 14px; }
+.vw-place-pick {
+  display: block; margin: 0 0 16px; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--edge);
+  background: var(--field); font: 600 14px/1.35 var(--sans); color: var(--ink);
+}
+.vw-price { margin: 4px 0 2px; font: 400 15px/1.2 var(--sans); color: var(--ink-dim); }
+.vw-price b { font: 400 30px/1 var(--serif, Georgia, serif); color: var(--ink); }
+/* A table hotspot's card: the other tables in the room free at that time (HotspotBookCard) */
+.vw-free-tables { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 14px; font: 600 12px/1.2 var(--sans); color: var(--ink-dim); }
+.vw-free-tables button {
+  padding: 7px 12px; border-radius: 999px; border: 1px solid var(--edge); background: var(--field); cursor: pointer;
+  font: 600 12.5px/1 var(--sans); color: var(--ink);
+}
+.vw-free-tables button:hover { border-color: var(--gold); }
+
+/* Ask about this space: a two-column form */
+.vw-sheet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.vw-span-2 { grid-column: span 2; }
+.vw-sheet-input { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.vw-sheet-input > span { font: 600 12px/1.2 var(--sans); color: var(--ink); }
+.vw-sheet-input em { font-style: normal; font-weight: 500; color: var(--ink-dim); }
+.vw-sheet-input input, .vw-sheet-input select, .vw-sheet-input textarea {
+  width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 10px;
+  font: 500 14px/1.4 var(--sans); color: var(--ink);
+  background: var(--field); border: 1px solid var(--edge); appearance: none;
+}
+.vw-sheet-input textarea { resize: vertical; min-height: 70px; }
+.vw-sheet-input input:focus, .vw-sheet-input select:focus, .vw-sheet-input textarea:focus {
+  outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(176, 141, 87, 0.18);
+}
+
+/* shared foot: error, the one button, fine print */
+.vw-sheet-err { margin: 12px 0 0; font: 600 12.5px/1.45 var(--sans); color: #a33a2f; }
+.vw-sheet-go {
+  display: flex; align-items: center; justify-content: center; width: 100%; margin-top: 14px;
+  padding: 14px; border: 0; border-radius: 999px; cursor: pointer; text-decoration: none;
+  font: 700 14px/1 var(--sans); color: #fff; background: #2a211b;
+  transition: background 0.15s, transform 0.15s;
+}
+.vw-sheet-go:hover:not(:disabled) { background: #3a2e26; transform: translateY(-1px); }
+.vw-sheet-go:disabled { opacity: 0.45; cursor: default; }
+.vw-sheet-go-quiet { color: var(--ink); background: rgba(29, 24, 20, 0.07); }
+.vw-sheet-go-quiet:hover:not(:disabled) { background: rgba(29, 24, 20, 0.12); }
+/* WhatsApp's dark teal: white on it reads (its bright green doesn't, 2:1) */
+.vw-sheet-wa { margin: 0 0 16px; gap: 8px; background: #075e54; }
+.vw-sheet-wa:hover:not(:disabled) { background: #0a6e62; }
+.vw-sheet-fine { margin: 8px 0 0; font: 400 12px/1.45 var(--sans); color: var(--ink-dim); }
+.vw-sheet-center { text-align: center; }
+.vw-sheet-done { text-align: center; padding: 12px 0 2px; }
+.vw-sheet-done h2 { margin: 12px 0 6px; }
+.vw-sheet-tick {
+  display: inline-grid; place-items: center; width: 48px; height: 48px; border-radius: 50%;
+  font: 700 22px var(--sans); color: var(--gold-ink, #14110e); background: var(--gold);
+}
+
+/* ---- compass widget --------------------------------- */
+.vw-compass {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px 4px 6px; border-radius: 999px;
+  background: rgba(20, 17, 14, 0.78); border: 1px solid var(--line);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); pointer-events: auto;
+  -webkit-backdrop-filter: blur(8px);
+          backdrop-filter: blur(8px);
+}
+.vw-compass-ring {
+  width: 24px; height: 24px; display: grid; place-items: center;
+}
+.vw-compass-dial { width: 22px; height: 22px; transition: transform 0.12s linear; }
+.vw-compass-lbl {
+  font: 700 11.5px/1 var(--sans); letter-spacing: 0.05em; color: var(--paper);
+}
+
+/* ---- share & embed modal ---------------------------- */
+.vw-share-scrim {
+  position: fixed; inset: 0; z-index: 40;
+  background: rgba(6, 5, 4, 0.75); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  display: grid; place-items: center; padding: 20px; animation: vw-fade 0.2s ease;
+}
+.vw-share-modal {
+  width: min(460px, 100%); background: #120F0C;
+  border: 1px solid rgba(246, 241, 231, 0.22); border-radius: 20px;
+  padding: 26px; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.65);
+  color: var(--paper); animation: vw-rise 0.25s var(--ease);
+}
+.vw-share-head {
+  display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px;
+}
+.vw-share-kicker {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--gold); font-weight: 650; display: block; margin-bottom: 4px;
+}
+.vw-share-head h3 { margin: 0; font: 400 24px/1.2 var(--serif); color: #fff; }
+.vw-share-close {
+  appearance: none; border: 1px solid var(--line); border-radius: 50%;
+  width: 30px; height: 30px; background: rgba(255, 255, 255, 0.06);
+  color: var(--paper); cursor: pointer; display: grid; place-items: center; font-size: 14px;
+}
+.vw-share-close:hover { background: rgba(255, 255, 255, 0.15); }
+.vw-share-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 4px; border-radius: 12px; background: rgba(0, 0, 0, 0.4); margin-bottom: 20px; }
+.vw-share-tab {
+  appearance: none; border: 0; background: transparent; color: rgba(246, 241, 231, 0.6);
+  padding: 8px 12px; border-radius: 9px; font: 600 12.5px var(--sans); cursor: pointer; transition: all 0.15s;
+}
+.vw-share-tab.on { color: #14110E; background: var(--paper); }
+.vw-qr-box {
+  display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 18px;
+  padding: 18px; border-radius: 16px; background: rgba(0, 0, 0, 0.35); border: 1px solid var(--line);
+}
+.vw-qr-img { border-radius: 12px; border: 4px solid #fff; }
+.vw-qr-note { margin: 0; font-size: 13px; color: rgba(246, 241, 231, 0.7); text-align: center; }
+.vw-share-input-group { display: flex; gap: 8px; }
+.vw-share-input {
+  flex: 1 1; padding: 10px 14px; border-radius: 10px; font: 500 13px var(--sans);
+  background: rgba(0, 0, 0, 0.5); border: 1px solid var(--line); color: var(--paper);
+}
+.vw-share-desc { margin: 0 0 12px; font-size: 13px; color: rgba(246, 241, 231, 0.7); line-height: 1.5; }
+.vw-share-textarea {
+  width: 100%; padding: 12px; border-radius: 10px; font: 12px/1.4 var(--mono);
+  background: rgba(0, 0, 0, 0.5); border: 1px solid var(--line); color: #7FE0F0;
+  resize: none; margin-bottom: 14px;
+}
+.vw-share-btn {
+  appearance: none; border: 1px solid transparent; cursor: pointer; white-space: nowrap;
+  padding: 10px 20px; border-radius: 10px; font: 600 13px/1 var(--sans);
+  color: #14110E; background: var(--paper); transition: all 0.15s;
+}
+.vw-share-btn:hover { background: #fff; transform: translateY(-1px); }
+.vw-share-btn.copied { background: #5DBB63; color: #fff; }
+
+/* ---- mobile ----------------------------------------- */
+@media (max-width: 760px), (pointer: coarse) {
+  .vw-hint { display: none; }
+  .vw-layers { display: none; }
+  .vw-phone-only { display: contents; }
+  .vw-tb-wide span { display: none; }
+  .vw-tb.vw-tb-wide { width: 34px; padding: 0; justify-content: center; }
+  .vw-place { top: 64px; left: 14px; max-width: calc(100vw - 28px); }
+  /* smaller on a phone, and nudged up clear of the views bar and joystick */
+  .vw-rail { --btn: 40px; --gap: 6px; right: 10px; top: 42%; }
+  .vw-place-name { font-size: 22px; }
+  /* full width so the row can wrap; only the buttons take presses, not the empty strip */
+  .vw-tr { right: 10px; left: 10px; justify-content: flex-end; flex-wrap: wrap; pointer-events: none; }
+  .vw-tr > * { pointer-events: auto; }
+  .vw-card { width: 112px; height: 68px; }
+  /* Bottom bar CTA reserves its own strip; the views bar sits above it and
+   * the joystick zone above that, so none of the three cover each other
+   * (§6.4, §10.2). */
+  .vw-cta-btn {
+    left: 0; right: 0; bottom: 0; border-radius: 0;
+    justify-content: center; padding: 15px 16px calc(15px + env(safe-area-inset-bottom, 0px));
+  }
+  .vw-sheet {
+    left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 88vh;
+    border-radius: 20px 20px 0 0; padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    animation: vw-rise-sheet 0.3s var(--ease) both;
+  }
+  .vw-bottom { left: 10px; right: 10px; bottom: calc(56px + env(safe-area-inset-bottom, 0px)); }
+  .tc-zone { bottom: 150px; height: calc(42% - 150px); }
+  .tc-btns { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (max-width: 520px) {
+  .vw-exit span { display: none; }
+  /* One row on a phone: smaller buttons, Exit as an icon. */
+  .vw-tr { gap: 5px; }
+  .vw-ib, .vw-hd, .vw-exit, .vw-book { height: 34px; }
+  .vw-ib { width: 34px; }
+  .vw-ib svg, .vw-exit svg { width: 16px; height: 16px; }
+  .vw-hd { padding: 0 9px; }
+  .vw-exit { width: 34px; padding: 0; justify-content: center; margin-left: 0; }
+  .vw-book { padding: 0 12px; font-size: 12px; margin-left: 0; }
+  .vw-pop { left: 10px; right: 10px; width: auto; }
+}
+/* Narrow desktops: the top-right buttons reach the middle, so the hint drops under them. */
+@media (min-width: 761px) and (max-width: 1180px) {
+  .vw-hint { top: 64px; }
+}
+/* desktop: the enquiry pill sits bottom-right */
+@media (min-width: 761px) and (pointer: fine) {
+  /* and above the cards' backdrop, so it switches straight from Book now to
+   * the enquiry card; on phones the bottom sheet must cover the bar instead */
+  .vw-cta-btn { bottom: 16px; z-index: 14; }
+}
+
+/* ---- the AI concierge (ConciergePanel) ---- */
+.vw-sheet-scrim-light { background: transparent; }
+.vw-concierge { display: flex; flex-direction: column; }
+.vw-chat { display: grid; gap: 8px; align-content: start; min-height: 120px; max-height: 42vh; overflow-y: auto; margin: 4px 0 12px; }
+.vw-chat-msg { max-width: 88%; padding: 9px 12px; border-radius: 14px; font: 400 14px/1.45 var(--sans); }
+.vw-chat-msg p { margin: 0; white-space: pre-wrap; }
+.vw-chat-msg.is-user { justify-self: end; background: var(--ink, #1d1814); color: #fff; border-bottom-right-radius: 4px; }
+.vw-chat-msg.is-assistant { justify-self: start; background: #fff; border: 1px solid var(--edge); border-bottom-left-radius: 4px; }
+.vw-chat-msg .vw-sheet-link { margin-top: 6px; }
+.vw-chat-starters { display: flex; flex-wrap: wrap; gap: 6px; }
+.vw-chat-starters button {
+  appearance: none; cursor: pointer; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--edge);
+  background: #fff; color: var(--ink); font: 500 13px var(--sans);
+}
+.vw-chat-msg.is-typing { display: flex; gap: 4px; padding: 12px 14px; }
+.vw-chat-msg.is-typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-dim); animation: vw-dot 1s infinite ease-in-out; }
+.vw-chat-msg.is-typing span:nth-child(2) { animation-delay: 0.15s; }
+.vw-chat-msg.is-typing span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes vw-dot { 0%, 80%, 100% { opacity: 0.25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+.vw-chat-ask { display: flex; gap: 8px; }
+.vw-chat-ask input {
+  flex: 1 1; min-width: 0; padding: 11px 14px; border-radius: 999px; border: 1px solid var(--edge);
+  background: var(--field); color: var(--ink); font: 400 15px var(--sans);
+}
+.vw-chat-ask .vw-sheet-go { width: auto; padding: 0 18px; margin: 0; }
+
+/* ---- narration captions (NarrationCaption) ---- */
+.vw-caption {
+  position: fixed; left: 50%; bottom: 150px; translate: -50% 0; z-index: 12; max-width: min(720px, calc(100vw - 32px));
+  margin: 0; padding: 10px 16px; border-radius: 12px; text-align: center;
+  font: 500 15px/1.45 var(--sans); color: #fff; background: rgba(13, 10, 8, 0.78);
+  animation: vw-fade 0.3s ease both; pointer-events: none;
+}
+
+/* ---- buildings and floors (PlacePicker): under the space's name ---- */
+.vw-places { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-top: 8px; pointer-events: auto; }
+.vw-places select {
+  appearance: none; padding: 6px 28px 6px 12px; border-radius: 999px; cursor: pointer;
+  font: 600 12px/1 var(--sans); color: var(--paper, #f6f1e7); border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(13, 10, 8, 0.7) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23fff' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 11px center;
+}
+.vw-places select option { color: #111; }
+.vw-floors { display: flex; flex-direction: column; gap: 4px; }
+.vw-floors button {
+  appearance: none; cursor: pointer; padding: 6px 12px; border-radius: 10px; text-align: left;
+  font: 600 12px/1.2 var(--sans); color: var(--paper, #f6f1e7);
+  background: rgba(13, 10, 8, 0.6); border: 1px solid rgba(255, 255, 255, 0.16); transition: background 0.2s, border-color 0.2s;
+}
+.vw-floors button:hover:not(:disabled) { border-color: rgba(255, 255, 255, 0.5); }
+.vw-floors button.on { background: var(--gold, #c9a46a); border-color: var(--gold, #c9a46a); color: var(--gold-ink, #14110e); }
+.vw-space-where { margin: 12px 0 6px; font: 650 11px/1 var(--sans); letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.6; }
+.vw-space-group:first-of-type .vw-space-where { margin-top: 0; }
+
+/* ---- floor map (FloorMap.tsx): bottom left, above the joystick's corner -- */
+.vw-map {
+  position: fixed; left: 16px; bottom: 16px; z-index: 11;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+}
+.vw-map svg {
+  width: min(240px, 40vw); max-height: 34vh; padding: 8px;
+  border-radius: 16px; background: rgba(13, 10, 8, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.vw-map-toggle {
+  order: 2; appearance: none; cursor: pointer; padding: 7px 14px; border-radius: 999px;
+  font: 600 12px/1 var(--sans); color: var(--paper, #f6f1e7);
+  background: rgba(13, 10, 8, 0.7); border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.vw-map-room { cursor: pointer; opacity: 0.8; transition: opacity 0.2s; }
+.vw-map-room:hover { opacity: 1; }
+.vw-map-room.is-here { opacity: 1; fill: #4A67D6; }
+.vw-map-label { font: 600 0.55px/1 var(--sans); fill: #fff; text-anchor: middle; pointer-events: none; }
+/* the studio preview's Exit preview sits bottom-left */
+.vw[data-tour] .vw-map { bottom: 72px; }
+
+/* ---- per-project logo (uiConfig.applyTheme) ---- */
+.vw-place-logo { display: block; max-height: 34px; max-width: 150px; object-fit: contain; margin-bottom: 4px; filter: drop-shadow(0 1px 8px rgba(0, 0, 0, 0.5)); }
+.vw-enter-logo { display: block; max-height: 64px; max-width: 220px; object-fit: contain; margin-bottom: 18px; }
+
+/* Reserve a table, over the tour: the website's floor-plan booking (TableBooking,
+ * table-booking.css), on paper-light colours of its own; the accent is the project's. */
+.vw-book-alt { color: #fff; background: rgba(16, 13, 11, 0.58); border: 1px solid var(--gold); }
+.vw-book-alt.on, .vw-book-alt:hover { color: var(--gold-ink, #14110e); background: var(--gold); }
+.vw-reserve-scrim { position: fixed; inset: 0; z-index: 20; background: rgba(6, 5, 4, 0.5); animation: vw-fade 0.2s ease; }
+.tb-host {
+  --ink: #1c1a17; --dim: #6f675d; --paper: #f5f1ea; --card: #fffdf9; --line: rgba(28, 26, 23, 0.12);
+  --ws-accent: var(--gold, #b08d57); --ws-on-accent: var(--gold-ink, #14110e); --ws-serif: var(--serif, Georgia, serif);
+  /* the accent as text on this light paper: pulled toward the ink so a pale gold still reads (as on the website) */
+  --ws-accent-ink: color-mix(in oklab, var(--ws-accent) 55%, var(--ink));
+  color: var(--ink); font: 400 16px/1.55 system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+.vw-reserve {
+  position: fixed; z-index: 21; inset: 24px; max-width: 1160px; margin: 0 auto; overflow-y: auto;
+  padding: 28px 28px 32px; border-radius: 20px; background: var(--paper);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45); animation: vw-up 0.35s var(--ease) both;
+}
+.vw-reserve h2 { margin: 0 0 20px; font: 400 32px/1.1 var(--ws-serif); }
+.vw-reserve .tb-map { top: 0; }
+@media (max-width: 700px) {
+  .vw-reserve { inset: 0; border-radius: 0; padding: 20px 16px 28px; }
+}
+
+/* Reserve a table as a card, like Book now (TableCard). */
+.vw-sheet-link {
+  align-self: flex-start; padding: 2px 0; border: 0; background: none; cursor: pointer;
+  font: 600 12.5px var(--sans); color: #8a6a3a; text-decoration: underline; text-underline-offset: 3px;
+}
+.vw-sheet-table .vw-sheet-grid { margin-bottom: 12px; }
+
+/*!**************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[15].oneOf[10].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[15].oneOf[10].use[3]!./src/app/t/[property]/hub.css ***!
+  \**************************************************************************************************************************************************************************************************************************************************************************/
+/* A project's own page (/t/<project>). Should feel like the hotel's site,
+ * not a 3D app: light, calm, its name large in its own face, its accent on
+ * the buttons. --gold and --serif come from the project's branding. The page
+ * is its own scroll container: globals.css locks body for the 3D app. */
+
+.hub {
+  --ink: #1d1814;
+  --dim: #6e655b;
+  --paper: #f7f4ef;
+  --card: #ffffff;
+  --line: rgba(29, 24, 20, 0.1);
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  color: var(--ink);
+  background: var(--paper);
+  font: 400 16px/1.55 system-ui, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.hub a { color: inherit; }
+
+.hub-top {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px max(20px, calc((100% - 1120px) / 2));
+  background: color-mix(in srgb, var(--paper) 92%, transparent);
+  border-bottom: 1px solid var(--line);
+}
+
+.hub-brand { display: flex; align-items: center; gap: 12px; font: 400 22px/1.1 var(--serif); }
+.hub-brand img { max-height: 38px; max-width: 150px; object-fit: contain; }
+
+.hub-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font: 600 14px system-ui, sans-serif;
+  text-decoration: none;
+  color: var(--gold-ink, #14110e) !important;
+  background: var(--gold);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--gold) 35%, transparent);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.hub-btn:hover { transform: translateY(-1px); box-shadow: 0 10px 26px color-mix(in srgb, var(--gold) 45%, transparent); }
+.hub-btn-big { padding: 14px 24px; font-size: 15px; margin-top: 8px; }
+
+/* hero: the first space's own picture, the name over it */
+.hub-hero {
+  position: relative;
+  min-height: min(72vh, 620px);
+  display: flex;
+  align-items: flex-end;
+  padding: 0 max(20px, calc((100% - 1120px) / 2)) 56px;
+  overflow: hidden;
+  color: #fff;
+  background: #1d1814;
+}
+.hub-hero-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.hub-hero-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, 0.1) 30%, rgba(0, 0, 0, 0.72)); }
+.hub-hero-text { position: relative; max-width: 40rem; }
+.hub-kicker { margin: 0 0 8px; font: 600 13px system-ui, sans-serif; color: rgba(255, 255, 255, 0.85); }
+.hub-hero h1 { margin: 0; font: 400 clamp(44px, 7vw, 84px)/1 var(--serif); letter-spacing: -0.01em; }
+.hub-lede { margin: 14px 0 18px; font-size: 18px; color: rgba(255, 255, 255, 0.88); }
+
+/* the spaces */
+.hub-spaces { width: min(1120px, calc(100% - 40px)); margin: 0 auto; padding: 56px 0 96px; }
+.hub-spaces h2 { margin: 0 0 22px; font: 400 36px/1.1 var(--serif); }
+.hub-spaces ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px; }
+.hub-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  text-decoration: none;
+  border-radius: 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.hub-card:hover { transform: translateY(-3px); box-shadow: 0 16px 36px rgba(29, 24, 20, 0.12); }
+.hub-card-img { aspect-ratio: 16 / 10; display: grid; place-items: center; overflow: hidden; background: #e9e3da; font: 400 48px var(--serif); color: var(--dim); }
+.hub-card-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s; }
+.hub-card:hover .hub-card-img img { transform: scale(1.04); }
+.hub-card-txt { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px 16px; }
+.hub-card-title { font: 400 22px/1.2 var(--serif); }
+.hub-card-tag { color: var(--dim); font-size: 14px; }
+.hub-card-go { margin-top: 6px; font: 600 13px system-ui, sans-serif; color: color-mix(in srgb, var(--gold) 70%, var(--ink)); }
+
+.hub-foot { padding: 22px 20px 96px; text-align: center; color: var(--dim); font-size: 13px; border-top: 1px solid var(--line); }
+
+@media (max-width: 620px) {
+  .hub-top .hub-btn { display: none; }
+  .hub-hero { min-height: 64vh; padding-bottom: 40px; }
+  .hub-lede { font-size: 16px; }
+}
+

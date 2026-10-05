@@ -1,0 +1,1253 @@
+/*!*****************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[15].oneOf[10].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[15].oneOf[10].use[3]!./src/features/marketing/site.css ***!
+  \*****************************************************************************************************************************************************************************************************************************************************************************/
+/* ================================================================= */
+/*  Marketing site + sign-in (/, /login).                             */
+/*                                                                    */
+/*  Revised 2026-09-23 in the manner of XGRIDS' Lixel K1 page, on     */
+/*  request: a blue-black ground, one saturated blue, bold sans       */
+/*  headlines set centred, and pill buttons. No display serif.        */
+/*                                                                    */
+/*  globals.css locks html/body to overflow:hidden for the 3D app, so */
+/*  .site is its own full-screen scroll container.                    */
+/*                                                                    */
+/*  COLOUR CONVENTION. Components never write a colour; they name a   */
+/*  role, and the role is set below for dark and again for light:     */
+/*    --bg            the page                                        */
+/*    --panel         a card or field on the page                     */
+/*    --raise         a tile inside a card; hover fills               */
+/*    --line          borders; --line-lit when hovered                */
+/*    --text          body text and headings; --dim for quieter text  */
+/*    --accent        the brand blue for text, links and focus lines  */
+/*    --accent-fill   filled buttons and the current tab (Button      */
+/*                    primary / pill-solid); --accent-ink is the text */
+/*                    on them; --accent-glow is the focus halo        */
+/*    --danger        errors and Log out; --danger-ink is text on it  */
+/*    --teal --violet the hero gradient only                          */
+/*  Other surfaces keep their own sets: the studio --ed-* (editor.css),*/
+/*  the tour --gold/--paper (globals.css, viewer.css), and a client's */
+/*  website its brand accent (website.css [data-style]).              */
+/* ================================================================= */
+
+.site {
+  --bg: #131419;
+  --panel: #1E1F26;
+  --raise: #282A33;
+  --line: #2A2C36;
+  --line-lit: #3E414D;
+  --text: #F6F7FA;
+  --dim: #B9BCCC;
+  --accent: #7C9CFF;       /* text and strokes: 6.8:1 on the ground */
+  --accent-fill: #3364FF;  /* filled buttons and the current tab: white text at 4.8:1 */
+  --accent-glow: rgba(51, 100, 255, 0.3);
+  --accent-ink: #FFFFFF;
+  --teal: #2DD4BF;
+  --violet: #B79BFF;
+  /* Dark-only values light mode has to flip. Anything showing 3D content
+     (the splat frames, the auth art) stays dark in both themes — light
+     chrome around photographic 3D is fine, light behind it is not. */
+  --grid: rgba(255, 255, 255, 0.05);
+  --glass: rgba(19, 20, 25, 0.82);
+  --sh: rgba(0, 0, 0, 0.45);
+  --placeholder: #6B6F80;
+  --danger: #FF8B8B;
+  --danger-ink: #2A0B0B;
+  --hero-grad: linear-gradient(100deg, var(--teal) 0%, #3364FF 55%, var(--violet) 100%);
+  --sans: var(--font-inter), 'Segoe UI', system-ui, sans-serif;
+  --display: var(--sans);
+  --r: 16px;
+
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+  color: var(--text);
+  font: 400 16px/1.6 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  background: var(--bg);
+}
+
+/* ------------------------------------------------------------ light */
+/* Set on <html> by the inline script in layout.tsx (stored choice, else
+   the OS preference) and flipped by ThemeToggle. Tokens only — no
+   component knows which theme it is in. The accent deepens because the
+   dark theme's light blue fails contrast on paper. */
+:root[data-theme='light'] .site {
+  --bg: #F6F7FA;
+  --panel: #FFFFFF;
+  --raise: #ECEEF4;
+  --line: #DDE0EA;
+  --line-lit: #BFC3D1;
+  --text: #131419;
+  --dim: #555A6B;
+  --accent: #2450E6;
+  --accent-fill: #3364FF;
+  --accent-glow: rgba(51, 100, 255, 0.22);
+  --accent-ink: #FFFFFF;
+  --teal: #0F8F80;
+  --violet: #8B3FE6;
+  --grid: rgba(14, 22, 32, 0.07);
+  --glass: rgba(246, 247, 250, 0.86);
+  --sh: rgba(19, 33, 51, 0.12);
+  --placeholder: #8A8FA0;
+  --danger: #B3271E;
+  --danger-ink: #FFFFFF;
+  --hero-grad: linear-gradient(100deg, var(--teal) 0%, var(--accent) 55%, var(--violet) 100%);
+}
+
+:root[data-theme='light'] .auth-error {
+  color: #8E211B;
+  background: rgba(179, 39, 30, 0.08);
+  border-color: rgba(179, 39, 30, 0.32);
+}
+
+.site *,
+.site *::before,
+.site *::after {
+  box-sizing: border-box;
+}
+
+.site a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.site :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* the one word that matters: the accent, not a different face */
+.site em {
+  font-style: normal;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.site h1,
+.site h2,
+.site h3 {
+  margin: 0;
+}
+
+/* ------------------------------------------------------------ nav */
+/* A floating glass pill, after XGRIDS: scrolling down past 200 px folds it
+ * to the mark and the links (SiteNav sets data-collapsed), scrolling up
+ * opens it, on their curve. Ours on top: a scan line along its foot that
+ * the page's scroll draws, and a viewfinder on the current page. Over a
+ * photo (data-over-dark) it is dark in both themes. */
+.site-nav {
+  --nav-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --nav-bg: rgba(19, 20, 25, 0.5);
+  --nav-bg-folded: rgba(19, 20, 25, 0.88);
+  position: sticky;
+  top: 10px;
+  z-index: 10;
+  width: min(1200px, calc(100% - 32px));
+  height: 56px;
+  margin: 10px auto 0;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 8px 0 16px;
+  border-radius: 100px;
+  background: var(--nav-bg);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 10px 40px rgba(0, 0, 0, 0.18);
+  -webkit-backdrop-filter: blur(28px) saturate(1.4);
+  backdrop-filter: blur(28px) saturate(1.4);
+  transition: width 0.55s var(--nav-ease), padding 0.55s var(--nav-ease), gap 0.55s var(--nav-ease),
+    background-color 0.34s ease, box-shadow 0.34s ease;
+}
+
+:root[data-theme='light'] .site-nav:not([data-over-dark]) {
+  --nav-bg: rgba(255, 255, 255, 0.72);
+  --nav-bg-folded: rgba(255, 255, 255, 0.94);
+  box-shadow: inset 0 0 0 1px rgba(19, 20, 25, 0.08), 0 10px 40px rgba(19, 33, 51, 0.1);
+}
+
+/* over a photo in the light theme: the dark pill's own colours */
+:root[data-theme='light'] .site-nav[data-over-dark] {
+  --text: #F6F7FA;
+  --dim: #B9BCCC;
+  --raise: #282A33;
+  --line: #2A2C36;
+  --accent: #7C9CFF;
+  color: var(--text);
+}
+
+.site-nav[data-collapsed] {
+  width: min(var(--merged-w, 640px), calc(100% - 32px));
+  padding: 0 12px;
+  gap: 8px;
+  background: var(--nav-bg-folded);
+}
+
+.site-brand-word { display: inline-block; }
+
+.site-brand-word,
+.site-actions {
+  max-width: 560px;
+  transition: max-width 0.55s var(--nav-ease), opacity 0.3s ease 0.12s;
+}
+
+.site-nav[data-collapsed] .site-brand-word,
+.site-nav[data-collapsed] .site-actions {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition: max-width 0.55s var(--nav-ease), opacity 0.2s ease;
+}
+
+.site-nav[data-collapsed] .site-links { margin: 0 auto; }
+
+/* the scan line: drawn left to right by the page's own scroll */
+@supports (animation-timeline: scroll()) {
+  .site-nav::after {
+    content: '';
+    position: absolute;
+    left: 26px;
+    right: 26px;
+    bottom: 0;
+    height: 2px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent-fill) 75%, #DCE5FF);
+    transform: scaleX(0);
+    transform-origin: left;
+    animation: site-scan linear both;
+    animation-timeline: scroll(nearest block);
+  }
+}
+
+@keyframes site-scan { to { transform: scaleX(1); } }
+
+.site-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  white-space: nowrap;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.site-brand-tld {
+  color: var(--dim);
+  font-weight: 450;
+}
+
+.site-mark {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  flex: 0 0 auto;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.85) 0 2px, transparent 3px),
+    radial-gradient(circle at 70% 62%, rgba(255, 255, 255, 0.6) 0 2px, transparent 3px),
+    linear-gradient(145deg, #6FD6E8, #2A7F95 60%, #5B4E9A);
+}
+
+.site-links {
+  display: flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.site-links a {
+  position: relative;
+  isolation: isolate;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--dim);
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+
+/* hover: a faint pill grows in from the middle */
+.site-links a::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  border-radius: inherit;
+  background: var(--raise);
+  opacity: 0;
+  transform: scale(0.7);
+  transition: opacity 0.2s, transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.site-links a:hover { color: var(--text); }
+.site-links a:hover::before { opacity: 1; transform: none; }
+.site-links a[aria-current='page'] { color: var(--text); }
+
+/* The current page's viewfinder: four corner brackets, like a camera's
+ * focus frame. It is a named view transition (SiteNav), so on navigation
+ * the browser glides it from the old link to the new one. */
+.site-links-pill {
+  --c: var(--accent);
+  position: absolute;
+  inset: 1px -1px;
+  z-index: -1;
+  border-radius: 4px;
+  background:
+    linear-gradient(var(--c), var(--c)) left top / 9px 2px,
+    linear-gradient(var(--c), var(--c)) left top / 2px 9px,
+    linear-gradient(var(--c), var(--c)) right top / 9px 2px,
+    linear-gradient(var(--c), var(--c)) right top / 2px 9px,
+    linear-gradient(var(--c), var(--c)) left bottom / 9px 2px,
+    linear-gradient(var(--c), var(--c)) left bottom / 2px 9px,
+    linear-gradient(var(--c), var(--c)) right bottom / 9px 2px,
+    linear-gradient(var(--c), var(--c)) right bottom / 2px 9px,
+    color-mix(in srgb, var(--accent-fill) 12%, transparent);
+  background-repeat: no-repeat;
+}
+
+/* -------------------------------------------- page transitions */
+/* React's <ViewTransition> (SitePage, SiteNav) names the parts; these are
+ * the motions. The old page leaves fast, the new one arrives softer. */
+::view-transition { pointer-events: none; }
+
+::view-transition-old(.nav-forward),
+::view-transition-old(.nav-back) {
+  animation: 180ms ease-in both site-vt-fade reverse, 380ms cubic-bezier(0.4, 0, 0.2, 1) both site-vt-slide reverse;
+}
+
+::view-transition-new(.nav-forward),
+::view-transition-new(.nav-back) {
+  animation: 280ms ease-out 120ms both site-vt-fade, 460ms cubic-bezier(0.2, 0.8, 0.2, 1) both site-vt-slide;
+}
+
+::view-transition-old(.nav-forward) { --site-vt-x: -56px; }
+::view-transition-new(.nav-forward) { --site-vt-x: 56px; }
+::view-transition-old(.nav-back) { --site-vt-x: 56px; }
+::view-transition-new(.nav-back) { --site-vt-x: -56px; }
+
+::view-transition-group(.site-nav-pill) {
+  z-index: 50;
+  animation-duration: 480ms;
+  animation-timing-function: cubic-bezier(0.3, 1.3, 0.4, 1);
+}
+
+::view-transition-new(.site-nav-pill-in) { animation: 300ms ease-out both site-vt-pop; }
+::view-transition-old(.site-nav-pill-out) { animation: 200ms ease-in both site-vt-pop reverse; }
+
+@keyframes site-vt-fade { from { opacity: 0; filter: blur(4px); } }
+@keyframes site-vt-slide { from { translate: var(--site-vt-x) 0; } }
+@keyframes site-vt-pop { from { opacity: 0; scale: 0.6; } }
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}
+
+.site-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ------------------------------------------------- theme toggle */
+/* The icon swap itself lives in globals.css — shared with the studio. */
+.site-theme-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--raise);
+  color: var(--dim);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.site-theme-toggle:hover {
+  color: var(--text);
+  border-color: var(--line-lit);
+}
+
+.site-theme-toggle svg {
+  width: 17px;
+  height: 17px;
+}
+
+/* ---------------------------------------------------- user menu */
+/* The trigger's positioning context. Without it the dropdown sits in
+   normal flow and stretches the nav pill open. */
+.site-user-menu {
+  position: relative;
+}
+
+.site-user-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 12px 5px 5px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--raise);
+  color: var(--text);
+  font: 600 14px/1.2 var(--sans);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.site-user-trigger:hover {
+  border-color: var(--line-lit);
+}
+
+.site-user-avatar {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent-fill);
+  color: var(--accent-ink);
+  font: 700 12px/1 var(--sans);
+}
+
+.site-user-name {
+  max-width: 132px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-user-caret {
+  width: 16px;
+  height: 16px;
+  color: var(--dim);
+  transition: transform 0.18s;
+}
+
+.site-user-caret.open {
+  transform: rotate(180deg);
+}
+
+.site-user-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 20;
+  min-width: 196px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: 0 18px 44px var(--sh);
+  transform-origin: top right;
+}
+
+.site-user-option {
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--text);
+  font: 500 14px/1.2 var(--sans);
+  text-align: left;
+  cursor: pointer;
+}
+
+.site-user-option:hover {
+  background: var(--raise);
+}
+
+.site-user-option-danger {
+  color: var(--danger);
+}
+
+/* ----------------------------------------------- account drawer */
+.site-account-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(4, 7, 11, 0.62);
+}
+
+.site-account-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(400px, 100%);
+  height: 100%;
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+  box-shadow: -24px 0 60px var(--sh);
+  overflow-y: auto;
+}
+
+.site-account-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.site-account-usermeta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.site-account-label {
+  font-weight: 650;
+}
+
+.site-account-email {
+  color: var(--dim);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-account-close {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--dim);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.site-account-close:hover {
+  color: var(--text);
+  border-color: var(--line-lit);
+}
+
+.site-account-body {
+  flex: 1 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+}
+
+.site-account-card {
+  padding: 18px;
+  border-radius: var(--r);
+  border: 1px solid var(--line);
+  background: var(--raise);
+}
+
+.site-account-kicker {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.site-account-card h3 {
+  margin: 6px 0 4px;
+  font: 700 20px/1.25 var(--sans);
+}
+
+.site-account-card p {
+  margin: 0;
+  color: var(--dim);
+  font-size: 14px;
+}
+
+.site-account-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.site-account-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+}
+
+.site-account-item span {
+  color: var(--dim);
+  font-size: 13px;
+}
+
+.site-account-footer {
+  display: flex;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--line);
+}
+
+.site-account-footer button {
+  flex: 1 1;
+  padding: 10px 16px;
+  border-radius: 999px;
+  font: 600 14px/1.2 var(--sans);
+  cursor: pointer;
+}
+
+.site-account-dismiss {
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--text);
+}
+
+.site-account-logout {
+  border: 1px solid transparent;
+  background: var(--danger);
+  color: var(--danger-ink);
+}
+
+/* Change password in Settings (PasswordChange.tsx) */
+.site-pw {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: var(--r);
+  border: 1px solid var(--line);
+}
+
+.site-pw h4 {
+  margin: 0;
+  font: 650 15px/1.3 var(--sans);
+}
+
+.site-pw label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--dim);
+  font-size: 13px;
+}
+
+.site-pw input {
+  padding: 10px 12px;
+  border-radius: 10px;
+  font: 500 14px var(--sans);
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+.site-pw input:hover {
+  border-color: var(--line-lit);
+}
+
+.site-pw input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-glow);
+}
+
+.site-pw button {
+  align-self: flex-start;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--accent-ink);
+  background: var(--accent-fill);
+  font: 600 14px/1.2 var(--sans);
+  cursor: pointer;
+}
+
+.site-pw button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.site-pw p {
+  margin: 0;
+  color: var(--dim);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.site-pw p:empty {
+  display: none;
+}
+
+.site-pw p.is-error {
+  color: var(--danger);
+}
+
+/* -------------------------------------------------------- buttons */
+.site-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 18px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font: 700 14px/1.2 var(--sans);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.15s, background 0.15s, border-color 0.15s, box-shadow 0.15s, color 0.15s;
+}
+
+.site-btn-lg {
+  padding: 14px 26px;
+  font-size: 15px;
+}
+
+.site-btn-primary {
+  color: var(--accent-ink);
+  background: var(--accent-fill);
+}
+
+.site-btn-primary:hover {
+  background: color-mix(in srgb, var(--accent-fill) 85%, #fff);
+}
+
+.site-btn-primary:disabled {
+  transform: none;
+  opacity: 0.6;
+  cursor: default;
+}
+
+.site-btn-ghost {
+  color: var(--text);
+  border-color: var(--line-lit);
+  background: var(--raise);
+}
+
+.site-btn-ghost:hover {
+  border-color: var(--line-lit);
+  background: var(--raise);
+}
+
+.site-btn-quiet {
+  color: var(--dim);
+}
+
+.site-btn-quiet:hover {
+  color: var(--text);
+}
+
+/* ---------------------------------------------------------- bands */
+.band {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 110px 0 0;
+  scroll-margin-top: 80px;
+}
+
+.site .band-title {
+  max-width: 52rem;
+  margin: 0 auto 20px;
+  text-align: center;
+  font: 700 clamp(32px, 4.2vw, 55px)/1.15 var(--sans);
+  letter-spacing: -0.02em;
+}
+
+/* --------------------------------------------------------- footer */
+.site-foot {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 48px 0 40px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+  font-size: 14px;
+}
+
+.site-foot-dim {
+  color: var(--dim);
+}
+
+.site-foot-links {
+  margin-left: auto;
+  display: flex;
+  gap: 18px;
+  color: var(--dim);
+}
+
+.site-foot-links a:hover {
+  color: var(--text);
+}
+
+/* -------------------------------------------------------- gallery */
+.gallery-head {
+  padding-top: 72px;
+}
+
+.gallery-head .band-title {
+  margin-bottom: 12px;
+}
+
+.gallery-sub {
+  margin: 0 auto;
+  max-width: 40rem;
+  text-align: center;
+  color: var(--dim);
+  font-size: clamp(17px, 1.6vw, 22px);
+}
+
+.gallery-band {
+  padding-top: 40px;
+}
+
+.gallery-empty {
+  margin: 0;
+  padding: 40px 28px;
+  border-radius: var(--r);
+  text-align: center;
+  color: var(--dim);
+  background: var(--panel);
+  border: 1px dashed var(--line-lit);
+}
+
+.gallery-empty a {
+  color: var(--accent);
+}
+
+.gallery-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 18px;
+}
+
+.gallery-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  border-radius: var(--r);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.gallery-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--line-lit);
+  box-shadow: 0 20px 50px var(--sh);
+}
+
+.gallery-thumb {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: var(--raise);
+}
+
+.gallery-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.4s;
+}
+
+.gallery-card:hover .gallery-thumb img {
+  transform: scale(1.04);
+}
+
+.gallery-ph {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font: 700 64px/1 var(--sans);
+  color: rgba(232, 238, 244, 0.25);
+  background: radial-gradient(120% 90% at 30% 20%, #1E3A48, #0C1119 70%);
+}
+
+.gallery-open {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  font: 600 12.5px var(--sans);
+  color: var(--accent-ink);
+  background: var(--accent-fill);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.gallery-card:hover .gallery-open,
+.gallery-card:focus-visible .gallery-open {
+  opacity: 1;
+  transform: none;
+}
+
+.gallery-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 18px 18px;
+}
+
+.gallery-title {
+  font: 600 18px/1.3 var(--sans);
+  letter-spacing: -0.02em;
+}
+
+.gallery-tag {
+  color: var(--dim);
+  font-size: 14px;
+}
+
+.gallery-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.gallery-facts span {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--dim);
+  background: var(--raise);
+  border: 1px solid var(--line);
+}
+
+/* =========================================================== auth */
+.auth {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  overflow-y: auto;
+}
+
+.auth-art {
+  position: relative;
+  margin: 16px 0 16px 16px;
+  border-radius: 28px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  min-height: calc(100vh - 32px);
+  background: radial-gradient(120% 90% at 50% 30%, #121A26, #07090D 75%);
+}
+
+.auth-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.auth-art-copy {
+  position: absolute;
+  inset: 0;
+  padding: 30px 34px 38px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: linear-gradient(180deg, rgba(7, 10, 15, 0.55), transparent 28%, transparent 55%, rgba(7, 10, 15, 0.9));
+  pointer-events: none;
+}
+
+.auth-art-copy .site-brand {
+  pointer-events: auto;
+  align-self: flex-start;
+}
+
+.auth-art blockquote {
+  margin: 0;
+  max-width: 26rem;
+  font: 600 clamp(26px, 2.6vw, 36px)/1.15 var(--sans);
+  letter-spacing: -0.03em;
+}
+
+.auth-art blockquote em {
+  color: var(--accent);
+}
+
+.auth-side {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 72px 24px 40px;
+}
+
+.auth-back {
+  position: absolute;
+  top: 28px;
+  right: 32px;
+  font-size: 14px;
+  color: var(--dim);
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+}
+
+.auth-back:hover {
+  color: var(--text);
+  border-color: var(--line-lit);
+}
+
+.auth-card {
+  width: min(420px, 100%);
+}
+
+.auth-title {
+  font: 650 38px/1.05 var(--sans);
+  letter-spacing: -0.04em;
+}
+
+.auth-sub {
+  margin: 12px 0 28px;
+  color: var(--dim);
+  font-size: 15px;
+}
+
+.auth-switch {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 4px;
+  margin-bottom: 26px;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+.auth-switch button {
+  position: relative;
+  z-index: 1;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 10px;
+  border-radius: 999px;
+  font: 600 14px var(--sans);
+  color: var(--dim);
+  transition: color 0.2s;
+}
+
+.auth-switch button.on {
+  color: var(--text);
+}
+
+.auth-switch-pill {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  border-radius: 999px;
+  background: var(--raise);
+  border: 1px solid var(--line-lit);
+  transition: transform 0.25s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+
+.auth-switch-pill[data-side='right'] {
+  transform: translateX(100%);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.auth-field>span:first-child {
+  font-size: 13.5px;
+  font-weight: 550;
+}
+
+.auth-field input {
+  width: 100%;
+  padding: 13px 15px;
+  border-radius: 12px;
+  font: 500 15px var(--sans);
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.auth-field input::placeholder {
+  color: var(--placeholder);
+}
+
+.auth-field input:hover {
+  border-color: var(--line-lit);
+}
+
+.auth-field input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-glow);
+}
+
+.auth-pw {
+  position: relative;
+  display: block;
+}
+
+.auth-pw input {
+  padding-right: 70px;
+}
+
+.auth-pw button {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font: 600 12.5px var(--sans);
+  color: var(--dim);
+  background: var(--raise);
+}
+
+.auth-pw button:hover {
+  color: var(--text);
+}
+
+.auth-error {
+  margin: 0;
+  padding: 11px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  color: #FFB4B0;
+  background: rgba(229, 120, 122, 0.1);
+  border: 1px solid rgba(229, 120, 122, 0.4);
+}
+
+.auth-submit {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.auth-foot {
+  margin: 22px 0 0;
+  text-align: center;
+  color: var(--dim);
+  font-size: 14px;
+}
+
+.auth-link {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font: 600 14px var(--sans);
+  color: var(--accent);
+}
+
+.auth-link:hover {
+  text-decoration: underline;
+}
+
+/* ------------------------------------------------------- responsive */
+@media (max-width: 960px) {
+  /* two rows: brand and actions, then the links scrolling sideways;
+   * folded, one row of the mark and the links */
+  .site-nav {
+    flex-wrap: wrap;
+    row-gap: 2px;
+    height: auto;
+    min-height: 56px;
+    padding: 8px 8px 6px 14px;
+    border-radius: 28px;
+  }
+
+  .site-nav[data-collapsed] {
+    flex-wrap: nowrap;
+    width: calc(100% - 32px);
+    padding: 6px 8px 6px 14px;
+  }
+
+  .site-nav[data-collapsed] .site-brand-word,
+  .site-nav[data-collapsed] .site-actions { display: none; }
+
+  .site-nav[data-collapsed] .site-links { order: 0; width: auto; flex: 1 1; margin: 0; }
+
+  .site-links {
+    order: 3;
+    width: 100%;
+    margin-left: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .auth {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-art {
+    min-height: 240px;
+    margin: 16px 16px 0;
+  }
+
+  .auth-art blockquote {
+    font-size: 24px;
+  }
+
+  .auth-side {
+    padding-top: 64px;
+  }
+}
+
+@media (max-width: 620px) {
+  .site-nav {
+    gap: 10px;
+    padding-left: 14px;
+  }
+
+  .site-brand-tld {
+    display: none;
+  }
+
+  .site-btn-quiet {
+    display: none;
+  }
+
+  .site-foot-links {
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site {
+    scroll-behavior: auto;
+  }
+
+  .site *,
+  .site *::before,
+  .site *::after {
+    transition: none !important;
+  }
+}

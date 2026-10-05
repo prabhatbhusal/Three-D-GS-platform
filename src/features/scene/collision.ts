@@ -196,6 +196,12 @@ export function capsuleBoxPush(q: Capsule, b: Box): XYZ | null {
 
 /** withColliders' renderer → the scan underneath it, without the boxes. */
 const SCAN = Symbol('scan');
+/** The scan without the collision boxes. The studio's camera collides with
+ *  this, so an author can walk up to and through the boxes they are placing:
+ *  a solid box stopped the camera half a metre in front of it, and its tint
+ *  then filled the view whichever way they moved. Visitors, and Preview,
+ *  keep the boxes solid. */
+export const scanOf = (r: SceneRenderer) => r?.[SCAN] ?? r;
 
 /**
  * The scene renderer, with the author's collision boxes added to the two
@@ -277,7 +283,7 @@ export function boxSpotInView(
   const flat = Math.hypot(look.x, look.z);
   const fx = flat > 1e-6 ? look.x / flat : 0;
   const fz = flat > 1e-6 ? look.z / flat : -1;
-  const d = surfaceDistance(r?.[SCAN] ?? r, from, look, 30 * unit, 0.04 * unit);
+  const d = surfaceDistance(scanOf(r), from, look, 30 * unit, 0.04 * unit);
   return {
     x: d === null ? from.x + fx * 2 * unit : from.x + look.x * d,
     z: d === null ? from.z + fz * 2 * unit : from.z + look.z * d,

@@ -414,6 +414,14 @@ test('a collision box lands where the middle of the view meets the scan, not 2 m
 
   const blind = boxSpotInView(null, { x: 0, y: 1.6, z: 0 }, ahead, 1); // nothing to measure: 2 ahead, as before
   assert.ok(Math.abs(blind.z + 2) < 1e-6, JSON.stringify(blind));
+
+  // the studio's camera walks through the boxes it is placing; a visitor's (and Preview's) can't
+  const { scanOf } = await import('../src/features/scene/collision.ts');
+  const capAt = (z) => ({ start: { x: 0, y: 0.3, z }, end: { x: 0, y: 1.35, z }, radius: 0.3 });
+  assert.ok(r.intersectsCapsule(capAt(-2)).hit, 'the tour bumps into the box');
+  assert.equal(scanOf(r).intersectsCapsule(capAt(-2)).hit, false, 'the studio walks through it');
+  assert.equal(scanOf(scan), scan, 'an unwrapped scan is itself');
+  assert.equal(scanOf(null), null);
 });
 
 test('a table hotspot books its own dining place, never another one that happens to take bookings', async () => {
