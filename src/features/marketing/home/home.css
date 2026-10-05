@@ -343,9 +343,11 @@
   color: var(--hp-dim);
 }
 
+/* (2026-10-05) no boxes: each entry is its icon, its name and a line,
+   held apart by space; pointing at one dims the rest and nudges it along */
 .hp-cards {
   display: grid;
-  gap: 14px;
+  gap: clamp(36px, 5vw, 56px) clamp(28px, 4vw, 56px);
   width: var(--wrap);
   margin: 0 auto;
   padding: 0;
@@ -353,34 +355,35 @@
 }
 .hp-cards-3 { grid-template-columns: repeat(3, 1fr); }
 .hp-cards-2 { grid-template-columns: repeat(2, 1fr); }
-.hp-cards > li { display: flex; }
+.hp-cards > li { display: flex; transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
 .hp-card {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 10px;
-  padding: 26px 26px 28px;
-  border: 1px solid var(--hp-hair);
-  border-radius: 12px;
-  background: #1D1D1D;
+  gap: 12px;
   color: inherit;
-  transition: border-color 0.2s, background 0.2s;
 }
-.hp-card:hover { border-color: rgba(255, 255, 255, 0.22); background: #212121; }
-.hp-card:focus-visible { outline: 2px solid var(--hp-signal-lit); outline-offset: 3px; }
+.hp-card:focus-visible { outline: 2px solid var(--hp-signal-lit); outline-offset: 8px; border-radius: 4px; }
+.hp-card-ic { font-size: 28px; color: var(--hp-ink); transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1); }
 .hp-card h3 {
   margin: 0;
-  font: 600 1.375rem/1.2 var(--hp-mono);
-  letter-spacing: -0.03em;
+  font: 700 clamp(1.375rem, 2vw, 1.75rem)/1.12 var(--hp-mono);
+  letter-spacing: -0.04em;
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .hp-card p {
   margin: 0;
-  font: 400 0.9688rem/1.6 var(--sans);
+  max-width: 44ch;
+  font: 400 0.9688rem/1.65 var(--sans);
   color: var(--hp-dim);
 }
-.hp-card-work h3 { font-size: 1.625rem; }
+.hp-card-work h3 { font-size: clamp(1.75rem, 3vw, 2.5rem); }
 .hp-card-where { color: var(--hp-ink) !important; opacity: 0.75; }
-.hp-card-try { min-height: 170px; }
+@media (hover: hover) {
+  .hp-cards:hover > li:not(:hover) { opacity: 0.35; }
+  .hp-card:hover h3 { transform: translateX(8px); }
+  .hp-card:hover .hp-card-ic { transform: rotate(-8deg) scale(1.1); }
+}
 
 /* a project's state, as a small mono tag; "in progress" carries the live dot */
 .hp-status {
@@ -388,9 +391,6 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 5px 11px;
-  border: 1px solid var(--hp-hair);
-  border-radius: 999px;
   font: 500 0.75rem var(--hp-mono);
   color: var(--hp-dim);
 }
@@ -403,29 +403,25 @@
   background: var(--hp-signal-lit);
 }
 
-/* the numbers: a hairline grid of big figures */
+/* the numbers: big figures held apart by space, no grid lines */
 .hp-figures {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+  gap: clamp(36px, 5vw, 64px) 32px;
   width: var(--wrap);
   margin: 0 auto;
-  border-top: 1px solid var(--hp-hair);
-  border-left: 1px solid var(--hp-hair);
 }
 .hp-figures > div {
   display: flex;
   flex-direction: column-reverse;
   justify-content: flex-end;
-  gap: 10px;
-  padding: 28px 26px 30px;
-  border-right: 1px solid var(--hp-hair);
-  border-bottom: 1px solid var(--hp-hair);
+  gap: 12px;
 }
 .hp-figures dt { font: 400 0.9375rem/1.4 var(--sans); color: var(--hp-dim); }
 .hp-figures dd {
   margin: 0;
-  font: 600 clamp(2.25rem, 4.4vw, 3.75rem)/1 var(--hp-mono);
-  letter-spacing: -0.05em;
+  font: 700 clamp(2.5rem, 5.4vw, 4.75rem)/1 var(--hp-mono);
+  letter-spacing: -0.055em;
 }
 
 /* the last block before the method needs room under it */
@@ -499,50 +495,8 @@
   .hp-ask-form { flex-direction: column; gap: 6px; }
   .hp-ask-form button { padding: 12px; }
 }
-.hp-ask .hp-ask-direct {
-  margin-top: 22px;
-  font-size: 0.9375rem;
-}
-.hp-ask-direct a {
-  color: var(--hp-ink);
-  text-decoration: underline;
-  text-decoration-color: rgba(255, 255, 255, 0.3);
-  text-underline-offset: 3px;
-}
-.hp-ask-direct a:hover { text-decoration-color: var(--hp-ink); }
+/* the ways to reach us, as icons (layout/Reach.tsx), and whether the office is open */
+.hp-ask .hp-ask-direct { display: grid; justify-items: center; gap: 16px; margin-top: 32px; }
 
 /* ----------------------------------------------------- scroll gauge */
-/* HomeMotion.tsx: how far down the page you are, as a survey readout on the
-   right edge. Shown only when motion is on (data-on), and only on wide screens. */
-.hp-gauge {
-  position: fixed;
-  top: 50%;
-  right: 22px;
-  z-index: 20;
-  display: none;
-  align-items: center;
-  gap: 10px;
-  transform: translateY(-50%);
-  pointer-events: none;
-  mix-blend-mode: difference;
-}
-.hp-gauge[data-on] { display: flex; }
-.hp-gauge-track {
-  position: relative;
-  width: 1px;
-  height: 72px;
-  background: rgba(255, 255, 255, 0.25);
-}
-.hp-gauge-fill {
-  position: absolute;
-  inset: 0;
-  background: #fff;
-  transform: scaleY(0);
-  transform-origin: top;
-}
-.hp-gauge-n {
-  font: 500 11px var(--hp-mono);
-  letter-spacing: 0.02em;
-  color: #fff;
-}
-@media (max-width: 899px) { .hp-gauge[data-on] { display: none; } }
+

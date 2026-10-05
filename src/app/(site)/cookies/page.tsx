@@ -57,7 +57,7 @@ const SECTIONS = [
 /** The Cookie Policy: the one sign-in cookie and what stays in the browser (PolicyPage). */
 export default function CookiesPage() {
   return (
-    <PolicyPage label="Cookies" title={<>Cookie <em>Policy</em></>} updated="4 October 2026" sections={SECTIONS}
+    <PolicyPage label="Cookies" title="Cookie Policy" updated="4 October 2026" sections={SECTIONS}
       lede="One cookie, only when you sign in. No tracking, no analytics, no advertising." />
   );
 }

@@ -1,0 +1,61 @@
+{
+  "id": "basera-boutique-hotel-banquet-hall-1",
+  "version": 2,
+  "propertyId": "basera-boutique-hotel",
+  "title": "Banquet Hall 1",
+  "splat": {
+    "format": "lcc2",
+    "variants": {
+      "high": {
+        "assetId": "ast_87bdf50e9e72",
+        "meta": "Banquet_Hall_1.lcc2",
+        "bytes": 72566734
+      }
+    }
+  },
+  "transform": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "scale": 1
+  },
+  "unitScale": 1,
+  "spawn": {
+    "position": [
+      2.18,
+      1.06,
+      3.35
+    ],
+    "yaw": -5.71,
+    "eyeHeight": 1.65
+  },
+  "camera": {
+    "fov": 60,
+    "near": 0.25,
+    "far": 300,
+    "mode": "viewpoint"
+  },
+  "viewpoints": [],
+  "hotspots": [],
+  "tracks": [],
+  "audio": null,
+  "cta": null,
+  "theme": null,
+  "booking": null,
+  "neighbours": [],
+  "status": "published",
+  "ownerId": "44d97664-14c0-4473-82e8-a0089a8219cd",
+  "publishedVersion": 4,
+  "publishedAt": "2026-09-29T10:25:27.523Z",
+  "colliders": [],
+  "night": null,
+  "building": "",
+  "floor": ""
+}

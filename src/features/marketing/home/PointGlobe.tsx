@@ -11,6 +11,7 @@
  */
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { afterIntro } from '../layout/Loader';
 
 const KTM: [number, number] = [27.7172, 85.324];
 // where tours are walked from: an illustration of reach, not visitor numbers
@@ -154,6 +155,7 @@ export function PointGlobe({ className }: { className?: string }) {
 
     let alive = true;
     let loadedAt = 0;
+    let undoIntro = () => {};
     fetch('/media/globe-land.bin').then((r) => r.arrayBuffer()).then((buf) => {
       if (!alive) return;
       const ll = new Int16Array(buf);
@@ -172,7 +174,8 @@ export function PointGlobe({ className }: { className?: string }) {
       geo.setAttribute('scatter', new THREE.BufferAttribute(scatter, 3));
       geo.setAttribute('delay', new THREE.BufferAttribute(delay, 1));
       globe.add(new THREE.Points(geo, pointsMat));
-      loadedAt = performance.now();
+      // the points gather once the loading screen has lifted, not behind it
+      undoIntro = afterIntro(() => { loadedAt = performance.now(); });
     }).catch(() => {});
 
     // drag to turn it, with a little momentum; idle, it eases home and sways
@@ -251,6 +254,7 @@ export function PointGlobe({ className }: { className?: string }) {
     raf = requestAnimationFrame(frame);
 
     return () => {
+      undoIntro();
       alive = false;
       cancelAnimationFrame(raf);
       ro.disconnect();

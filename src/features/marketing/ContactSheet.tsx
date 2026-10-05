@@ -1,14 +1,17 @@
 'use client';
 
 import { useState } from 'react';
+import { Icon } from '../../components/ui/Icon';
 import { COMPANY } from './siteContent';
 
-const NEEDS = ['A tour for our website', '360 video', 'Point cloud or drawings'];
+const NEEDS = ['a tour for our website', '360 video', 'a point cloud or drawings'];
 
 /**
- * The Contact page's field sheet: what a crew needs to know before a site
- * visit, on ruled lines. "Write the email" opens the visitor's own email app
- * with the answers filled in: no form backend, nothing stored here.
+ * The Contact page's enquiry, written as one sentence with blanks to fill
+ * ("We have a … in …, about … big. We need … Call me on …"): what a crew
+ * needs to know before a site visit. "Write the email" opens the visitor's
+ * own email app with the answers filled in: no form backend, nothing stored
+ * here. Styles: inner.css .ip-say.
  */
 export function ContactSheet() {
   const [a, setA] = useState({ space: '', where: '', size: '', phone: '' });
@@ -23,39 +26,32 @@ export function ContactSheet() {
   ].join('\n');
   const subject = `Capture enquiry${a.space.trim() ? `: ${a.space.trim().slice(0, 60)}` : ''}`;
   const href = `mailto:${COMPANY.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  const blank = (k: keyof typeof a, label: string, placeholder: string, more?: React.InputHTMLAttributes<HTMLInputElement>) => (
+    <input className="ip-blank" aria-label={label} value={a[k]} onChange={set(k)} placeholder={placeholder} maxLength={120}
+      size={Math.max(placeholder.length, a[k].length)} {...more} />
+  );
 
   return (
-    <form className="lp-sheet" onSubmit={(e) => { e.preventDefault(); location.href = href; }}>
-      <label className="lp-sheet-row">
-        <span>The space</span>
-        <input value={a.space} onChange={set('space')} placeholder="Hotel floor, banquet hall, courtyard" maxLength={120} />
-      </label>
-      <label className="lp-sheet-row">
-        <span>Where</span>
-        <input value={a.where} onChange={set('where')} placeholder="Street and town" maxLength={120} autoComplete="street-address" />
-      </label>
-      <label className="lp-sheet-row">
-        <span>How big</span>
-        <input value={a.size} onChange={set('size')} placeholder="Rooms, floors or m². A guess is fine." maxLength={120} />
-      </label>
-      <div className="lp-sheet-row" role="group" aria-labelledby="lp-sheet-needs-label">
-        <span id="lp-sheet-needs-label">You need</span>
-        <div className="lp-sheet-needs">
-          {NEEDS.map((n) => (
-            <label key={n} className="lp-sheet-need">
-              <input type="checkbox" checked={needs.includes(n)} onChange={() => toggle(n)} />
-              <span>{n}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-      <label className="lp-sheet-row">
-        <span>Your phone</span>
-        <input type="tel" value={a.phone} onChange={set('phone')} placeholder="For a call back (optional)" maxLength={40} autoComplete="tel" />
-      </label>
-      <div className="lp-sheet-send">
-        <button type="submit" className="site-btn site-btn-primary site-btn-lg">Write the email</button>
-        <p>Opens your email app with these answers filled in, addressed to {COMPANY.email}.</p>
+    <form className="ip-say" onSubmit={(e) => { e.preventDefault(); location.href = href; }}>
+      <p className="ip-say-text">
+        We have {blank('space', 'The space', 'a hotel floor')} in {blank('where', 'Where', 'street and town', { autoComplete: 'street-address' })},
+        about {blank('size', 'How big', 'three floors')} big.
+      </p>
+      <fieldset className="ip-say-text ip-say-needs">
+        <legend>We need</legend>
+        {NEEDS.map((n) => (
+          <label key={n} className="ip-need">
+            <input type="checkbox" checked={needs.includes(n)} onChange={() => toggle(n)} />
+            <Icon name="check" className="ip-need-ic" />{n}
+          </label>
+        ))}
+      </fieldset>
+      <p className="ip-say-text">
+        Call me on {blank('phone', 'Your phone', 'your number', { type: 'tel', autoComplete: 'tel', maxLength: 40 })}.
+      </p>
+      <div className="ip-say-send">
+        <button type="submit" className="site-btn site-btn-primary site-btn-lg">Write the email <Icon name="send" /></button>
+        <p>Opens your email app with these answers filled in. A guess is fine for any of them.</p>
       </div>
     </form>
   );

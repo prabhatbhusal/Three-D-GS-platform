@@ -1287,23 +1287,6 @@
 .has-custom-cursor .site * { cursor: none; }
 .has-custom-cursor .site :is(input, textarea, select, [contenteditable='true']) { cursor: auto; }
 
-/* "WhatsApp us" in the nav (Navbar.tsx): a quiet outlined pill with the one blue dot */
-.site-wa {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  border: 1px solid var(--line-lit);
-  border-radius: 999px;
-  font: 500 13px/1 var(--font-display-mono), var(--sans);
-  color: var(--text);
-  white-space: nowrap;
-  transition: border-color 0.2s, background 0.2s;
-}
-.site-wa:hover { border-color: var(--text); background: var(--raise); }
-.site-wa-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-fill); }
-@media (max-width: 899px) { .site-wa { display: none; } }
-
 /* ------------------------------------------- the navbar in JetBrains Mono */
 /* (2026-10-05) Small tracked capitals for the page links and the two
    buttons, the wordmark in the same face; the bar itself is unchanged. */
@@ -1312,12 +1295,6 @@
   font: 400 11.5px/1 var(--font-nav-mono), ui-monospace, monospace;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-.site-wa {
-  height: 36px;
-  padding: 0 16px;
-  border-color: rgba(255, 255, 255, 0.15);
-  font: 500 12px/1 var(--font-nav-mono), ui-monospace, monospace;
 }
 .site-actions .site-btn {
   min-height: 36px;

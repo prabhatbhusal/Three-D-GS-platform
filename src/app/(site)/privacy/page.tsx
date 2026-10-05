@@ -79,7 +79,7 @@ const SECTIONS = [
 /** The Privacy Policy, written to match what the code collects and sends (PolicyPage). */
 export default function PrivacyPage() {
   return (
-    <PolicyPage label="Privacy" title={<>Privacy <em>Policy</em></>} updated="4 October 2026" sections={SECTIONS}
+    <PolicyPage label="Privacy" title="Privacy Policy" updated="4 October 2026" sections={SECTIONS}
       lede="What we collect when you visit a tour, send an enquiry or book, who sees it, and how to have it removed." />
   );
 }

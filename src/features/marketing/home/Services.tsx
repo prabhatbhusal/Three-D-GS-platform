@@ -1,6 +1,7 @@
 /** "What we capture": the kinds of place RCAAS scans (siteContent.ts SECTORS),
  *  one card each, the whole grid linking on to Services. Styles: home.css .hp-cards. */
 import Link from 'next/link';
+import { Icon } from '../../../components/ui/Icon';
 import { SECTORS } from '../siteContent';
 
 export function Services() {
@@ -14,6 +15,7 @@ export function Services() {
         {SECTORS.map((s) => (
           <li key={s.t}>
             <Link href="/services" transitionTypes={['nav-forward']} className="hp-card">
+              <Icon name={s.ic} className="hp-card-ic" />
               <h3>{s.t}</h3>
               <p>{s.b}</p>
             </Link>

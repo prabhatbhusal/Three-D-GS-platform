@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import { SitePage } from '../../../features/marketing/layout/SitePage';
-import '../../../features/marketing/fieldbook.css';
+import { PageHead } from '../../../components/ui/PageHead';
 import { ContactSheet } from '../../../features/marketing/ContactSheet';
-import { ContourPlate } from '../../../features/marketing/ContourPlate';
+import { OpenNow, ReachIcons } from '../../../features/marketing/layout/Reach';
 import { COMPANY } from '../../../features/marketing/siteContent';
 
 export const metadata: Metadata = {
@@ -11,35 +11,23 @@ export const metadata: Metadata = {
   description: 'Book a LiDAR capture of your hotel, campus, heritage site or building. GeoNova Solutions, Kathmandu.'
 };
 
-/** Contact, as a page of a surveyor's field book: the sheet a crew fills in
- *  before a site visit, and the office marked on a contour plate. Styles:
- *  landing.css "Field book". */
+/** Contact: the enquiry as a sentence to fill in (ContactSheet), and beside
+ *  it the ways to talk instead, as icons, with whether the office is open
+ *  right now. Styles: inner.css .ip-contact. */
 export default function ContactPage() {
-  const tel = `tel:${COMPANY.phone.replace(/[^\d+]/g, '')}`;
   return (
     <SitePage contact={false}>
-      <section className="lp-field lp-field-contact">
-        <header className="lp-page-head lp-field-head">
-          <h1>Tell us about the space</h1>
-          <p>Five answers and we can plan the walk-through, quote it and give you a date.</p>
-        </header>
-
-        <div className="lp-field-grid">
-          <ContactSheet />
-
-          <aside className="lp-field-side" aria-label="Call or visit">
-            <div className="lp-talk">
-              <p>Rather talk it through?</p>
-              <a href={tel} className="lp-talk-phone">{COMPANY.phone}</a>
-              <a href={`mailto:${COMPANY.email}`} className="lp-talk-mail">{COMPANY.email}</a>
-            </div>
-            <ContourPlate seed={2.4}>
-              <p className="lp-plate-name">{COMPANY.name}</p>
-              <p>{COMPANY.locality}, {COMPANY.city}</p>
-              <p>{COMPANY.hours}</p>
-            </ContourPlate>
-          </aside>
-        </div>
+      <PageHead label="contact" lede="Fill in the blanks and we can plan the walk-through, quote it and give you a date.">
+        Tell us about the space.
+      </PageHead>
+      <section className="ip-contact" aria-label="Enquiry">
+        <ContactSheet />
+        <aside className="ip-contact-side" aria-label="Call, write or visit">
+          <p className="ip-contact-k">Rather talk it through?</p>
+          <ReachIcons className="reach-lg" />
+          <OpenNow />
+          <p className="ip-contact-meta">{COMPANY.hours}<br />{COMPANY.name}, {COMPANY.locality}, {COMPANY.city}</p>
+        </aside>
       </section>
     </SitePage>
   );

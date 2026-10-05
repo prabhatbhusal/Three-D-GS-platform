@@ -66,7 +66,7 @@ const SECTIONS = [
 /** The Terms of Service (PolicyPage). */
 export default function TermsPage() {
   return (
-    <PolicyPage label="Terms" title={<>Terms of <em>Service</em></>} updated="4 October 2026" sections={SECTIONS}
+    <PolicyPage label="Terms" title="Terms of Service" updated="4 October 2026" sections={SECTIONS}
       lede="The terms for visiting our tours and for clients who use RCAAS.tech." />
   );
 }

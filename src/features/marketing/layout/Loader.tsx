@@ -16,11 +16,15 @@ import { motion } from 'framer-motion';
 const EVENT = 'rcaas:intro';
 const EASE = [0.76, 0, 0.24, 1] as const;
 
-/** Run `cb` once the loading screen has lifted (at once if there is none). Returns an undo. */
+/** Run `cb` once the loading screen has lifted (at once if there is none,
+ *  and after 5 s whatever happens, so a page is never left hidden). Returns an undo. */
 export function afterIntro(cb: () => void) {
   if (document.documentElement.dataset.intro !== 'playing') { cb(); return () => {}; }
-  window.addEventListener(EVENT, cb, { once: true });
-  return () => window.removeEventListener(EVENT, cb);
+  let done = false;
+  const run = () => { if (!done) { done = true; cb(); } };
+  window.addEventListener(EVENT, run, { once: true });
+  const t = window.setTimeout(run, 5000);
+  return () => { done = true; window.removeEventListener(EVENT, run); window.clearTimeout(t); };
 }
 
 export function Loader() {

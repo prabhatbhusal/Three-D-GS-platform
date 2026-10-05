@@ -8,9 +8,9 @@
  *     enters, its line of context after it;
  *   - cards rise in a cascade as their row enters;
  *   - the measured figures count up (the final value is in aria-label);
- *   - a scroll gauge on the right edge reads how far down the page you are;
- *   - the footer's wordmark rises letter by letter.
- * Reduced motion: nothing moves, and the gauge isn't shown.
+ * The hero waits for the loading screen (afterIntro). The scroll gauge and
+ * the footer's wordmark are every page's (SiteGsap).
+ * Reduced motion: nothing moves.
  * Mounted at the end of the home page (page.tsx). Styles: home.css.
  */
 import { useRef } from 'react';
@@ -18,6 +18,7 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { SplitText } from 'gsap/SplitText';
 import { useGSAP } from '@gsap/react';
+import { afterIntro } from '../layout/Loader';
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, SplitText);
 
@@ -45,13 +46,13 @@ function countUp(el: HTMLElement, scroller: Element | undefined) {
 
 export function HomeMotion() {
   const anchor = useRef<HTMLSpanElement | null>(null);
-  const gauge = useRef<HTMLDivElement | null>(null);
 
   useGSAP(() => {
     const root = anchor.current?.closest<HTMLElement>('.hp');
     const scroller = root?.closest('.site') ?? undefined;
     if (!root) return;
     const mm = gsap.matchMedia();
+    let undoIntro = () => {};
 
     mm.add('(prefers-reduced-motion: no-preference)', () => {
       const enter = (trigger: Element, start = 'top 82%') => ({ trigger, scroller, start, once: true });
@@ -60,9 +61,14 @@ export function HomeMotion() {
       const title = root.querySelector('.hp-hero-title');
       if (title) {
         const split = SplitText.create(title.querySelectorAll('span'), { type: 'chars', mask: 'chars' });
-        gsap.timeline({ delay: 0.5 })
-          .from(split.chars, { yPercent: 110, duration: 0.9, ease: 'expo.out', stagger: 0.022 })
-          .from(root.querySelectorAll('.hp-hero-lede, .hp-hero-cta > *'), { autoAlpha: 0, y: 18, duration: 0.7, ease: 'power3.out', stagger: 0.08 }, '-=0.5');
+        const rest = root.querySelectorAll('.hp-hero-lede, .hp-hero-cta > *');
+        gsap.set(split.chars, { yPercent: 110 });
+        gsap.set(rest, { autoAlpha: 0, y: 18 });
+        undoIntro = afterIntro(() => {
+          gsap.timeline({ delay: 0.35 })
+            .to(split.chars, { yPercent: 0, duration: 1.2, ease: 'expo.out', stagger: 0.022 })
+            .to(rest, { autoAlpha: 1, y: 0, duration: 1, ease: 'expo.out', stagger: 0.08 }, '-=0.8');
+        });
       }
 
       // section headings, line by line, then their line of context
@@ -84,48 +90,9 @@ export function HomeMotion() {
       const figs = root.querySelector('.hp-figures');
       if (figs) gsap.from(figs.children, { autoAlpha: 0, duration: 0.6, stagger: 0.06, scrollTrigger: enter(figs, 'top 86%') });
       root.querySelectorAll<HTMLElement>('.hp-figures dd').forEach((dd) => countUp(dd, scroller));
-
-      // the footer's wordmark (the footer sits just after .hp, in the same page)
-      const brand = root.parentElement?.querySelector('.lp-foot-brand');
-      if (brand) {
-        const split = SplitText.create(brand, { type: 'chars', mask: 'chars' });
-        gsap.from(split.chars, { yPercent: 110, duration: 0.8, ease: 'expo.out', stagger: 0.03, scrollTrigger: enter(brand, 'top 95%') });
-      }
-
-      // the scroll gauge: one number and one bar, written every scrolled frame
-      const g = gauge.current;
-      if (scroller && g) {
-        const bar = g.querySelector<HTMLElement>('.hp-gauge-fill');
-        const num = g.querySelector<HTMLElement>('.hp-gauge-n');
-        let raf = 0;
-        const update = () => {
-          raf = 0;
-          const max = scroller.scrollHeight - scroller.clientHeight;
-          const p = max > 0 ? scroller.scrollTop / max : 0;
-          if (bar) bar.style.transform = `scaleY(${p})`;
-          if (num) num.textContent = `${String(Math.round(p * 100)).padStart(3, '0')}%`;
-        };
-        const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
-        update();
-        scroller.addEventListener('scroll', onScroll, { passive: true });
-        g.dataset.on = '';
-        return () => {
-          cancelAnimationFrame(raf);
-          scroller.removeEventListener('scroll', onScroll);
-          delete g.dataset.on;
-        };
-      }
     });
-    return () => mm.revert();
+    return () => { undoIntro(); mm.revert(); };
   });
 
-  return (
-    <>
-      <span ref={anchor} hidden />
-      <div className="hp-gauge" ref={gauge} aria-hidden>
-        <span className="hp-gauge-track"><span className="hp-gauge-fill" /></span>
-        <span className="hp-gauge-n">000%</span>
-      </div>
-    </>
-  );
+  return <span ref={anchor} hidden />;
 }

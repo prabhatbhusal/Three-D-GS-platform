@@ -2,6 +2,7 @@
 .next/
 .next-new/
 .next-old/
+.next-preview/
 out/
 next-env.d.ts
 

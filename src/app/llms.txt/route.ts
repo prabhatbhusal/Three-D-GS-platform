@@ -30,7 +30,7 @@ ${[
     page('/services', 'Services', 'tours, point clouds, drawings, heritage and infrastructure records'),
     page('/how-it-works', 'How it works', 'capture, process, author, publish, and the FAQ'),
     page('/work', 'Work', 'projects and case studies'),
-    page('/gallery', 'Gallery', 'live tours'),
+    page('/gallery', 'Live tours', 'every published tour, open to walk'),
     page('/about', 'About', 'who we are: GeoNova Solutions'),
     page('/contact', 'Contact', 'book a capture')
   ].join('\n')}

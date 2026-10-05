@@ -1,0 +1,54 @@
+{
+  "id": "space-3d-model",
+  "version": 2,
+  "propertyId": "space",
+  "title": "3d model",
+  "splat": {
+    "format": "glb",
+    "variants": {
+      "high": {
+        "assetId": "ast_0b752d2760f6",
+        "meta": "лофт 17 скетч.glb",
+        "bytes": 19686416
+      }
+    }
+  },
+  "transform": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "scale": 1
+  },
+  "unitScale": 1,
+  "spawn": {
+    "position": [
+      0,
+      1.7,
+      3
+    ],
+    "yaw": 0,
+    "eyeHeight": 1.65
+  },
+  "camera": {
+    "fov": 60,
+    "near": 0.25,
+    "far": 300,
+    "mode": "viewpoint"
+  },
+  "viewpoints": [],
+  "hotspots": [],
+  "tracks": [],
+  "audio": null,
+  "cta": null,
+  "theme": null,
+  "booking": null,
+  "neighbours": [],
+  "status": "draft"
+}

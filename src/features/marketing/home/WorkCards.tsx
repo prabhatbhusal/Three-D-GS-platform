@@ -14,7 +14,7 @@ export function WorkCards() {
       <ul className="hp-cards hp-cards-2">
         {WORK.map((w) => (
           <li key={w.place}>
-            <Link href="/work" transitionTypes={['nav-forward']} className="hp-card hp-card-work">
+            <Link href={`/work#${w.slug}`} transitionTypes={['nav-forward']} className="hp-card hp-card-work">
               <span className={`hp-status is-${w.status}`}>{STATUS[w.status]}</span>
               <h3>{w.place}</h3>
               <p className="hp-card-where">{w.where}{w.status === 'done' && w.when ? `, ${w.when}` : ''}</p>
