@@ -17,7 +17,7 @@ export function WorkCards() {
             <Link href="/work" transitionTypes={['nav-forward']} className="hp-card hp-card-work">
               <span className={`hp-status is-${w.status}`}>{STATUS[w.status]}</span>
               <h3>{w.place}</h3>
-              <p className="hp-card-where">{w.where}{w.when ? `, ${w.when}` : ''}</p>
+              <p className="hp-card-where">{w.where}{w.status === 'done' && w.when ? `, ${w.when}` : ''}</p>
               <p>{w.body}</p>
             </Link>
           </li>

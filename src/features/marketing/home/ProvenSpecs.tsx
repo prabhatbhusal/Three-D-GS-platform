@@ -15,7 +15,7 @@ export function ProvenSpecs() {
         {SPECS.map((s) => (
           <div key={s.k}>
             <dt>{s.k}</dt>
-            <dd>{s.n}</dd>
+            <dd aria-label={s.n}>{s.n}</dd>
           </div>
         ))}
       </dl>

@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useEffect, useLayoutEffect, useRef, ViewTransition } from 'react';
 import { usePathname } from 'next/navigation';
 import { useSession } from '../../auth/useSession';
-import { ThemeToggle } from '../../../components/ui/ThemeToggle';
 import { Button } from '../../../components/ui/Button';
 import { AccountMenu } from './AccountMenu';
 import { COMPANY } from '../siteContent';
@@ -19,7 +18,7 @@ const LINKS = [
 ] as const;
 
 /** The marketing site's floating nav: brand, page links, theme switch, and
- *  either Sign in / Create account or the signed-in person's menu
+ *  either Sign in and Book a capture (team sign-up is on the sign-in page) or the signed-in person's menu
  *  (AccountMenu). It sits in app/(site)/layout.tsx, so it stays on screen
  *  while pages change underneath it. Styles: site.css .site-nav. */
 export function Navbar() {
@@ -105,13 +104,12 @@ export function Navbar() {
         <a className="site-wa" href={WHATSAPP} target="_blank" rel="noopener noreferrer">
           <span className="site-wa-dot" aria-hidden />WhatsApp us
         </a>
-        <ThemeToggle />
         {user ? (
           <AccountMenu user={user} onSignedOut={() => setUser(null)} />
         ) : (
           <>
             <Button href="/login" variant="quiet">Sign in</Button>
-            <Button href="/login?mode=signup" variant="primary">Create account</Button>
+            <Button href="/contact" transitionTypes={['nav-forward']} variant="primary">Book a capture</Button>
           </>
         )}
       </div>

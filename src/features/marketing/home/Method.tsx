@@ -22,7 +22,9 @@ export function Method() {
     let raf = 0;
     const measure = () => {
       // how far the row must travel, and a section tall enough to scroll it
-      const shift = wide.matches ? Math.max(0, row.scrollWidth - el.clientWidth) : 0;
+      // the end padding too, so the last item stops clear of the edge
+      const pad = parseFloat(getComputedStyle(row).paddingRight) || 0;
+      const shift = wide.matches ? Math.max(0, row.scrollWidth + pad - el.clientWidth) : 0;
       el.style.setProperty('--shift', `${shift}px`);
       el.style.height = wide.matches ? `${window.innerHeight + shift}px` : '';
       update();
@@ -62,7 +64,7 @@ export function Method() {
             </li>
           ))}
           <li className="hp-step hp-step-end">
-            <Button href="/how-it-works" transitionTypes={['nav-forward']}>See how it works</Button>
+            <Button href="/contact" transitionTypes={['nav-forward']} variant="pill-solid">Book a capture</Button>
           </li>
         </ol>
       </div>

@@ -15,7 +15,7 @@
 /*    --raise         a tile inside a card; hover fills               */
 /*    --line          borders; --line-lit when hovered                */
 /*    --text          body text and headings; --dim for quieter text  */
-/*    --accent        the brand blue for text, links and focus lines  */
+/*    --accent        white (dark) or black (light): links and focus  */
 /*    --accent-fill   filled buttons and the current tab (Button      */
 /*                    primary / pill-solid); --accent-ink is the text */
 /*                    on them; --accent-glow is the focus halo        */
@@ -34,12 +34,12 @@
   --line-lit: #404040;
   --text: #F5F5F5;
   --dim: #B8B8B8;
-  --accent: #7C9CFF;       /* text and strokes: 6.8:1 on the ground */
-  --accent-fill: #3364FF;  /* filled buttons and the current tab: white text at 4.8:1 */
-  --accent-glow: rgba(51, 100, 255, 0.3);
-  --accent-ink: #FFFFFF;
-  --teal: #2DD4BF;
-  --violet: #B79BFF;
+  --accent: #F2F2F2;       /* monochrome (2026-10-05): white strokes and links on charcoal */
+  --accent-fill: #F2F2F2;  /* filled buttons and the current tab: white, with dark type */
+  --accent-glow: rgba(255, 255, 255, 0.16);
+  --accent-ink: #161616;
+  --teal: #A3A3A3;
+  --violet: #D9D9D9;
   /* Dark-only values light mode has to flip. Anything showing 3D content
      (the splat frames, the auth art) stays dark in both themes — light
      chrome around photographic 3D is fine, light behind it is not. */
@@ -49,7 +49,7 @@
   --placeholder: #6E6E6E;
   --danger: #FF8B8B;
   --danger-ink: #2A0B0B;
-  --hero-grad: linear-gradient(100deg, var(--teal) 0%, #3364FF 55%, var(--violet) 100%);
+  --hero-grad: linear-gradient(100deg, var(--teal) 0%, #F2F2F2 55%, var(--violet) 100%);
   --sans: var(--font-inter), 'Segoe UI', system-ui, sans-serif;
   --display: var(--sans);
   --r: 16px;
@@ -78,12 +78,12 @@
   --line-lit: #BFC3D1;
   --text: #131419;
   --dim: #555A6B;
-  --accent: #2450E6;
-  --accent-fill: #3364FF;
-  --accent-glow: rgba(51, 100, 255, 0.22);
+  --accent: #161616;
+  --accent-fill: #161616;
+  --accent-glow: rgba(0, 0, 0, 0.14);
   --accent-ink: #FFFFFF;
-  --teal: #0F8F80;
-  --violet: #8B3FE6;
+  --teal: #555555;
+  --violet: #8A8A8A;
   --grid: rgba(14, 22, 32, 0.07);
   --glass: rgba(246, 247, 250, 0.86);
   --sh: rgba(19, 33, 51, 0.12);
@@ -170,7 +170,7 @@
   --dim: #B9BCCC;
   --raise: #282A33;
   --line: #2A2C36;
-  --accent: #7C9CFF;
+  --accent: #F2F2F2;
   color: var(--text);
 }
 
@@ -210,7 +210,7 @@
     bottom: 0;
     height: 2px;
     border-radius: 2px;
-    background: linear-gradient(90deg, transparent, var(--accent-fill) 75%, #DCE5FF);
+    background: linear-gradient(90deg, transparent, var(--accent-fill) 75%, #FFFFFF);
     transform: scaleX(0);
     transform-origin: left;
     animation: site-scan linear both;
@@ -241,9 +241,9 @@
   border-radius: 8px;
   flex: 0 0 auto;
   background:
-    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.85) 0 2px, transparent 3px),
-    radial-gradient(circle at 70% 62%, rgba(255, 255, 255, 0.6) 0 2px, transparent 3px),
-    linear-gradient(145deg, #6FD6E8, #2A7F95 60%, #5B4E9A);
+    radial-gradient(circle at 30% 30%, rgba(22, 22, 22, 0.9) 0 2px, transparent 3px),
+    radial-gradient(circle at 70% 62%, rgba(22, 22, 22, 0.65) 0 2px, transparent 3px),
+    linear-gradient(145deg, #F2F2F2, #A8A8A8 60%, #5E5E5E);
 }
 
 .site-links {
@@ -709,13 +709,17 @@
   font-size: 15px;
 }
 
-.site-btn-primary {
+/* `.site a` keeps its text colour from the parent, so a button that is a link
+   ("Open studio", "Book a capture") needs the extra class to take the ink:
+   black on the white button in dark mode, white on the black one in light. */
+.site-btn-primary,
+.site a.site-btn-primary {
   color: var(--accent-ink);
   background: var(--accent-fill);
 }
 
 .site-btn-primary:hover {
-  background: color-mix(in srgb, var(--accent-fill) 85%, #fff);
+  background: color-mix(in srgb, var(--accent-fill) 82%, var(--bg));
 }
 
 .site-btn-primary:disabled {
@@ -1299,3 +1303,26 @@
 .site-wa:hover { border-color: var(--text); background: var(--raise); }
 .site-wa-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-fill); }
 @media (max-width: 899px) { .site-wa { display: none; } }
+
+/* ------------------------------------------- the navbar in JetBrains Mono */
+/* (2026-10-05) Small tracked capitals for the page links and the two
+   buttons, the wordmark in the same face; the bar itself is unchanged. */
+.site-brand-word { font-family: var(--font-nav-mono), ui-monospace, monospace; font-weight: 600; letter-spacing: -0.02em; }
+.site-links a {
+  font: 400 11.5px/1 var(--font-nav-mono), ui-monospace, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.site-wa {
+  height: 36px;
+  padding: 0 16px;
+  border-color: rgba(255, 255, 255, 0.15);
+  font: 500 12px/1 var(--font-nav-mono), ui-monospace, monospace;
+}
+.site-actions .site-btn {
+  min-height: 36px;
+  padding: 0 16px;
+  font: 500 11.5px/1 var(--font-nav-mono), ui-monospace, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}

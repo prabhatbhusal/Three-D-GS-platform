@@ -1,7 +1,11 @@
-/** The marketing site's footer: brand line, Explore / Company / Legal links,
- *  and the team sign-in. SitePage puts it under every marketing page. To add a
- *  page to the footer, add a link to COLUMNS. Styles: landing.css .lp-foot. */
+/** The marketing site's footer (reworked 2026-10-05): the wordmark in the
+ *  display mono, how to reach the team (email, phone, WhatsApp), the
+ *  Explore / Company / Legal links, and a base line that ends on Kathmandu's
+ *  coordinates, the same point the home page's globe opens on. SitePage puts
+ *  it under every marketing page. To add a page to the footer, add a link to
+ *  COLUMNS. Styles: landing.css .lp-foot. */
 import Link from 'next/link';
+import { COMPANY } from '../siteContent';
 
 // [label, href, external]: external links open in a new tab
 const COLUMNS: [string, [string, string, boolean?][]][] = [
@@ -14,13 +18,20 @@ const COLUMNS: [string, [string, string, boolean?][]][] = [
   ['Legal', [['Terms of Service', '/terms'], ['Privacy Policy', '/privacy'], ['Security Policy', '/security'], ['Cookie Policy', '/cookies']]]
 ];
 
+const DIGITS = COMPANY.phone.replace(/\D/g, '');
+
 export function Footer() {
   return (
     <footer className="site-foot lp-foot">
       <div className="lp-foot-top">
-        <div>
+        <div className="lp-foot-about">
           <span className="lp-foot-brand">RCAAS<span className="site-brand-tld">.tech</span></span>
           <p className="site-foot-dim">Reality Capture As A Service. A GeoNova Solutions and I.STEM Lab product.</p>
+          <ul className="lp-foot-reach" aria-label="Reach the team">
+            <li><a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a></li>
+            <li><a href={`tel:+${DIGITS}`}>{COMPANY.phone}</a></li>
+            <li><a href={`https://wa.me/${DIGITS}`} target="_blank" rel="noopener noreferrer">WhatsApp</a></li>
+          </ul>
         </div>
         <nav className="lp-foot-cols" aria-label="Footer">
           {COLUMNS.map(([heading, links]) => (
@@ -34,7 +45,8 @@ export function Footer() {
         </nav>
       </div>
       <div className="lp-foot-base">
-        <span>GeoNova Solutions Pvt. Ltd., Kathmandu</span>
+        <span>© {new Date().getFullYear()} {COMPANY.name}</span>
+        <span className="lp-foot-coord">{COMPANY.city} 27.72° N, 85.32° E</span>
         <Link href="/login">Team sign-in</Link>
       </div>
     </footer>

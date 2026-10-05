@@ -20,7 +20,7 @@ const CITIES: [number, number][] = [
 ];
 const RAD = Math.PI / 180;
 const INK = new THREE.Color('#F0F0F0');
-const SIGNAL = new THREE.Color('#7C9CFF');
+const SIGNAL = new THREE.Color('#FFFFFF');
 
 /** Latitude/longitude → a point on the unit sphere (Y up, longitude 0 on +X). */
 const toVec = (lat: number, lon: number, r = 1) =>
@@ -98,8 +98,9 @@ export function PointGlobe({ className }: { className?: string }) {
     el.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 50);
-    camera.position.set(0, 0, 5.0);
+    // far back, so the globe keeps its round shape away from the canvas centre
+    const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 60);
+    camera.position.set(0, 0, 8);
     const globe = new THREE.Group();
     scene.add(globe);
     // home: Kathmandu facing the viewer, the globe tipped so it sits a little above centre
@@ -193,10 +194,17 @@ export function PointGlobe({ className }: { className?: string }) {
       const w = el.clientWidth, h = el.clientHeight;
       if (!w || !h) return;
       renderer.setSize(w, h, false);
-      // smaller globe, finer dots, so a phone shows continents, not a solid ball
-      pointsMat.uniforms.uSize.value = 3.4 * Math.min(1, Math.max(0.55, h / 640));
+      // The canvas fills the whole hero; the globe is placed on it: this wide
+      // (the same sum as home.css --globe-d) and centred just under the nav.
+      const navH = parseFloat(getComputedStyle(el).getPropertyValue('--nav-h')) || 66;
+      const d = Math.min(window.innerHeight * 0.56, w * 0.9, 700);
+      const tanHalf = h / (d * camera.position.z);
+      camera.fov = (2 * Math.atan(tanHalf) * 180) / Math.PI;
       camera.aspect = w / h;
+      globe.position.y = ((h / 2 - (navH + 24 + d / 2)) / h) * 2 * tanHalf * camera.position.z;
       camera.updateProjectionMatrix();
+      // a smaller globe gets finer dots, so a phone shows continents, not a solid ball
+      pointsMat.uniforms.uSize.value = 5.4 * Math.min(1, Math.max(0.55, d / 520));
     };
     const ro = new ResizeObserver(size);
     ro.observe(el);

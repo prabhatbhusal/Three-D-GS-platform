@@ -6,7 +6,6 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { logout, ROLE_NAME, type SessionUser } from '../../../lib/api';
 import { useClickOutside } from '../../../hooks/useClickOutside';
-import { ThemeToggle } from '../../../components/ui/ThemeToggle';
 import { PasswordChange } from '../../auth/PasswordChange';
 
 /** The signed-in person's menu in the site nav: their name opens Profile,
@@ -117,7 +116,7 @@ export function AccountMenu({ user, onSignedOut }: { user: SessionUser; onSigned
                 <div className="site-account-card">
                   <div className="site-account-kicker">{detailView === 'profile' ? 'Account' : 'Preferences'}</div>
                   <h3>{detailView === 'profile' ? user.name : 'Studio settings'}</h3>
-                  <p>{detailView === 'profile' ? user.email : 'Your theme, and your password.'}</p>
+                  <p>{detailView === 'profile' ? user.email : 'Your password.'}</p>
                 </div>
 
                 {detailView === 'profile' ? (
@@ -128,9 +127,6 @@ export function AccountMenu({ user, onSignedOut }: { user: SessionUser; onSigned
                   </div>
                 ) : (
                   <>
-                    <div className="site-account-stack">
-                      <div className="site-account-item"><span>Theme</span><ThemeToggle /></div>
-                    </div>
                     <PasswordChange cls="site" email={user.email} />
                   </>
                 )}

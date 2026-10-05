@@ -31,7 +31,7 @@
 .lp-bleed {
   --text: #FFFFFF;
   --dim: rgba(255, 255, 255, 0.8);
-  --accent: #9DB4FF;
+  --accent: #FFFFFF;
   --on-text: #131419;
   color: var(--text);
 }
@@ -90,8 +90,8 @@
 
 .lp .lp-pill-solid:hover {
   color: var(--accent-ink);
-  border-color: color-mix(in srgb, var(--accent-fill) 85%, #fff);
-  background: color-mix(in srgb, var(--accent-fill) 85%, #fff);
+  border-color: color-mix(in srgb, var(--accent-fill) 82%, var(--bg));
+  background: color-mix(in srgb, var(--accent-fill) 82%, var(--bg));
 }
 
 .lp-pill-ic { width: 18px; height: 18px; fill: currentColor; }
@@ -303,7 +303,7 @@
   perspective: 1000px;
   perspective-origin: 50% 40%;
   transform-style: preserve-3d;
-  background: radial-gradient(60% 40% at 50% 42%, rgba(51, 100, 255, 0.16), transparent 70%);
+  background: radial-gradient(60% 40% at 50% 42%, rgba(255, 255, 255, 0.06), transparent 70%);
 }
 
 /* the survey grid underfoot, sliding towards you as you fly */
@@ -1257,3 +1257,46 @@ html.gs :is(.lp-win, .lp-spec, .lp-four li, .lp-sectors li, .lp-svc, .lp-entry, 
 }
 .lp-contact h2 { letter-spacing: -0.045em; }
 .lp-contact h2 em { color: inherit; font-style: inherit; }
+
+/* ------------------------------------------- footer, reworked (2026-10-05) */
+/* The dotted ground carries on from the page above; the wordmark is large
+   and mono; contact is plain links; the base line ends on Kathmandu. */
+.lp .lp-foot {
+  width: 100%;
+  margin-top: 0;
+  padding: clamp(64px, 8vw, 104px) max(16px, calc((100% - 1200px) / 2)) 28px;
+  border-top: 1px solid var(--line);
+  background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1.3px);
+  background-size: 22px 22px;
+}
+.lp-foot-about { max-width: 30rem; }
+.lp-foot-brand {
+  font: 600 clamp(2rem, 4vw, 3rem)/1 var(--font-display-mono), var(--sans);
+  letter-spacing: -0.05em;
+}
+.lp-foot-brand .site-brand-tld { color: var(--dim); font-weight: 400; }
+.lp-foot-reach {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin: 22px 0 0;
+  padding: 0;
+  list-style: none;
+  font: 500 14px var(--font-display-mono), var(--sans);
+}
+.lp-foot-reach a {
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--line-lit);
+  text-underline-offset: 4px;
+}
+.lp-foot-reach a:hover { text-decoration-color: var(--text); }
+.lp .lp-foot-h { font-size: 13px; font-weight: 600; color: var(--dim); }
+.lp-foot-cols div { font-size: 15px; color: var(--text); }
+.lp-foot-cols a { color: var(--text); opacity: 0.86; }
+.lp-foot-cols a:hover { opacity: 1; }
+.lp-foot-base { margin-top: clamp(48px, 6vw, 72px); font-size: 13px; }
+.lp-foot-coord { font-family: var(--font-display-mono), var(--sans); color: var(--accent); }
+@media (max-width: 720px) {
+  .lp-foot-cols { flex-wrap: wrap; gap: 32px 48px; }
+}

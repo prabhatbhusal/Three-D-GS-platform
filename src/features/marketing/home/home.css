@@ -13,7 +13,7 @@
   --hp-ink: #F0F0F0;
   --hp-dim: #9C9C9C;
   --hp-hair: rgba(255, 255, 255, 0.075);
-  --hp-signal-lit: #7C9CFF;
+  --hp-signal-lit: #EDEDED; /* monochrome accent: pin, ticks, focus */
   --hp-paper: #F4F4F3;
   --hp-paper-ink: #151515;
   --hp-paper-dim: #555555;
@@ -40,21 +40,24 @@
 
 /* ------------------------------------------------------------- hero */
 .hp-hero {
-  --globe: min(60vh, 92vw, 640px);
+  /* the globe's diameter: PointGlobe.tsx sizes it with the same sum */
+  --globe-d: min(56vh, 90vw, 700px);
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   min-height: 100svh;
-  padding: calc(var(--nav-h) + 4px) 16px 88px;
+  padding: calc(var(--nav-h) + 24px + var(--globe-d) * 0.84) 16px 88px;
   overflow: hidden;
   text-align: center;
 }
+.hp-hero > :not(.hp-globe) { position: relative; z-index: 1; }
 
+/* the globe's canvas covers the whole hero, edge to edge: no frame around it */
 .hp-globe {
-  position: relative;
-  width: var(--globe);
-  aspect-ratio: 1;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
   cursor: grab;
   touch-action: pan-y;
 }
@@ -96,14 +99,14 @@
 }
 .hp-pin-coord {
   font-size: 12px;
-  color: var(--hp-signal-lit);
+  color: var(--hp-dim);
 }
 
 .hp-hero-title {
   position: relative;
   display: flex;
   flex-direction: column;
-  margin: calc(var(--globe) * -0.16) 0 0;
+  margin: 0;
   font: 600 clamp(2.5rem, 7.2vw, 7rem)/0.98 var(--hp-mono);
   letter-spacing: -0.05em;
   text-wrap: balance;
@@ -305,7 +308,6 @@
   .hp-step { flex-basis: auto; }
 }
 @media (max-width: 640px) {
-  .hp-hero { --globe: min(96vw, 520px); }
   .hp-places-row li { padding: 18px 28px; }
   .hp-pin-coord { display: none; }
 }
@@ -378,7 +380,7 @@
 }
 .hp-card-work h3 { font-size: 1.625rem; }
 .hp-card-where { color: var(--hp-ink) !important; opacity: 0.75; }
-.hp-card-try { min-height: 190px; justify-content: flex-end; }
+.hp-card-try { min-height: 170px; }
 
 /* a project's state, as a small mono tag; "in progress" carries the live dot */
 .hp-status {
@@ -497,3 +499,50 @@
   .hp-ask-form { flex-direction: column; gap: 6px; }
   .hp-ask-form button { padding: 12px; }
 }
+.hp-ask .hp-ask-direct {
+  margin-top: 22px;
+  font-size: 0.9375rem;
+}
+.hp-ask-direct a {
+  color: var(--hp-ink);
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.3);
+  text-underline-offset: 3px;
+}
+.hp-ask-direct a:hover { text-decoration-color: var(--hp-ink); }
+
+/* ----------------------------------------------------- scroll gauge */
+/* HomeMotion.tsx: how far down the page you are, as a survey readout on the
+   right edge. Shown only when motion is on (data-on), and only on wide screens. */
+.hp-gauge {
+  position: fixed;
+  top: 50%;
+  right: 22px;
+  z-index: 20;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  mix-blend-mode: difference;
+}
+.hp-gauge[data-on] { display: flex; }
+.hp-gauge-track {
+  position: relative;
+  width: 1px;
+  height: 72px;
+  background: rgba(255, 255, 255, 0.25);
+}
+.hp-gauge-fill {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  transform: scaleY(0);
+  transform-origin: top;
+}
+.hp-gauge-n {
+  font: 500 11px var(--hp-mono);
+  letter-spacing: 0.02em;
+  color: #fff;
+}
+@media (max-width: 899px) { .hp-gauge[data-on] { display: none; } }

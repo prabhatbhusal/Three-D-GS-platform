@@ -23,6 +23,10 @@ export function AskBox() {
           placeholder="Our hotel's lobby and banquet hall in Thamel" autoComplete="off" maxLength={300} />
         <button type="submit" disabled={!text.trim()}>Write the email</button>
       </form>
+      <p className="hp-ask-direct">
+        Or call <a href={`tel:${COMPANY.phone.replace(/\s/g, '')}`}>{COMPANY.phone}</a>, or write to{' '}
+        <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>. {COMPANY.hours}.
+      </p>
     </section>
   );
 }

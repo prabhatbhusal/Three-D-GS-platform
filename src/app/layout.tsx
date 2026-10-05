@@ -28,8 +28,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script
           dangerouslySetInnerHTML={{
-            // "gs": GSAP will animate the marketing pages in (landing.css keeps them hidden until it does)
-            __html: `(function(){document.documentElement.classList.add("gs");try{var t=localStorage.getItem("threedview-theme");document.documentElement.dataset.theme=t||(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark")}catch(e){}})()`
+            // "gs": GSAP will animate the marketing pages in (landing.css keeps them hidden until it does).
+            // The theme: dark everywhere (2026-10-05, the site has no theme switch any more), except
+            // the studio, which keeps its own switch and the choice stored by it.
+            __html: `(function(){document.documentElement.classList.add("gs");try{var t=localStorage.getItem("threedview-theme");document.documentElement.dataset.theme=location.pathname.indexOf("/studio")===0?(t||(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark")):"dark"}catch(e){}})()`
           }}
         />
       </head>

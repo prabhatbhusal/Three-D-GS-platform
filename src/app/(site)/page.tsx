@@ -8,6 +8,7 @@ import { TryIt } from '../../features/marketing/home/TryIt';
 import { ProvenSpecs } from '../../features/marketing/home/ProvenSpecs';
 import { Method } from '../../features/marketing/home/Method';
 import { AskBox } from '../../features/marketing/home/AskBox';
+import { HomeMotion } from '../../features/marketing/home/HomeMotion';
 
 export const metadata: Metadata = {
   alternates: { canonical: '/' },
@@ -21,10 +22,10 @@ export const metadata: Metadata = {
  *  the method, and a question box. Text only for now: the photo and film
  *  sections (Film, ScanStory, WaysIn, EnquiryBleed in features/marketing/home/)
  *  are ready to add back. The look: home.css; the words: siteContent.ts.
- *  SitePage adds the contact band and the footer; the nav comes from (site)/layout.tsx. */
+ *  The ask box closes the page (with the phone and email), so SitePage adds only the footer; the nav comes from (site)/layout.tsx. */
 export default function HomePage() {
   return (
-    <SitePage>
+    <SitePage contact={false}>
       <div className="hp">
         <Hero />
         <Places />
@@ -34,6 +35,7 @@ export default function HomePage() {
         <ProvenSpecs />
         <Method />
         <AskBox />
+        <HomeMotion />
       </div>
     </SitePage>
   );
