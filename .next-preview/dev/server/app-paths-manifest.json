@@ -1,5 +1,0 @@
-{
-  "/login/page": "app/login/page.js",
-  "/t/[property]/page": "app/t/[property]/page.js",
-  "/tour/page": "app/tour/page.js"
-}

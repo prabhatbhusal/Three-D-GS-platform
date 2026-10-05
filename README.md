@@ -6,13 +6,15 @@
   
   <br />
 
-  <!-- The main dynamic visual, replacing the static hero image -->
+  
   <p align="center">
-  <img src="https://d2guo0r1c2odkk.cloudfront.net/webresources/Blog/1745730559999.webp" 
-       alt="3D Gaussian Splatting Real-Time Rendering Showcase" 
-       width="100%" 
-       style="border-radius: 10px;" />
-</p>
+    <a href="public/media/hero.mp4">
+      <video src="public/media/hero.mp4" controls width="100%">
+      </video>
+    </a>
+    <br />
+    <sub>A real scan, rendered live. <a href="public/media/hero.mp4">Watch the full film (MP4)</a></sub>
+  </p>
 
 
   <br />
