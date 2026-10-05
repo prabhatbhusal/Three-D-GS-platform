@@ -6,6 +6,7 @@
   
   <br />
 
+  [![Hero video](public/media/hero-thumbnail.png)](public/media/hero.mp4)
   
   <p align="center">
     <a href="public/media/hero.mp4">
