@@ -96,17 +96,13 @@
 
 /* ---- opening: the room streams in behind the start screen, then arrives ---- */
 /* On a mouse-driven screen it streams in behind frosted glass; phones keep
- * the plain veil (a live blur costs them frames, §10.2). While it streams, a
- * soft light sweeps the glass, then stops once the space is ready. */
+ * the plain veil (a live blur costs them frames, §10.2). Over it, the dots
+ * (DotVeil.tsx): a halftone, heavy behind the words, that a scan line passes
+ * through while the space loads and that shrinks away on Start. */
 @media (pointer: fine) {
   .vw-enter { backdrop-filter: blur(14px) saturate(1.15); }
 }
-.vw-enter.is-loading::after {
-  content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, 0.07) 50%, transparent 65%);
-  animation: vw-sweep 2.6s linear infinite;
-}
-@keyframes vw-sweep { from { translate: -100% 0; } to { translate: 100% 0; } }
+.vw-dots { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .vw-enter-prog { width: min(280px, 100%); }
 /* Start: the words lift away and the glass dissolves while the view glides in (App.tsx arrive). */
 .vw-enter.is-leaving { pointer-events: none; animation: vw-leave 0.7s var(--ease) both; }
@@ -124,7 +120,6 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .vw-enter.is-loading::after { animation: none; }
   .vw-arrive { animation-duration: 0.4s; }
 }
 
@@ -219,7 +214,7 @@
   transition: transform 0.2s var(--ease), box-shadow 0.2s;
 }
 .vw-card:hover { transform: translateY(-2px); }
-.vw-card.on { box-shadow: inset 0 0 0 2px var(--gold), 0 0 0 3px rgba(176, 141, 87, 0.22); }
+.vw-card.on { box-shadow: inset 0 0 0 2px var(--gold), 0 0 0 3px color-mix(in srgb, var(--gold) 22%, transparent); }
 .vw-card-img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .vw-card-ph { position: absolute; inset: 0 0 18px; display: grid; place-items: center; color: rgba(246, 241, 231, 0.26); }
 .vw-card-ph svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; }
@@ -287,7 +282,7 @@
 }
 .vw-layers-marker {
   position: absolute; left: 3px; top: 0; z-index: 1; width: 13px; height: 13px; border-radius: 50%; pointer-events: none;
-  background: var(--gold); box-shadow: 0 0 0 4px rgba(176, 141, 87, 0.2), 0 0 14px rgba(176, 141, 87, 0.75);
+  background: var(--gold); box-shadow: 0 0 0 4px color-mix(in srgb, var(--gold) 20%, transparent), 0 0 14px color-mix(in srgb, var(--gold) 75%, transparent);
   transform: translateY(calc(var(--at, 0) * 36px + 11.5px));
   transition: transform 0.42s var(--ease);
 }
@@ -334,7 +329,7 @@
   position: absolute; left: 7px; top: 7px; width: var(--btn); height: var(--btn); border-radius: 50%;
   pointer-events: none;
   background: radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.04) 70%);
-  box-shadow: inset 0 0 0 1.5px var(--gold), 0 0 16px rgba(176, 141, 87, 0.45);
+  box-shadow: inset 0 0 0 1.5px var(--gold), 0 0 16px color-mix(in srgb, var(--gold) 45%, transparent);
   transform: translateY(calc(var(--i) * (var(--btn) + var(--gap))));
   transition: transform 0.38s var(--ease);
 }
@@ -485,8 +480,8 @@
   border: 1px solid rgba(246, 241, 231, 0.16);
   touch-action: none; user-select: none;
 }
-.tc-b.on { color: var(--gold-ink, #14110e); background: var(--gold); border-color: var(--gold); box-shadow: 0 0 22px rgba(176, 141, 87, 0.5); }
-.tc-b-jump { background: rgba(176, 141, 87, 0.26); }
+.tc-b.on { color: var(--gold-ink, #14110e); background: var(--gold); border-color: var(--gold); box-shadow: 0 0 22px color-mix(in srgb, var(--gold) 50%, transparent); }
+.tc-b-jump { background: color-mix(in srgb, var(--gold) 26%, transparent); }
 
 /* ---- fallback screen (no WebGL2 — CLAUDE.md §3 constraint 5) ------- */
 .vw-fallback-note {
@@ -550,7 +545,7 @@ button.vw-book { border: 0; cursor: pointer; }
   border-radius: 12px; background: var(--field); border: 1px solid var(--edge); color: var(--ink-dim);
   cursor: pointer;
 }
-.vw-sheet-field:focus-within { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(176, 141, 87, 0.18); }
+.vw-sheet-field:focus-within { border-color: var(--gold); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 18%, transparent); }
 .vw-sheet-field-txt { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
 .vw-sheet-field-txt > span { font: 600 10.5px/1.2 var(--sans); color: var(--ink-dim); }
 .vw-sheet-field input, .vw-sheet-field select {
@@ -586,7 +581,7 @@ button.vw-book { border: 0; cursor: pointer; }
 }
 .vw-sheet-input textarea { resize: vertical; min-height: 70px; }
 .vw-sheet-input input:focus, .vw-sheet-input select:focus, .vw-sheet-input textarea:focus {
-  outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(176, 141, 87, 0.18);
+  outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 18%, transparent);
 }
 
 /* shared foot: error, the one button, fine print */
@@ -847,3 +842,89 @@ button.vw-book { border: 0; cursor: pointer; }
   font: 600 12.5px var(--sans); color: #8a6a3a; text-decoration: underline; text-underline-offset: 3px;
 }
 .vw-sheet-table .vw-sheet-grid { margin-bottom: 12px; }
+
+/* ================================================================= */
+/*  The tour in the site's own language (2026-10-05). Charcoal glass, */
+/*  JetBrains Mono for every word unless the project chose a heading  */
+/*  face, monochrome unless it has its own colour (uiConfig.ts), a    */
+/*  viewfinder's corners at the screen's edges, and keys 1–4 shown on */
+/*  the mode rail. These override the warm originals above.           */
+/* ================================================================= */
+.vw {
+  --glass: rgba(18, 18, 18, 0.78);
+  --glass-2: rgba(22, 22, 22, 0.9);
+  --line: rgba(255, 255, 255, 0.12);
+}
+/* the light card keeps an accent that shows on it (uiConfig.ts --gold-on-light) */
+.vw-sheet { --gold: var(--gold-on-light, #141414); --gold-ink: var(--gold-on-light-ink, #ffffff); }
+
+/* a viewfinder's four corners at the edges of the screen, drawn as eight short bars */
+.vw-vf {
+  --c: rgba(255, 255, 255, 0.4);
+  --l: 22px;
+  --w: 1.5px;
+  position: fixed;
+  inset: 14px;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--c), var(--c)) top left / var(--l) var(--w),
+    linear-gradient(var(--c), var(--c)) top left / var(--w) var(--l),
+    linear-gradient(var(--c), var(--c)) top right / var(--l) var(--w),
+    linear-gradient(var(--c), var(--c)) top right / var(--w) var(--l),
+    linear-gradient(var(--c), var(--c)) bottom left / var(--l) var(--w),
+    linear-gradient(var(--c), var(--c)) bottom left / var(--w) var(--l),
+    linear-gradient(var(--c), var(--c)) bottom right / var(--l) var(--w),
+    linear-gradient(var(--c), var(--c)) bottom right / var(--w) var(--l);
+  background-repeat: no-repeat;
+  animation: vw-fade 0.8s var(--ease) both;
+}
+
+/* the place, top left: the brand in small capitals over the name */
+.vw-place { top: 26px; left: 30px; }
+.vw-place-brand { font: 500 10.5px/1.2 var(--sans); letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.72; }
+.vw-place-name { font-weight: 700; letter-spacing: -0.035em; }
+.vw-enter-brand { font: 500 11px/1.2 var(--sans); letter-spacing: 0.14em; text-transform: uppercase; }
+.vw-enter-mark { font-weight: 700; letter-spacing: -0.045em; }
+.vw-enter-btn { border-radius: 999px; font: 600 12px/1 var(--sans); letter-spacing: 0.08em; text-transform: uppercase; }
+
+/* the mode rail: charcoal, each button with its key; the name beside the current one */
+.vw-rail {
+  right: 26px;
+  background: rgba(18, 18, 18, 0.82);
+  border: 0;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.4);
+}
+.vw-rail-ring { background: rgba(255, 255, 255, 0.1); box-shadow: inset 0 0 0 1.5px var(--gold); }
+.vw-rail-key {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  display: grid;
+  place-items: center;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 5px;
+  font: 600 9.5px/1 var(--sans);
+  color: #141414;
+  background: rgba(240, 240, 240, 0.86);
+  pointer-events: none;
+}
+.vw-rail-btn.on .vw-rail-key { color: var(--gold-ink); background: var(--gold); }
+.vw[data-touch] .vw-rail-key { display: none; } /* no keyboard to press them on */
+.vw-rail-tip { background: rgba(18, 18, 18, 0.9); border: 0; border-radius: 10px; }
+.vw-rail-name { font: 700 14px/1 var(--serif); letter-spacing: -0.02em; }
+.vw-rail-promise { font: 400 11px/1.2 var(--sans); color: rgba(240, 240, 240, 0.6); }
+
+/* the views tray and the round buttons: charcoal, no warm tint */
+.vw-card { border-radius: 12px; }
+.vw-ib, .vw-hd { background: rgba(18, 18, 18, 0.62); }
+.vw-ib:hover, .vw-hd:hover { background: rgba(18, 18, 18, 0.86); }
+.vw-help-k { font-weight: 600; }
+
+@media (max-width: 760px) {
+  .vw-vf { inset: 8px; --l: 14px; }
+  .vw-place { top: 64px; left: 18px; }
+  .vw-rail { right: 12px; }
+}

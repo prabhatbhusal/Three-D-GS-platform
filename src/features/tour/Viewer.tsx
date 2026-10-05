@@ -25,6 +25,7 @@ import { EnquiryPanel } from '../enquiry/EnquiryPanel';
 import { BookingCard } from '../booking/BookingCard';
 import { useT, setLang, LANGS, type Lang } from '../../lib/i18n';
 import type { ViewerState } from '../../@types/app.types';
+import { DotVeil } from './DotVeil';
 import './viewer.css';
 
 interface ViewerProps {
@@ -122,12 +123,17 @@ export function Viewer({ state, isTouch, autoStart = false, tour = false }: View
   const live = entered && (ready || failed || seenReady);
   const controllable = entered && ready && !state?.flying;
 
+  // keys 1–4 pick how to move (the mode rail's order), once the tour is up
+  const canMove = useRef(false);
+  useEffect(() => { canMove.current = live && ready; });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
       if (e.key === '?') {
         setPanel((p) => (p === 'help' ? null : 'help'));
       }
+      const k = Number(e.key);
+      if (k >= 1 && k <= MODES.length && !e.ctrlKey && !e.metaKey && !e.altKey && canMove.current) setVisitorMode(MODES[k - 1][0]);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -197,8 +203,13 @@ export function Viewer({ state, isTouch, autoStart = false, tour = false }: View
 
   return (
     <div className="vw" data-touch={isTouch ? '' : undefined} data-tour={tour ? '' : undefined}>
+      {live && <span className="vw-vf" aria-hidden />}
       {state?.loading && entered && <LoadingGate progress={state.progress} />}
-      {arrivals > arrived && <div key={arrivals} className="vw-arrive" aria-hidden onAnimationEnd={() => setArrived(arrivals)} />}
+      {arrivals > arrived && (
+        <div key={arrivals} className="vw-arrive" aria-hidden onAnimationEnd={(e) => { if (e.target === e.currentTarget) setArrived(arrivals); }}>
+          <DotVeil arrive />
+        </div>
+      )}
 
       {!entered && (
         <EnterGate
@@ -381,8 +392,9 @@ interface EnterGateProps {
 }
 
 /** A hero over the room itself: the scene streams in behind frosted glass
- *  (seen from a step back, App.tsx standBack), so by the time the button is
- *  live the visitor is already looking at the space. On Start the glass
+ *  and a halftone veil a scan line passes through (DotVeil), seen from a step
+ *  back (App.tsx standBack), so by the time the button is live the visitor is
+ *  already looking at the space. On Start the dots shrink away and the glass
  *  dissolves as the view glides in. */
 function EnterGate({ brand, place, tagline, ready, progress, onEnter, entering }: EnterGateProps) {
   const pct = Math.round((progress ?? 0) * 100);
@@ -390,6 +402,7 @@ function EnterGate({ brand, place, tagline, ready, progress, onEnter, entering }
   const t = useT();
   return (
     <div className={`vw-enter${entering ? ' is-leaving' : ready ? '' : ' is-loading'}`}>
+      <DotVeil progress={progress} ready={ready} leaving={!!entering} />
       <div className="vw-enter-in">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {logo && <img className="vw-enter-logo" src={logo} alt="" />}
@@ -585,7 +598,8 @@ const MODES = [
  * buttons in a column, so every choice is one tap and none is hidden behind
  * an arrow. The current one sits in a gold ring that glides to the mode you
  * pick, and its name and promise show beside it; hovering another shows its
- * name. Arrow keys up/down step between them (a radio group).
+ * name. Each shows its key: 1 to 4 pick one from anywhere in the tour, and
+ * arrow keys up/down step between them (a radio group).
  */
 function ModeSlider({ mode }: { mode: string }) {
   const i = Math.max(0, MODES.findIndex(([m]) => m === mode));
@@ -611,10 +625,11 @@ function ModeSlider({ mode }: { mode: string }) {
         <button
           key={m} ref={(b) => { refs.current[k] = b; }}
           type="button" role="radio" aria-checked={k === i} tabIndex={k === i ? 0 : -1}
-          className={`vw-rail-btn${k === i ? ' on' : ''}`}
+          className={`vw-rail-btn${k === i ? ' on' : ''}`} aria-keyshortcuts={String(k + 1)}
           onClick={(e) => { e.currentTarget.blur(); setVisitorMode(m); }}
         >
           {icon}
+          <kbd className="vw-rail-key" aria-hidden>{k + 1}</kbd>
           <span className="vw-rail-tip">
             <span className="vw-rail-name">{t(label)}</span>
             {k === i && <span className="vw-rail-promise">{t(promise)}</span>}
@@ -847,6 +862,7 @@ function HelpPanel({ walking, isTouch, onClose }: { walking: boolean; isTouch: b
   const rows: [string, string][] = isTouch
     ? [['Drag', 'Look around'], ['Tap a card', 'Fly to that view'], ['Tap a ring', 'Open what’s there'], ['Walk', 'Move with the joystick']]
     : [
+      ['1 2 3 4', 'Viewpoints, Walk, Fly, Orbit'],
       ['Drag', 'Look around'],
       ['Card or segment', 'Fly to that view'],
       ['Ring or label', 'Open what’s there'],

@@ -1152,6 +1152,7 @@ test('a project website: draft, photos, publish, and a public page that only sho
   // the sitemap's list: published websites only, readable signed out
   const listed = (await api('GET', '/api/sites')).json;
   assert.ok(listed.some((s) => s.id === pid && s.publishedAt), 'a published website is listed');
+  assert.deepEqual(listed.filter((s) => s.id === pid).map((s) => [s.title, s.line]), [['Site Hotel', 'Site Hotel']], 'with its name and headline, for the Live tours page');
   assert.ok(!listed.some((s) => s.id === other), 'a project without a published website is not');
   assert.equal((await api('PUT', `/api/sites/${pid}/draft`, {})).status, 401);
 });

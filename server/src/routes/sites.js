@@ -230,8 +230,9 @@ export async function publicStays(pid, site) {
   return { ...cfg, rooms };
 }
 
-/** Every published website, for the sitemap: which projects, and when they
- *  last changed. Only what /s/<project> already shows anyone. */
+/** Every published website, for the sitemap and the marketing site's Live
+ *  tours page: which projects, when they last changed, the project's name and
+ *  the site's headline. Only what /s/<project> already shows anyone. */
 sitesRouter.get('/', wrap(async (req, res) => {
   let files;
   try { files = await fs.readdir(SITES_DIR); } catch { files = []; }
@@ -239,7 +240,8 @@ sitesRouter.get('/', wrap(async (req, res) => {
   for (const f of files.filter((x) => x.endsWith('.json'))) {
     const pid = f.slice(0, -5);
     const saved = await readSite(pid);
-    if (saved?.published && (await getProperty(pid))) out.push({ id: pid, publishedAt: saved.publishedAt ?? null });
+    const p = saved?.published && (await getProperty(pid));
+    if (p) out.push({ id: pid, publishedAt: saved.publishedAt ?? null, title: p.title, line: saved.published.hero?.title || saved.published.hero?.lede || '' });
   }
   res.json(out);
 }));

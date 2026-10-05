@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { connection } from 'next/server';
 import { SitePage } from '../../../features/marketing/layout/SitePage';
 import { PageHead } from '../../../components/ui/PageHead';
+import { Section } from '../../../components/ui/Section';
 import { Icon } from '../../../components/ui/Icon';
 import { API_BASE_URL, withoutNightVersions, type GalleryItem } from '../../../lib/api';
 
@@ -11,6 +12,18 @@ export const metadata: Metadata = {
   title: 'Live tours',
   description: 'Published interactive 3D tours of hotels, halls and spaces. Open one and walk it.'
 };
+
+type ClientSite = { id: string; title: string; line: string };
+
+/** Clients' own websites (/s/<project>) that are published: GET /api/sites. */
+async function clientSites(): Promise<ClientSite[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/sites`, { cache: 'no-store' });
+    return res.ok ? await res.json() : [];
+  } catch {
+    return [];
+  }
+}
 
 async function published(): Promise<GalleryItem[] | null> {
   try {
@@ -23,11 +36,13 @@ async function published(): Promise<GalleryItem[] | null> {
 
 const dateFmt = new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short', year: 'numeric' });
 
-/** Live tours (the URL stays /gallery): every published space, rendered per
- *  request so a publish shows up at once. Styles: inner.css .ip-tours. */
+/** Live tours (the URL stays /gallery): every published space, then the
+ *  clients' own websites with the tour inside (when any are published), each
+ *  pictured by its tour's thumbnail. Rendered per request so a publish shows
+ *  up at once. Styles: inner.css .ip-tours. */
 export default async function GalleryPage() {
   await connection();
-  const items = await published();
+  const [items, sites] = await Promise.all([published(), clientSites()]);
 
   return (
     <SitePage>
@@ -71,6 +86,32 @@ export default async function GalleryPage() {
           </ul>
         )}
       </section>
+
+      {sites.length > 0 && (
+        <Section id="tours-sites" title="Their own websites" lede="Some places get a whole website from us: the tour inside it, and booking and enquiries beside it.">
+          <ul className="ip-tours">
+            {sites.map((s) => {
+              const pic = items?.find((g) => g.propertyId === s.id && g.thumb)?.thumb;
+              return (
+                <li key={s.id} data-reveal>
+                  <Link href={`/s/${encodeURIComponent(s.id)}`} className="ip-tour" data-cursor="link">
+                    <span className="ip-tour-pic">
+                      {pic
+                        // eslint-disable-next-line @next/next/no-img-element
+                        ? <img src={`${API_BASE_URL}${pic}`} alt="" loading="lazy" />
+                        : <span className="ip-tour-ph" aria-hidden>{s.title.trim()[0]}</span>}
+                      <span className="ip-tour-go"><Icon name="outward" />Open the website</span>
+                    </span>
+                    <span className="ip-tour-t">{s.title}</span>
+                    {s.line && s.line !== s.title && <span className="ip-tour-tag">{s.line}</span>}
+                    <span className="ip-tour-meta">rcaas.tech/s/{s.id}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </Section>
+      )}
     </SitePage>
   );
 }

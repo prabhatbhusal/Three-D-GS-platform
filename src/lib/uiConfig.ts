@@ -33,9 +33,15 @@ export function setUiConfig(patch: Partial<UiConfig>) {
   Object.assign(uiConfig, patch);
   snap = { ...uiConfig };
   if (typeof patch.accent === 'string') {
-    document.documentElement.style.setProperty('--gold', patch.accent);
+    const root = document.documentElement.style, ink = inkOn(patch.accent);
+    root.setProperty('--gold', patch.accent);
     // text on it: black or white, whichever reads (a navy brand gets white)
-    document.documentElement.style.setProperty('--gold-ink', inkOn(patch.accent));
+    root.setProperty('--gold-ink', ink);
+    // on a light card (the tour's booking sheet) a pale accent wouldn't show:
+    // there it is the accent when that is dark, else its dark ink (viewer.css .vw-sheet)
+    const pale = ink !== '#ffffff';
+    root.setProperty('--gold-on-light', pale ? ink : patch.accent);
+    root.setProperty('--gold-on-light-ink', pale ? '#ffffff' : ink);
   }
   if (patch.font) document.documentElement.style.setProperty('--serif', FONTS[patch.font]);
   listeners.forEach((fn) => fn());
@@ -55,10 +61,13 @@ export function applyTheme(theme: ProjectTheme | undefined, fallbackBrand: strin
   setUiConfig({
     whatsapp,
     brand: theme?.brand || fallbackBrand,
-    accent: theme?.accent || '#b08d57',
+    // without its own colour, a tour is monochrome like the site (2026-10-05; it was gold)
+    accent: theme?.accent || '#ededed',
     font: theme?.font || 'serif',
     logo: theme?.logo ? `${API_BASE_URL}/api/assets/${theme.logo}` : null
   });
+  // without its own heading face, the tour's titles are in JetBrains Mono, the site's one typeface
+  if (!theme?.font) document.documentElement.style.setProperty('--serif', 'var(--font-ui), ui-monospace, monospace');
 }
 
 export function useUiConfig() {
