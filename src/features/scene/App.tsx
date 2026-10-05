@@ -409,7 +409,7 @@ function Stage({ onState, viewerMode }: StageProps) {
     <>
       <HotspotProjector sceneId={mgr.activeId} />
       {!viewerMode && <Gizmo sceneId={mgr.activeId} />}
-      {!viewerMode && <ColliderBoxes sceneId={mgr.activeId} />}
+      {!viewerMode && <ColliderBoxes sceneId={mgr.activeId} renderer={mgr.renderer} />}
     </>
   );
 }
