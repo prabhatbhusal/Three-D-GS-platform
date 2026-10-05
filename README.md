@@ -4,25 +4,6 @@
 
   **Immersive 3D digital-twin experiences, curated studio workflows, and public virtual tours built for modern property marketing and spatial storytelling.**
 
-  <br />
-
-  <img src="https://user-images.githubusercontent.com/549447/223860778-6f3a9f7b-9d9c-4d3f-9a7b-9c8d9c9d9c9c.png" width="100%" />
-
-  <br />
-  <br />
-  <br />
-  <br />
-  <br />
-  <br />
-  <br />
-  <br />
-  <br />
-  <br />
-  <br />
-  <br />
-  <br />
-  <br />
-  <br />
 </div>
 
 ## ✨ Overview
