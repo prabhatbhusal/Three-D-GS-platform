@@ -25,7 +25,7 @@ export default function AboutPage() {
     <SitePage>
       <PageHead label="about" facts={['GeoNova Solutions Pvt. Ltd.', 'Kathmandu, Nepal', 'Authorised XGRIDS partner']}
         lede="RCAAS.tech is the reality-capture service of GeoNova Solutions, a geospatial company in Kageshwari-Manohara, Kathmandu. We have documented monuments, infrastructure and campuses with survey-grade LiDAR, and now put that precision to work selling rooms, halls and seats.">
-        Built by surveyors, for sales.
+        Built by engineers, for sales.
       </PageHead>
 
       <Section id="about-register" title="Sites we have measured">

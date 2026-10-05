@@ -31,7 +31,7 @@ export default async function GalleryPage() {
 
   return (
     <SitePage>
-      <PageHead label="live tours" facts={items?.length ? [`${items.length} spaces open now`, 'No app, no plugin'] : undefined}
+      <PageHead center label="live tours" facts={items?.length ? [`${items.length} spaces open now`, 'No app, no plugin'] : undefined}
         lede="Every space here is a live Gaussian-splat tour, published from our studio. Pick one and walk in.">
         Rooms you can walk into right now.
       </PageHead>

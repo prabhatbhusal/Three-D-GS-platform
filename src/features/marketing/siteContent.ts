@@ -6,14 +6,21 @@
 
 import type { IconName } from '../../components/ui/Icon';
 
-// ic: its Material icon (components/ui/Icon.tsx)
-export const SECTORS: { t: string; b: string; ic: IconName }[] = [
-  { t: 'Hotels and resorts', b: 'Rooms, halls and restaurants, with an enquiry form in every one.', ic: 'hotel' },
-  { t: 'Colleges and schools', b: 'Labs and classrooms for students and parents who can’t visit yet.', ic: 'school' },
-  { t: 'Heritage and temples', b: 'A measured record for conservation, and a tour for everyone else.', ic: 'temple' },
-  { t: 'Bridges and roads', b: 'A digital baseline for maintenance, captured while traffic keeps moving.', ic: 'road' },
-  { t: 'Real estate', b: 'Apartments and offices buyers can walk before they book a visit.', ic: 'apartment' },
-  { t: 'Banquet and event halls', b: 'The room as it will look on the day, from every seat.', ic: 'event' }
+/** Pictures (2026-10-05): stills from our own scans and tours, one per
+ *  service and per project, in public/media/services/<k>.webp and
+ *  public/media/work/<slug>.webp. Placeholders until real photography: to
+ *  change one, replace its file (same name). */
+export const serviceImg = (k: string) => `/media/services/${k}.webp`;
+export const workImg = (slug: string) => `/media/work/${slug}.webp`;
+
+// ic: its Material icon (components/ui/Icon.tsx); img: one of the pictures above
+export const SECTORS: { t: string; b: string; ic: IconName; img: string }[] = [
+  { t: 'Hotels and resorts', b: 'Rooms, halls and restaurants, with an enquiry form in every one.', ic: 'hotel', img: workImg('basera') },
+  { t: 'Colleges and schools', b: 'Labs and classrooms for students and parents who can’t visit yet.', ic: 'school', img: workImg('madan-ashrit') },
+  { t: 'Heritage and temples', b: 'A measured record for conservation, and a tour for everyone else.', ic: 'temple', img: serviceImg('heritage') },
+  { t: 'Bridges and roads', b: 'A digital baseline for maintenance, captured while traffic keeps moving.', ic: 'road', img: workImg('gwarko') },
+  { t: 'Real estate', b: 'Apartments and offices buyers can walk before they book a visit.', ic: 'apartment', img: serviceImg('infra') },
+  { t: 'Banquet and event halls', b: 'The room as it will look on the day, from every seat.', ic: 'event', img: serviceImg('tour') }
 ];
 
 // Before and after, one card each on the home page.

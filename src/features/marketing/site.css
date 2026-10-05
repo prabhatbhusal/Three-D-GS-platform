@@ -50,7 +50,10 @@
   --danger: #FF8B8B;
   --danger-ink: #2A0B0B;
   --hero-grad: linear-gradient(100deg, var(--teal) 0%, #F2F2F2 55%, var(--violet) 100%);
-  --sans: var(--font-inter), 'Segoe UI', system-ui, sans-serif;
+  --sans: var(--font-ui), ui-monospace, 'SFMono-Regular', monospace;
+  /* one typeface: the display and nav faces are JetBrains Mono too */
+  --font-display-mono: var(--font-ui);
+  --font-nav-mono: var(--font-ui);
   --display: var(--sans);
   --r: 16px;
 

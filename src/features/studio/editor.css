@@ -19,10 +19,8 @@
   font: 400 12px/1.45 var(--sans, 'Segoe UI', system-ui, sans-serif);
   color: var(--ed-text);
 
-  /* Studio-only font override — next/font/google's Inter, exposed as
-   * --font-inter in layout.tsx. The tour keeps whatever --sans its theme
-   * sets (§10.2); this scopes Inter to the instrument-panel surface only. */
-  --sans: var(--font-inter), 'Segoe UI', system-ui, sans-serif;
+  /* JetBrains Mono, the one typeface (--font-ui, app/layout.tsx). */
+  --sans: var(--font-ui), ui-monospace, monospace;
 
   /* Black and white, so nothing in the chrome competes with the colours in
    * the scan. Dark is the default; [data-theme="light"] below swaps the same

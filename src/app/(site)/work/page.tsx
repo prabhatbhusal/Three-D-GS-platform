@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export default function WorkPage() {
   return (
     <SitePage>
-      <PageHead label="work" facts={[`${WORK.length} sites`, '3 districts', 'Infrastructure, education, hospitality']}
+      <PageHead center label="work" facts={[`${WORK.length} sites`, '3 districts', 'Infrastructure, education, hospitality']}
         lede="From a four-lane overpass to the classroom next door and the hotel we are scanning now.">
         Places we have measured.
       </PageHead>

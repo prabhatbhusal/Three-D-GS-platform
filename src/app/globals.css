@@ -7,7 +7,7 @@
   --ink: #14110e;
   --paper: #f6f1e7;
   --gold: #b08d57;
-  --sans: 'Segoe UI', system-ui, Roboto, sans-serif;
+  --sans: var(--font-ui), ui-monospace, 'SFMono-Regular', monospace;
   --serif: 'Georgia', 'Times New Roman', serif;
   --mono: ui-monospace, Consolas, monospace;
 }

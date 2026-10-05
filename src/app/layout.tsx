@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+import { JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { SITE_URL } from '../lib/shareMeta';
 
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
+// The one typeface everywhere (2026-10-05, the owner's choice): JetBrains Mono, as --font-ui.
+const ui = JetBrains_Mono({ subsets: ['latin'], weight: 'variable', variable: '--font-ui', display: 'swap' });
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -24,7 +25,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-theme="dark" suppressHydrationWarning className={inter.variable}>
+    <html lang="en" data-theme="dark" suppressHydrationWarning className={ui.variable}>
       <head>
         <script
           dangerouslySetInnerHTML={{

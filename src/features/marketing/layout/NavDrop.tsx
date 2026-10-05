@@ -3,12 +3,13 @@
  *  scan becomes, and who they are for) and Work (the places we have
  *  measured). Navbar decides which is open; this draws it, framed by a
  *  viewfinder's four corners, with a scan line that passes down it once as it
- *  opens and its items arriving one after another. No cards: icons, type and
- *  space. Styles: inner.css .drop. */
+ *  opens and its items arriving one after another: an icon or status, the
+ *  name, a line and a small picture each. Styles: inner.css .drop. */
 import Link from 'next/link';
 import { motion, type Variants } from 'framer-motion';
 import { Icon } from '../../../components/ui/Icon';
-import { SECTORS, SERVICES, STATUS, WORK } from '../siteContent';
+import { Pic } from '../../../components/ui/Pic';
+import { SECTORS, SERVICES, STATUS, WORK, serviceImg, workImg } from '../siteContent';
 
 export type DropKey = 'services' | 'work';
 
@@ -41,6 +42,7 @@ export function NavDrop({ which, id, onEnter, onLeave, onPick }: {
                   <Icon name={s.ic} className="drop-ic" />
                   <span className="drop-t">{s.title}</span>
                   <span className="drop-b">{s.body}</span>
+                  <Pic src={serviceImg(s.k)} className="drop-pic" sizes="120px" />
                 </Link>
               </motion.li>
             ))}
@@ -62,6 +64,7 @@ export function NavDrop({ which, id, onEnter, onLeave, onPick }: {
                   <span className={`drop-status is-${w.status}`}>{STATUS[w.status]}</span>
                   <span className="drop-t drop-t-lg">{w.place}</span>
                   <span className="drop-b">{w.where}</span>
+                  <Pic src={workImg(w.slug)} className="drop-pic" sizes="120px" />
                 </Link>
               </motion.li>
             ))}

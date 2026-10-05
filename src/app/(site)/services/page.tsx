@@ -4,7 +4,8 @@ import { SitePage } from '../../../features/marketing/layout/SitePage';
 import { PageHead } from '../../../components/ui/PageHead';
 import { Section } from '../../../components/ui/Section';
 import { Icon } from '../../../components/ui/Icon';
-import { SECTORS, SERVICES } from '../../../features/marketing/siteContent';
+import { Pic } from '../../../components/ui/Pic';
+import { SECTORS, SERVICES, serviceImg } from '../../../features/marketing/siteContent';
 
 export const metadata: Metadata = {
   alternates: { canonical: '/services' },
@@ -13,23 +14,24 @@ export const metadata: Metadata = {
 };
 
 /** Services: everything one scan becomes (siteContent.ts SERVICES), each a
- *  row the nav's Services dropdown links to by id, then who it is for
- *  (SECTORS) as a list of large words. Styles: inner.css .ip-rows, .ip-words. */
+ *  picture and its words, linked to by id from the nav's Services dropdown;
+ *  then who it is for (SECTORS) as a list of large words. Styles: inner.css
+ *  .ip-svcs, .ip-words. */
 export default function ServicesPage() {
   return (
     <SitePage>
-      <PageHead label="services" facts={['6 deliverables', '1 walk-through', '±1.2 cm relative accuracy']}
+      <PageHead center label="services" facts={['6 deliverables', '1 walk-through', '±1.2 cm relative accuracy']}
         lede="The same capture becomes a tour for your guests, a model for your engineers and a record for the archive.">
         One walk-through. Every deliverable.
       </PageHead>
 
       <Section id="svc-what" title="What one scan becomes">
-        <ul className="ip-rows">
+        <ul className="ip-svcs">
           {SERVICES.map((s) => (
-            <li key={s.k} id={s.k} className="ip-row" data-reveal>
-              <Icon name={s.ic} className="ip-row-ic" />
-              <h3 className="ip-row-t">{s.title}</h3>
-              <p className="ip-row-b">{s.body}</p>
+            <li key={s.k} id={s.k} className="ip-svc" data-reveal>
+              <Pic src={serviceImg(s.k)} className="ip-svc-pic" />
+              <h3 className="ip-svc-t"><Icon name={s.ic} />{s.title}</h3>
+              <p className="ip-svc-b">{s.body}</p>
               <Link href="/contact" className="ip-go" transitionTypes={['nav-forward']}>Ask about this <Icon name="arrow" /></Link>
             </li>
           ))}

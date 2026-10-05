@@ -25,7 +25,7 @@ const NOTS = [
 export default function HowPage() {
   return (
     <SitePage>
-      <PageHead label="how it works" facts={['1 walk on site', 'Days, not months', 'One link to share']}
+      <PageHead center label="how it works" facts={['1 walk on site', 'Days, not months', 'One link to share']}
         lede="Four steps from the first walk-through to a tour on your own website.">
         From a walk&#8209;through to your website.
       </PageHead>

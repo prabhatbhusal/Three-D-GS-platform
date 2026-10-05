@@ -1,4 +1,5 @@
-/** The marketing site's footer (2026-10-05, third pass): a closing line and
+/** The marketing site's footer (2026-10-05, third pass): a closing line over a
+ *  turning point-cloud room (RoomCloud), and
  *  the ways to reach us as icons with whether the office is open now; then
  *  Services (each links to its row), Projects (each place we have measured,
  *  with its status), Company and Legal; the wordmark across the whole width
@@ -10,6 +11,7 @@ import Link from 'next/link';
 import { Icon } from '../../../components/ui/Icon';
 import { COMPANY, SERVICES, STATUS, WORK } from '../siteContent';
 import { OpenNow, ReachIcons } from './Reach';
+import { RoomCloud } from './RoomCloud';
 
 // [label, href, external]: external links open in a new tab
 const COMPANY_LINKS: [string, string, boolean?][] = [
@@ -22,6 +24,7 @@ export function Footer() {
   return (
     <footer className="ft">
       <div className="ft-top">
+        <RoomCloud />
         <p className="ft-say" data-lines>Walk it once.<br />Open it anywhere.</p>
         <div className="ft-reach">
           <ReachIcons className="reach-lg" />
