@@ -4,13 +4,16 @@
  * figures (±1.2 cm, 200,000 points a second, 360°) are XGRIDS' published
  * Lixel K1 specs (xgrids.com/intl/lixelk1). */
 
-export const SECTORS = [
-  { t: 'Hotels and resorts', b: 'Rooms, halls and restaurants, with an enquiry form in every one.' },
-  { t: 'Colleges and schools', b: 'Labs and classrooms for students and parents who can’t visit yet.' },
-  { t: 'Heritage and temples', b: 'A measured record for conservation, and a tour for everyone else.' },
-  { t: 'Bridges and roads', b: 'A digital baseline for maintenance, captured while traffic keeps moving.' },
-  { t: 'Real estate', b: 'Apartments and offices buyers can walk before they book a visit.' },
-  { t: 'Banquet and event halls', b: 'The room as it will look on the day, from every seat.' }
+import type { IconName } from '../../components/ui/Icon';
+
+// ic: its Material icon (components/ui/Icon.tsx)
+export const SECTORS: { t: string; b: string; ic: IconName }[] = [
+  { t: 'Hotels and resorts', b: 'Rooms, halls and restaurants, with an enquiry form in every one.', ic: 'hotel' },
+  { t: 'Colleges and schools', b: 'Labs and classrooms for students and parents who can’t visit yet.', ic: 'school' },
+  { t: 'Heritage and temples', b: 'A measured record for conservation, and a tour for everyone else.', ic: 'temple' },
+  { t: 'Bridges and roads', b: 'A digital baseline for maintenance, captured while traffic keeps moving.', ic: 'road' },
+  { t: 'Real estate', b: 'Apartments and offices buyers can walk before they book a visit.', ic: 'apartment' },
+  { t: 'Banquet and event halls', b: 'The room as it will look on the day, from every seat.', ic: 'event' }
 ];
 
 // Before and after, one card each on the home page.
@@ -41,27 +44,27 @@ export const SPECS = [
 
 export const SERVICES = [
   {
-    k: 'tour', tab: 'Tours', title: 'Virtual tours that take enquiries',
+    k: 'tour', ic: 'cube' as IconName, tab: 'Tours', title: 'Virtual tours that take enquiries',
     body: 'Your space as a live Gaussian-splat tour on your own website. Visitors walk it, fly it, and send an enquiry without leaving the room.'
   },
   {
-    k: 'cloud', tab: 'Point clouds', title: 'Point clouds and BIM-ready models',
+    k: 'cloud', ic: 'grain' as IconName, tab: 'Point clouds', title: 'Point clouds and BIM-ready models',
     body: 'Georeferenced, colourised point clouds and models your engineers and architects can open in the tools they already use.'
   },
   {
-    k: 'plan', tab: 'Drawings', title: 'Plans, elevations and sections',
+    k: 'plan', ic: 'ruler' as IconName, tab: 'Drawings', title: 'Plans, elevations and sections',
     body: 'Measured drawings from the scan: floor plans, orthographic elevations and sections at 1:1 scale.'
   },
   {
-    k: 'heritage', tab: 'Heritage', title: 'Heritage documentation',
+    k: 'heritage', ic: 'temple' as IconName, tab: 'Heritage', title: 'Heritage documentation',
     body: 'A precise digital record of monuments and temples, for restoration, deformation analysis and public access.'
   },
   {
-    k: 'infra', tab: 'Infrastructure', title: 'Infrastructure asset records',
+    k: 'infra', ic: 'road' as IconName, tab: 'Infrastructure', title: 'Infrastructure asset records',
     body: 'A digital baseline of bridges, overpasses and roads for maintenance planning, captured without closing the site.'
   },
   {
-    k: 'embed', tab: 'Hosting', title: 'Hosting, embedding and updates',
+    k: 'embed', ic: 'code' as IconName, tab: 'Hosting', title: 'Hosting, embedding and updates',
     body: 'We host the tour, give you a snippet for your site, and republish when the space changes. Nothing to maintain.'
   }
 ];
@@ -123,6 +126,24 @@ export const COMPANY = {
   hours: 'Sunday to Friday, 10:00 to 17:30',
   sameAs: ['https://geonova.com.np/about-us', 'https://www.linkedin.com/company/geonova-solutions-pvt-ltd/']
 };
+
+const DIGITS = COMPANY.phone.replace(/\D/g, '');
+
+/** The ways to reach the team, shown as icons (layout/Reach.tsx) in the nav,
+ *  the contact band, the footer and the Contact page; `detail` is what a
+ *  hover or focus reveals and what a screen reader hears. */
+export const REACH: { ic: IconName; label: string; detail: string; href: string; external?: boolean }[] = [
+  { ic: 'call', label: 'Call', detail: COMPANY.phone, href: `tel:+${DIGITS}` },
+  { ic: 'mail', label: 'Email', detail: COMPANY.email, href: `mailto:${COMPANY.email}?subject=${encodeURIComponent('Capture enquiry from RCAAS.tech')}` },
+  {
+    ic: 'chat', label: 'WhatsApp', detail: COMPANY.phone, external: true,
+    href: `https://wa.me/${DIGITS}?text=${encodeURIComponent('Hello RCAAS, I would like to ask about a capture.')}`
+  },
+  {
+    ic: 'place', label: 'Visit', detail: `${COMPANY.locality}, ${COMPANY.city}`, external: true,
+    href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${COMPANY.locality}, ${COMPANY.city}`)}`
+  }
+];
 
 /** Questions people ask before booking a capture, answered in a sentence or
  *  two from what this site already states. Shown on How it works and marked

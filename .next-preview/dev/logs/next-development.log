@@ -1,0 +1,15 @@
+{"timestamp":"00:00:01.291","source":"Server","level":"LOG","message":""}
+{"timestamp":"00:00:01.291","source":"Server","level":"LOG","message":"  We detected TypeScript in your project and reconfigured your tsconfig.json file for you."}
+{"timestamp":"00:00:01.291","source":"Server","level":"LOG","message":"  The following suggested values were added to your tsconfig.json. These values can be changed to fit your project's needs:\n"}
+{"timestamp":"00:00:01.291","source":"Server","level":"LOG","message":"  \t- include was updated to add '.next-preview/types/**/*.ts'"}
+{"timestamp":"00:00:01.291","source":"Server","level":"LOG","message":"  \t- include was updated to add '.next-preview/dev/types/**/*.ts'"}
+{"timestamp":"00:00:01.291","source":"Server","level":"LOG","message":""}
+{"timestamp":"00:00:01.468","source":"Server","level":"LOG","message":""}
+{"timestamp":"00:00:21.639","source":"Server","level":"LOG","message":"○ Compiling /work ..."}
+{"timestamp":"00:00:26.843","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"00:00:26.844","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"00:00:26.848","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"00:00:26.848","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"00:00:26.850","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"00:00:26.857","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"00:00:26.857","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
