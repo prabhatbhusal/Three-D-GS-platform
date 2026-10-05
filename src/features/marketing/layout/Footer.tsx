@@ -16,7 +16,7 @@ import { RoomCloud } from './RoomCloud';
 // [label, href, external]: external links open in a new tab
 const COMPANY_LINKS: [string, string, boolean?][] = [
   ['All work', '/work'], ['How it works', '/how-it-works'], ['Live tours', '/gallery'], ['About', '/about'], ['Contact', '/contact'],
-  ['GeoNova', 'https://geonova.com.np/about-us', true], ['LinkedIn', 'https://www.linkedin.com/company/geonova-solutions-pvt-ltd/', true]
+  ['LinkedIn', 'https://www.linkedin.com/company/geonova-solutions-pvt-ltd/', true]
 ];
 const LEGAL: [string, string][] = [['Terms of Service', '/terms'], ['Privacy Policy', '/privacy'], ['Security Policy', '/security'], ['Cookie Policy', '/cookies']];
 

@@ -123,7 +123,9 @@ export const KIT = ['Lixel Kity K1', 'Lixel L2 Pro', 'PortalCam', 'Lixel Studio'
  *  and the policy pages read it. */
 export const COMPANY = {
   brand: 'RCAAS.tech',
-  name: 'GeoNova Solutions Pvt. Ltd.',
+  name: 'RCAAS.tech',
+  /** the registered company: only where the law needs it (the policy pages) */
+  legal: 'GeoNova Solutions Pvt. Ltd.',
   summary: 'Reality Capture As A Service: walkable 3D virtual tours of hotels, restaurants, venues, colleges and heritage sites, captured with LiDAR in Nepal, with enquiry and booking forms inside the tour.',
   phone: '+977 984 678 9573',
   email: 'info@geonova.com.np',
@@ -190,6 +192,6 @@ export const FAQ = [
   },
   {
     q: 'Where do you work?',
-    a: 'We are GeoNova Solutions, based in Kathmandu and an authorised XGRIDS partner in Nepal. For a space elsewhere, call or email us.'
+    a: 'We are RCAAS.tech, based in Kathmandu and an authorised XGRIDS partner in Nepal. For a space elsewhere, call or email us.'
   }
 ];

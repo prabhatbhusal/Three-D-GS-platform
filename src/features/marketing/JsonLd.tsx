@@ -19,7 +19,7 @@ export function SiteJsonLd() {
           '@type': 'ProfessionalService',
           '@id': org,
           name: COMPANY.brand,
-          legalName: COMPANY.name,
+          legalName: COMPANY.legal,
           description: COMPANY.summary,
           url: SITE_URL,
           logo: `${SITE_URL}/favicon.svg`,

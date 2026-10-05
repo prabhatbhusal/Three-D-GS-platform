@@ -10,7 +10,7 @@ import { KIT, STATUS, WORK } from '../../../features/marketing/siteContent';
 export const metadata: Metadata = {
   alternates: { canonical: '/about' },
   title: 'About',
-  description: 'RCAAS.tech is the reality-capture service of GeoNova Solutions, Kathmandu, an authorised XGRIDS partner in Nepal.'
+  description: 'RCAAS.tech captures hotels, campuses, heritage sites and infrastructure with LiDAR in Kathmandu, as an authorised XGRIDS partner in Nepal.'
 };
 
 const MISSION = 'Transforming engineering with 3D geospatial solutions that empower industries, drive innovation, and create a sustainable future.';
@@ -23,8 +23,8 @@ export default function AboutPage() {
   const film = media('about');
   return (
     <SitePage>
-      <PageHead label="about" facts={['GeoNova Solutions Pvt. Ltd.', 'Kathmandu, Nepal', 'Authorised XGRIDS partner']}
-        lede="RCAAS.tech is the reality-capture service of GeoNova Solutions, a geospatial company in Kageshwari-Manohara, Kathmandu. We have documented monuments, infrastructure and campuses with survey-grade LiDAR, and now put that precision to work selling rooms, halls and seats.">
+      <PageHead label="about" facts={['RCAAS.tech', 'Kathmandu, Nepal', 'Authorised XGRIDS partner']}
+        lede="RCAAS.tech is a reality-capture company in Kageshwari-Manohara, Kathmandu. We have documented monuments, infrastructure and campuses with survey-grade LiDAR, and now put that precision to work selling rooms, halls and seats.">
         Built by engineers, for sales.
       </PageHead>
 
@@ -45,7 +45,7 @@ export default function AboutPage() {
         {film && <div className="ip-mission-media" aria-hidden><MediaFill m={film} lazy /></div>}
         <blockquote>
           <p data-words>{MISSION}</p>
-          <cite>GeoNova’s mission</cite>
+          <cite>The RCAAS.tech mission</cite>
         </blockquote>
       </section>
 
@@ -59,8 +59,8 @@ export default function AboutPage() {
 
       <Section id="about-who" title="Who we work with">
         <div className="ip-two">
-          <p data-reveal>GeoNova is an authorised XGRIDS partner in Nepal, for equipment, training and support.</p>
-          <p data-reveal>RCAAS.tech, the tours and the studio behind them, is built with I.STEM Lab.</p>
+          <p data-reveal>RCAAS.tech is an authorised XGRIDS partner in Nepal, for equipment, training and support.</p>
+          <p data-reveal>The tours, and the studio behind them, are built with I.STEM Lab.</p>
         </div>
       </Section>
     </SitePage>

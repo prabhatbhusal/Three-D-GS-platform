@@ -72,7 +72,7 @@ export function HomeMotion() {
       }
 
       // section headings, line by line, then their line of context
-      root.querySelectorAll<HTMLElement>('.hp-block-head, .hp-method-head, .hp-ask').forEach((head) => {
+      root.querySelectorAll<HTMLElement>('.hp-block-head, .hp-mm-head, .hp-ask').forEach((head) => {
         const h = head.querySelector('h2');
         if (!h) return;
         const split = SplitText.create(h, { type: 'lines', mask: 'lines' });

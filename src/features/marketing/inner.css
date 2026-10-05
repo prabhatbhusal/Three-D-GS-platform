@@ -399,7 +399,9 @@ html[data-intro='seen'] .site-loader { display: none; }
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: clamp(48px, 8vh, 80px) clamp(20px, 2.6vw, 40px);
 }
-.ip-svc { display: flex; flex-direction: column; gap: 14px; transition: opacity 0.6s var(--ip-ease); }
+/* the dimming is on the children: the li itself is faded in by GSAP (data-reveal) */
+.ip-svc { display: flex; flex-direction: column; gap: 14px; }
+.ip-svc > * { transition: opacity 0.6s var(--ip-ease); }
 .ip-svc-pic { aspect-ratio: 4 / 3; margin-bottom: 8px; }
 .ip-svc-t {
   display: flex;
@@ -414,7 +416,7 @@ html[data-intro='seen'] .site-loader { display: none; }
 .ip-svc-b { margin: 0; font: 400 14.5px/1.7 var(--sans); color: var(--ip-body); }
 .ip-svc .ip-go { margin-top: auto; }
 @media (hover: hover) {
-  .ip-svcs:hover .ip-svc:not(:hover) { opacity: 0.35; }
+  .ip-svcs:hover .ip-svc:not(:hover) > * { opacity: 0.35; }
   .ip-svc:hover .ip-svc-t { transform: translateX(8px); }
 }
 

@@ -9,7 +9,7 @@ export function GET() {
   const page = (path: string, title: string, about: string) => `- [${title}](${SITE_URL}${path}): ${about}`;
   const body = `# ${COMPANY.brand}
 
-> ${COMPANY.summary} A service of ${COMPANY.name}, ${COMPANY.city}, Nepal, an authorised XGRIDS partner.
+> ${COMPANY.summary} Based in ${COMPANY.city}, Nepal, an authorised XGRIDS partner.
 
 ## Services
 
@@ -31,7 +31,7 @@ ${[
     page('/how-it-works', 'How it works', 'capture, process, author, publish, and the FAQ'),
     page('/work', 'Work', 'projects and case studies'),
     page('/gallery', 'Live tours', 'every published tour, open to walk'),
-    page('/about', 'About', 'who we are: GeoNova Solutions'),
+    page('/about', 'About', 'who we are: RCAAS.tech'),
     page('/contact', 'Contact', 'book a capture')
   ].join('\n')}
 

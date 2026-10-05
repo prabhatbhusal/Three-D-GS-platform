@@ -8,7 +8,7 @@ import { COMPANY } from '../../../features/marketing/siteContent';
 export const metadata: Metadata = {
   alternates: { canonical: '/contact' },
   title: 'Contact',
-  description: 'Book a LiDAR capture of your hotel, campus, heritage site or building. GeoNova Solutions, Kathmandu.'
+  description: 'Book a LiDAR capture of your hotel, campus, heritage site or building. RCAAS.tech, Kathmandu.'
 };
 
 /** Contact: the enquiry as a sentence to fill in (ContactSheet), and beside

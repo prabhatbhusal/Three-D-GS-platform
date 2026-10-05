@@ -1,8 +1,8 @@
 /* ================================================================== */
 /*  The home page (2026-10-05): the world as a point cloud.            */
 /*  A graphite ground with a dot grid (a scan's point spacing), one    */
-/*  point-cloud globe, poster-size Geist Mono, the brand blue as the   */
-/*  only accent, and a single light section for the method. The hero,  */
+/*  point-cloud globe, poster-size JetBrains Mono, monochrome, and one */
+/*  light section for the method (Method.tsx, .hp-mm). The hero,       */
 /*  places and film stay dark, and the method light, in either theme:  */
 /*  each sets the site tokens its buttons read (--text, --bg, …).      */
 /*  Everything is scoped to .hp, so other pages are untouched.         */
@@ -195,84 +195,6 @@
   color: var(--hp-dim);
 }
 
-/* ----------------------------------------------- method (the light one) */
-.hp-method {
-  --p: 0;
-  --shift: 0px;
-  --text: var(--hp-paper-ink);
-  --bg: var(--hp-paper);
-  --on-text: var(--hp-paper);
-  position: relative;
-  color: var(--hp-paper-ink);
-  background: var(--hp-paper);
-}
-.hp-method-pin {
-  position: sticky;
-  top: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  height: 100vh;
-  padding: calc(var(--nav-h) + 24px) 0 48px;
-  overflow: hidden;
-}
-.hp-method-head {
-  width: var(--wrap);
-  margin: 0 auto clamp(32px, 6vh, 64px);
-}
-.hp-method-head h2 {
-  margin: 0;
-  font: 600 clamp(2.2rem, 4.8vw, 4.5rem)/1 var(--hp-mono);
-  letter-spacing: -0.045em;
-}
-.hp-method-head p {
-  max-width: 52ch;
-  margin: 16px 0 0;
-  font: 400 1.0625rem/1.65 var(--sans);
-  color: var(--hp-paper-dim);
-}
-.hp-method-track {
-  display: flex;
-  gap: clamp(40px, 7vw, 120px);
-  margin: 0;
-  padding: 0 max(16px, calc((100vw - 1200px) / 2));
-  list-style: none;
-  transform: translateX(calc(var(--p) * -1 * var(--shift)));
-  will-change: transform;
-}
-.hp-step {
-  position: relative;
-  flex: 0 0 min(560px, 80vw);
-  padding-top: clamp(4rem, 9vw, 7.5rem);
-}
-.hp-step-n {
-  position: absolute;
-  top: 0;
-  left: -0.05em;
-  font: 700 clamp(8rem, 16vw, 14rem)/0.8 var(--hp-mono);
-  letter-spacing: -0.07em;
-  color: rgba(21, 21, 21, 0.07);
-  user-select: none;
-}
-.hp-step h3 {
-  position: relative;
-  margin: 0;
-  font: 600 clamp(3rem, 7vw, 6.5rem)/0.95 var(--hp-mono);
-  letter-spacing: -0.055em;
-}
-.hp-step p {
-  position: relative;
-  max-width: 42ch;
-  margin: 22px 0 0;
-  font: 400 1.0625rem/1.65 var(--sans);
-  color: var(--hp-paper-dim);
-}
-.hp-step-end {
-  display: flex;
-  align-items: flex-end;
-  flex: 0 0 auto;
-}
-
 /* ---------------------------------- the older sections, in the new voice */
 .hp .lp-head h2,
 .hp .lp-bleed-body h2 {
@@ -293,20 +215,6 @@
 }
 
 /* --------------------------------------------------------- small and still */
-@media (max-width: 899px), (prefers-reduced-motion: reduce) {
-  .hp-method-pin {
-    position: static;
-    height: auto;
-    padding: 88px 0;
-  }
-  .hp-method-track {
-    flex-direction: column;
-    gap: 56px;
-    padding: 0 16px;
-    transform: none;
-  }
-  .hp-step { flex-basis: auto; }
-}
 @media (max-width: 640px) {
   .hp-places-row li { padding: 18px 28px; }
   .hp-pin-coord { display: none; }
@@ -355,13 +263,16 @@
 }
 .hp-cards-3 { grid-template-columns: repeat(3, 1fr); }
 .hp-cards-2 { grid-template-columns: repeat(2, 1fr); }
-.hp-cards > li { display: flex; transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+/* no opacity transition on the li: GSAP fades it in (HomeMotion), and a CSS
+   transition there makes GSAP read a half-faded value and stop at 0 */
+.hp-cards > li { display: flex; }
 .hp-card {
   display: flex;
   flex: 1;
   flex-direction: column;
   gap: 12px;
   color: inherit;
+  transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .hp-card:focus-visible { outline: 2px solid var(--hp-signal-lit); outline-offset: 8px; border-radius: 4px; }
 .hp-card-pic { aspect-ratio: 4 / 3; margin-bottom: 6px; }
@@ -382,7 +293,7 @@
 .hp-card-work h3 { font-size: clamp(1.75rem, 3vw, 2.5rem); }
 .hp-card-where { color: var(--hp-ink) !important; opacity: 0.75; }
 @media (hover: hover) {
-  .hp-cards:hover > li:not(:hover) { opacity: 0.35; }
+  .hp-cards:hover > li:not(:hover) > .hp-card { opacity: 0.35; }
   .hp-card:hover h3 { transform: translateX(8px); }
   .hp-card:hover .hp-card-ic { transform: rotate(-8deg) scale(1.1); }
 }
@@ -426,8 +337,6 @@
   letter-spacing: -0.055em;
 }
 
-/* the last block before the method needs room under it */
-.hp-block:has(+ .hp-method) { padding-bottom: clamp(72px, 10vw, 128px); }
 
 /* --------------------------------------------------------- ask box */
 .hp-ask {
@@ -500,5 +409,101 @@
 /* the ways to reach us, as icons (layout/Reach.tsx), and whether the office is open */
 .hp-ask .hp-ask-direct { display: grid; justify-items: center; gap: 16px; margin-top: 32px; }
 
-/* ----------------------------------------------------- scroll gauge */
 
+/* ------------------------------------------- the method (Method.tsx) */
+/* Right under the hero: the dark page breaks into halftone dots that
+   shrink away to paper, the section pins, and one cloud of points re-forms
+   for each step. */
+.hp-mm {
+  --mm-paper: #F4F4F3;
+  --mm-ink: #141414;
+  --mm-dim: #5A5A5A;
+  position: relative;
+  isolation: isolate;
+  padding: clamp(150px, 26vh, 260px) 0 clamp(150px, 26vh, 260px);
+  background: var(--mm-paper);
+  color: var(--mm-ink);
+  /* the site's tokens, light here, so its buttons read right */
+  --text: var(--mm-ink);
+  --bg: var(--mm-paper);
+  --accent-fill: var(--mm-ink);
+  --accent-ink: var(--mm-paper);
+}
+.hp-mm-tone { position: absolute; left: 0; right: 0; top: 0; z-index: 2; width: 100%; height: clamp(160px, 30vh, 320px); pointer-events: none; }
+.hp-mm-tone.is-flip { top: auto; bottom: 0; }
+.hp-mm-head { position: relative; z-index: 3; width: var(--wrap); margin: 0 auto; text-align: center; }
+.hp-mm-kicker { margin: 0 0 22px; font: 400 12.5px/1 var(--hp-mono); color: var(--mm-dim); }
+.hp-mm-head h2 { max-width: 16ch; margin: 0 auto; font: 800 clamp(2.5rem, 7vw, 6.5rem)/0.98 var(--hp-mono); letter-spacing: -0.055em; text-wrap: balance; }
+.hp-mm-head > p:not(.hp-mm-kicker) { max-width: 52ch; margin: 26px auto 0; font: 400 15px/1.7 var(--hp-mono); color: var(--mm-dim); }
+.hp-mm-seq { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 0; margin: 28px 0 0; padding: 0; font: 500 11.5px/1 var(--hp-mono); letter-spacing: 0.12em; text-transform: uppercase; }
+.hp-mm-seq li + li::before { content: '→'; margin: 0 14px; color: var(--mm-dim); }
+
+/* the pinned stage: the cloud on the right, the step's words on the left */
+.hp-mm-track { position: relative; height: 520vh; margin-top: clamp(40px, 8vh, 90px); }
+.hp-mm-stage { position: sticky; top: 0; height: 100vh; overflow: hidden; }
+.hp-mm-gl { position: absolute; top: 0; right: 0; width: 62%; height: 100%; }
+.hp-mm-steps { list-style: none; margin: 0; padding: 0; }
+.hp-mm-step {
+  position: absolute;
+  left: max(16px, calc((100vw - 1320px) / 2));
+  top: 50%;
+  width: min(460px, 40vw);
+  translate: 0 -40%;
+  opacity: 0;
+  filter: blur(8px);
+  transform: translateY(40px);
+  transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1), transform 0.9s cubic-bezier(0.22, 1, 0.36, 1), filter 0.7s;
+  pointer-events: none;
+}
+.hp-mm-step[data-on] { opacity: 1; filter: none; transform: none; pointer-events: auto; }
+.hp-mm-n {
+  position: absolute;
+  left: -0.06em;
+  top: -0.62em;
+  z-index: -1;
+  font: 800 clamp(9rem, 20vw, 17rem)/1 var(--hp-mono);
+  letter-spacing: -0.08em;
+  color: rgba(20, 20, 20, 0.06);
+}
+.hp-mm-step h3 { margin: 0; font: 800 clamp(3rem, 6.4vw, 6rem)/0.95 var(--hp-mono); letter-spacing: -0.06em; }
+.hp-mm-step p { max-width: 44ch; margin: 22px 0 0; font: 400 15px/1.7 var(--hp-mono); color: #3A3A3A; }
+.hp-mm-step ul { list-style: none; display: grid; gap: 8px; margin: 22px 0 0; padding: 0; font: 400 13px/1.4 var(--hp-mono); color: var(--mm-dim); }
+.hp-mm-step ul li::before { content: '+ '; color: var(--mm-ink); }
+
+/* where you are: four ticks, the line under them filling with the scroll */
+.hp-mm-ticks {
+  --c: var(--mm-ink);
+  position: absolute;
+  left: max(16px, calc((100vw - 1320px) / 2));
+  right: max(16px, calc((100vw - 1320px) / 2));
+  bottom: 40px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin: 0;
+  padding: 14px 0 0;
+  list-style: none;
+  font: 500 11px/1 var(--hp-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--mm-dim);
+  background: linear-gradient(var(--c), var(--c)) left top / calc(var(--p, 0) * 100%) 1.5px no-repeat,
+              linear-gradient(rgba(20, 20, 20, 0.14), rgba(20, 20, 20, 0.14)) left top / 100% 1px no-repeat;
+}
+.hp-mm-end { position: relative; z-index: 3; display: flex; justify-content: center; margin-top: clamp(24px, 5vh, 56px); }
+
+@media (max-width: 899px) {
+  .hp-mm-gl { top: 6%; width: 100%; height: 52%; }
+  .hp-mm-step { top: auto; bottom: 90px; width: auto; right: 16px; translate: none; }
+  .hp-mm-step p { font-size: 14px; }
+  .hp-mm-step ul { display: none; }
+  .hp-mm-n { font-size: 7rem; top: -0.5em; }
+}
+/* reduced motion: no pin, the steps one under another, the globe still */
+@media (prefers-reduced-motion: reduce) {
+  .hp-mm-track { height: auto; }
+  .hp-mm-stage { position: relative; height: auto; overflow: visible; padding-top: 60vh; }
+  .hp-mm-gl { height: 60vh; width: 100%; }
+  .hp-mm-steps { display: grid; gap: 64px; width: var(--wrap); margin: 0 auto; }
+  .hp-mm-step { position: relative; left: auto; top: auto; width: auto; translate: none; opacity: 1; filter: none; transform: none; }
+  .hp-mm-ticks { display: none; }
+}

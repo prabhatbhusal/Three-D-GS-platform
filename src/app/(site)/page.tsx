@@ -18,8 +18,9 @@ export const metadata: Metadata = {
 };
 
 /** The home page, top to bottom (2026-10-05, in the manner of weevolveit.com):
- *  globe hero, places strip, what we capture, the work, try it, the numbers,
- *  the method, and a question box. Text only for now: the photo and film
+ *  globe hero, the method (the globe's points re-forming for each step,
+ *  Method.tsx), places strip, what we capture, the work, try it, the
+ *  numbers, and a question box. Text only for now: the photo and film
  *  sections (Film, ScanStory, WaysIn, EnquiryBleed in features/marketing/home/)
  *  are ready to add back. The look: home.css; the words: siteContent.ts.
  *  The ask box closes the page (with the phone and email), so SitePage adds only the footer; the nav comes from (site)/layout.tsx. */
@@ -28,12 +29,12 @@ export default function HomePage() {
     <SitePage contact={false}>
       <div className="hp">
         <Hero />
+        <Method />
         <Places />
         <Services />
         <WorkCards />
         <TryIt />
         <ProvenSpecs />
-        <Method />
         <AskBox />
         <HomeMotion />
       </div>
