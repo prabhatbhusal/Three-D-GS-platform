@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "clone-website": {
+      "source": "julianromli/ai-skills",
+      "sourceType": "github",
+      "skillPath": "skills/clone-website/SKILL.md",
+      "computedHash": "e27632c6852a32d765d91af33d8f38a6637af4120d4c54f812235e26ca85b27d"
+    }
+  }
+}

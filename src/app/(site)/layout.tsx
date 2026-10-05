@@ -1,5 +1,7 @@
 import { Navbar } from '../../features/marketing/layout/Navbar';
 import { SiteJsonLd } from '../../features/marketing/JsonLd';
+import { Cursor } from '../../components/ui/Cursor';
+import { displayMono } from '../../features/marketing/fonts';
 import '../../features/marketing/site.css';
 import '../../features/marketing/landing.css';
 
@@ -8,10 +10,11 @@ import '../../features/marketing/landing.css';
  * the page body (SitePage) slides underneath it. */
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
   return (
-    <main className="site lp">
+    <main className={`site lp ${displayMono.variable}`}>
       <SiteJsonLd />
       <Navbar />
       {children}
+      <Cursor />
     </main>
   );
 }

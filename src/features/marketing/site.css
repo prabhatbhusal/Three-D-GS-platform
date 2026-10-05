@@ -2,7 +2,7 @@
 /*  Marketing site + sign-in (/, /login).                             */
 /*                                                                    */
 /*  Revised 2026-09-23 in the manner of XGRIDS' Lixel K1 page, on     */
-/*  request: a blue-black ground, one saturated blue, bold sans       */
+/*  request: a charcoal ground (neutral since 2026-10-05), one blue,  */
 /*  headlines set centred, and pill buttons. No display serif.        */
 /*                                                                    */
 /*  globals.css locks html/body to overflow:hidden for the 3D app, so */
@@ -27,13 +27,13 @@
 /* ================================================================= */
 
 .site {
-  --bg: #131419;
-  --panel: #1E1F26;
-  --raise: #282A33;
-  --line: #2A2C36;
-  --line-lit: #3E414D;
-  --text: #F6F7FA;
-  --dim: #B9BCCC;
+  --bg: #161616;           /* neutral charcoal, not blue-black (2026-10-05) */
+  --panel: #1F1F1F;
+  --raise: #282828;
+  --line: #2C2C2C;
+  --line-lit: #404040;
+  --text: #F5F5F5;
+  --dim: #B8B8B8;
   --accent: #7C9CFF;       /* text and strokes: 6.8:1 on the ground */
   --accent-fill: #3364FF;  /* filled buttons and the current tab: white text at 4.8:1 */
   --accent-glow: rgba(51, 100, 255, 0.3);
@@ -44,9 +44,9 @@
      (the splat frames, the auth art) stays dark in both themes — light
      chrome around photographic 3D is fine, light behind it is not. */
   --grid: rgba(255, 255, 255, 0.05);
-  --glass: rgba(19, 20, 25, 0.82);
+  --glass: rgba(22, 22, 22, 0.82);
   --sh: rgba(0, 0, 0, 0.45);
-  --placeholder: #6B6F80;
+  --placeholder: #6E6E6E;
   --danger: #FF8B8B;
   --danger-ink: #2A0B0B;
   --hero-grad: linear-gradient(100deg, var(--teal) 0%, #3364FF 55%, var(--violet) 100%);
@@ -257,8 +257,10 @@
   isolation: isolate;
   padding: 8px 14px;
   border-radius: 999px;
-  font-size: 15px;
-  font-weight: 600;
+  font-family: var(--font-display-mono), var(--sans);
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
   color: var(--dim);
   white-space: nowrap;
   transition: color 0.2s;
@@ -1248,3 +1250,52 @@
     transition: none !important;
   }
 }
+/* --------------------------------------------------------------- cursor */
+/* The custom pointer (components/ui/Cursor.tsx): a ring and a dot in
+   difference blend. While it is on (a mouse), the system pointer is hidden
+   on the marketing pages, except over text fields. */
+.site-cursor {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  pointer-events: none;
+  mix-blend-mode: difference;
+}
+.site-cursor-ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  border: 1px solid #fff;
+  border-radius: 50%;
+}
+.site-cursor-dot {
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+}
+.has-custom-cursor .site,
+.has-custom-cursor .site * { cursor: none; }
+.has-custom-cursor .site :is(input, textarea, select, [contenteditable='true']) { cursor: auto; }
+
+/* "WhatsApp us" in the nav (Navbar.tsx): a quiet outlined pill with the one blue dot */
+.site-wa {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid var(--line-lit);
+  border-radius: 999px;
+  font: 500 13px/1 var(--font-display-mono), var(--sans);
+  color: var(--text);
+  white-space: nowrap;
+  transition: border-color 0.2s, background 0.2s;
+}
+.site-wa:hover { border-color: var(--text); background: var(--raise); }
+.site-wa-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-fill); }
+@media (max-width: 899px) { .site-wa { display: none; } }

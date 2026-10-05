@@ -7,6 +7,9 @@ import { useSession } from '../../auth/useSession';
 import { ThemeToggle } from '../../../components/ui/ThemeToggle';
 import { Button } from '../../../components/ui/Button';
 import { AccountMenu } from './AccountMenu';
+import { COMPANY } from '../siteContent';
+
+const WHATSAPP = `https://wa.me/${COMPANY.phone.replace(/\D/g, '')}?text=${encodeURIComponent('Hello RCAAS, I would like to ask about a capture.')}`;
 
 // In page order: a link to the right of the current page slides the next
 // page in from the right (nav-forward), one to the left from the left.
@@ -99,6 +102,9 @@ export function Navbar() {
       <div className="site-actions">
         {/* reload: the studio needs a full page load for its LCCRender singleton (§12) */}
         {user && <Button href="/studio" reload variant="primary">Open studio</Button>}
+        <a className="site-wa" href={WHATSAPP} target="_blank" rel="noopener noreferrer">
+          <span className="site-wa-dot" aria-hidden />WhatsApp us
+        </a>
         <ThemeToggle />
         {user ? (
           <AccountMenu user={user} onSignedOut={() => setUser(null)} />

@@ -1244,3 +1244,16 @@ html.gs :is(.lp-win, .lp-spec, .lp-four li, .lp-sectors li, .lp-svc, .lp-entry, 
 .lp-faq dt { font: 700 19px/1.35 var(--sans); }
 .lp-faq dd { margin: 8px 0 0; color: var(--dim); font-size: 16px; line-height: 1.65; }
 
+
+/* ------------------------------------------- the mono voice (2026-10-05) */
+/* Footer and contact band headings in the display mono, as on the home page;
+   no single word picked out in colour. */
+.lp-foot-brand,
+.lp-foot-h,
+.lp-contact h2,
+.lp-way strong {
+  font-family: var(--font-display-mono), var(--sans);
+  letter-spacing: -0.03em;
+}
+.lp-contact h2 { letter-spacing: -0.045em; }
+.lp-contact h2 em { color: inherit; font-style: inherit; }
