@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { SITE_URL } from '../lib/shareMeta';
+import { withBase } from '../lib/basePath';
 
 
 // The one typeface everywhere (2026-10-05, the owner's choice): JetBrains Mono, as --font-ui.
@@ -14,7 +15,7 @@ export const metadata: Metadata = {
   applicationName: 'RCAAS.tech',
   openGraph: { siteName: 'RCAAS.tech', type: 'website', locale: 'en_US' },
   twitter: { card: 'summary_large_image' },
-  icons: { icon: '/favicon.svg' }
+  icons: { icon: withBase('/favicon.svg') }
 };
 
 export const viewport: Viewport = {

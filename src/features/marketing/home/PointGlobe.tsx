@@ -12,6 +12,7 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { afterIntro } from '../layout/Loader';
+import { withBase } from '../../../lib/basePath';
 
 const KTM: [number, number] = [27.7172, 85.324];
 // where tours are walked from: an illustration of reach, not visitor numbers
@@ -156,7 +157,7 @@ export function PointGlobe({ className }: { className?: string }) {
     let alive = true;
     let loadedAt = 0;
     let undoIntro = () => {};
-    fetch('/media/globe-land.bin').then((r) => r.arrayBuffer()).then((buf) => {
+    fetch(withBase('/media/globe-land.bin')).then((r) => r.arrayBuffer()).then((buf) => {
       if (!alive) return;
       const ll = new Int16Array(buf);
       const n = ll.length / 2;

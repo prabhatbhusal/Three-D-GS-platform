@@ -5,13 +5,14 @@
  * Lixel K1 specs (xgrids.com/intl/lixelk1). */
 
 import type { IconName } from '../../components/ui/Icon';
+import { withBase } from '../../lib/basePath';
 
 /** Pictures (2026-10-05): stills from our own scans and tours, one per
  *  service and per project, in public/media/services/<k>.webp and
  *  public/media/work/<slug>.webp. Placeholders until real photography: to
  *  change one, replace its file (same name). */
-export const serviceImg = (k: string) => `/media/services/${k}.webp`;
-export const workImg = (slug: string) => `/media/work/${slug}.webp`;
+export const serviceImg = (k: string) => withBase(`/media/services/${k}.webp`);
+export const workImg = (slug: string) => withBase(`/media/work/${slug}.webp`);
 
 // ic: its Material icon (components/ui/Icon.tsx); img: one of the pictures above
 export const SECTORS: { t: string; b: string; ic: IconName; img: string }[] = [

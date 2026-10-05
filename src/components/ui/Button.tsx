@@ -13,6 +13,7 @@
  */
 import Link from 'next/link';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import { withBase } from '../../lib/basePath';
 
 const VARIANT = {
   pill: 'lp-pill',
@@ -32,7 +33,7 @@ export function Button(props: AsLink | AsButton) {
   if (props.href !== undefined) {
     const { href, reload, transitionTypes } = props;
     return reload
-      ? <a href={href} className={cls}>{children}</a>
+      ? <a href={withBase(href)} className={cls}>{children}</a>
       : <Link href={href} transitionTypes={transitionTypes} className={cls}>{children}</Link>;
   }
   // pulled out so they don't reach the DOM (eslint ignoreRestSiblings allows the unused names)

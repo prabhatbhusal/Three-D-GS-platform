@@ -6,6 +6,7 @@ import { PageHead } from '../../../components/ui/PageHead';
 import { Section } from '../../../components/ui/Section';
 import { Icon } from '../../../components/ui/Icon';
 import { API_BASE_URL, withoutNightVersions, type GalleryItem } from '../../../lib/api';
+import { withBase } from '../../../lib/basePath';
 
 export const metadata: Metadata = {
   alternates: { canonical: '/gallery' },
@@ -58,8 +59,7 @@ export default async function GalleryPage() {
         {items?.length === 0 && (
           <p className="ip-empty">
             {/* plain <a>: the studio needs a full page load (§12) */}
-            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-            Nothing is published yet. Open a space in the <a href="/studio">studio</a> and choose Publish.
+            Nothing is published yet. Open a space in the <a href={withBase('/studio')}>studio</a> and choose Publish.
           </p>
         )}
         {!!items?.length && (

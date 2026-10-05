@@ -26,6 +26,7 @@ import { BookingCard } from '../booking/BookingCard';
 import { useT, setLang, LANGS, type Lang } from '../../lib/i18n';
 import type { ViewerState } from '../../@types/app.types';
 import { DotVeil } from './DotVeil';
+import { withBase } from '../../lib/basePath';
 import './viewer.css';
 
 interface ViewerProps {
@@ -558,7 +559,7 @@ function TopChrome({ state, showBrand, brand, hd, canExit, panel, setPanel, book
           </button>
         )}
         {canExit && (
-          <a className="vw-exit" href="/gallery" aria-label={t('Exit 3D')}>
+          <a className="vw-exit" href={withBase('/gallery')} aria-label={t('Exit 3D')}>
             <span>{t('Exit 3D')}</span>{Icon.exit}
           </a>
         )}

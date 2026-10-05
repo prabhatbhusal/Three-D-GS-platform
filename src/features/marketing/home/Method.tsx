@@ -17,6 +17,7 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { Button } from '../../../components/ui/Button';
 import { STEPS } from '../siteContent';
+import { withBase } from '../../../lib/basePath';
 
 const N = 4200;
 const INK = '#141414';
@@ -228,7 +229,7 @@ export function Method() {
     points.frustumCulled = false;
     group.add(points);
     // the globe in the hero's own land shapes, once they arrive
-    fetch('/media/globe-land.bin').then((res) => res.arrayBuffer()).then((buf) => {
+    fetch(withBase('/media/globe-land.bin')).then((res) => res.arrayBuffer()).then((buf) => {
       (geo.getAttribute('a0') as THREE.BufferAttribute).copyArray(globe(new Int16Array(buf))).needsUpdate = true;
     }).catch(() => {});
 

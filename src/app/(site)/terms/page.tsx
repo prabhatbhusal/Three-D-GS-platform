@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { POLICY_CONTACT, PolicyPage } from '../../../features/marketing/PolicyPage';
 
 export const metadata: Metadata = {
@@ -54,7 +55,7 @@ const SECTIONS = [
   },
   {
     h: 'Privacy and security',
-    body: <p>How we handle personal information is in our <a href="/privacy">Privacy Policy</a>, and how we protect it is in our <a href="/security">Security Policy</a>.</p>
+    body: <p>How we handle personal information is in our <Link href="/privacy">Privacy Policy</Link>, and how we protect it is in our <Link href="/security">Security Policy</Link>.</p>
   },
   {
     h: 'Changes and law',
