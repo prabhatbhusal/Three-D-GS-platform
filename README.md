@@ -3,21 +3,24 @@
   # 🌐 Three-D-GS Platform
 
   **Immersive 3D digital-twin experiences, curated studio workflows, and public virtual tours built for modern property marketing and spatial storytelling.**
-  
+
   <br />
 
-  [![Hero video](public/media/hero-thumbnail.png)](public/media/hero.mp4)
-  
-  <p align="center">
-    <a href="public/media/hero.mp4">
-      <video src="public/media/hero.mp4" controls width="100%">
-      </video>
-    </a>
-    <br />
-    <sub>A real scan, rendered live. <a href="public/media/hero.mp4">Watch the full film (MP4)</a></sub>
-  </p>
+  <img src="https://user-images.githubusercontent.com/549447/223860778-6f3a9f7b-9d9c-4d3f-9a7b-9c8d9c9d9c9c.png" width="100%" />
 
-
+  <br />
+  <br />
+  <br />
+  <br />
+  <br />
+  <br />
+  <br />
+  <br />
+  <br />
+  <br />
+  <br />
+  <br />
+  <br />
   <br />
   <br />
 </div>
