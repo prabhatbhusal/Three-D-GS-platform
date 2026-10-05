@@ -218,7 +218,7 @@ ${h('product', 2)}
 
 ${h('arch', 3)}
 <div class="diagram">  Visitor's browser                         Studio (team's browser)
-  /  /tour  /t/:project  /s/:project        /studio  /login  /settings
+  /  /tour  /t/:project  /s/:project        /studio  /login
           \\                                   /
            \\        Next.js app (src/)       /        port 3000 in development
             '---------------+---------------'

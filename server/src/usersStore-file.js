@@ -172,6 +172,18 @@ export async function resetPassword(token, password) {
   return publicUser(record);
 }
 
+/** A signed-in person's own new password (the route checks the old one).
+ *  Voids older sessions and any reset link still waiting. */
+export async function setPassword(id, password) {
+  const record = (await readAllUsers()).find((u) => u.id === id);
+  if (!record) return null;
+  record.passwordHash = await hashPassword(password);
+  record.passwordChangedAt = Date.now();
+  delete record.reset;
+  await fs.writeFile(fileFor(record.email), JSON.stringify(record, null, 2));
+  return publicUser(record);
+}
+
 /** Refuses to remove the last admin. */
 export async function deleteUser(id) {
   const all = await readAllUsers();

@@ -13,7 +13,7 @@
 import { Router } from 'express';
 import { timingSafeEqual } from 'crypto';
 import { issueSession, clearSession, readSession, staleReason } from '../middleware/auth.js';
-import { createUser, verifyUser, getUserById, getUserByEmail, resetPassword, createResetToken } from '../usersStore.js';
+import { createUser, verifyUser, getUserById, getUserByEmail, resetPassword, setPassword, createResetToken } from '../usersStore.js';
 import { sendMail } from '../mailer.js';
 
 export const authRouter = Router();
@@ -115,6 +115,30 @@ authRouter.post('/reset', async (req, res, next) => {
     }
     const user = token ? await resetPassword(token, password) : null;
     if (!user) return res.status(400).json({ error: 'That reset link has expired or was already used. Ask an admin for a new one.' });
+    issueSession(res, user);
+    res.json({ authenticated: true, user });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** Change your own password (the account drawer's Settings). Needs the current
+ *  one. This browser gets a fresh session; every other session of the account
+ *  stops working, and so does any reset link still waiting. */
+authRouter.post('/password', async (req, res, next) => {
+  try {
+    if (rateLimited(ipOf(req))) return res.status(429).json(TOO_MANY);
+    const s = readSession(req);
+    if (!s?.sub || (await staleReason(s))) return res.status(401).json({ error: 'Sign in with your account to change its password.' });
+    const password = str(req.body?.password);
+    if (password.length < 8 || password.length > 200) {
+      return res.status(400).json({ error: 'Use a new password of at least 8 characters.' });
+    }
+    const me = await getUserById(s.sub);
+    if (!me || !(await verifyUser(me.email, str(req.body?.current)))) {
+      return res.status(400).json({ error: 'Your current password isn’t right.' });
+    }
+    const user = await setPassword(me.id, password);
     issueSession(res, user);
     res.json({ authenticated: true, user });
   } catch (err) {

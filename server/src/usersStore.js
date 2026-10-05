@@ -8,5 +8,5 @@ const impl = process.env.DATABASE_URL ? await import('./usersStore-pg.js') : awa
 
 export const {
   listUsers, getUserById, getUserByEmail, setUserRole, createUser, createStaffAccount,
-  passwordChangedAt, createResetToken, resetPassword, deleteUser, verifyUser
+  passwordChangedAt, createResetToken, resetPassword, setPassword, deleteUser, verifyUser
 } = impl;

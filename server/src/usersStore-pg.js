@@ -97,6 +97,15 @@ export async function resetPassword(token, password) {
   ));
 }
 
+export async function setPassword(id, password) {
+  if (!isId(id)) return null;
+  return one(await pool.query(
+    `update app.users set password_hash = $2, password_changed_at = $3, reset_hash = null, reset_expires = null
+     where id = $1 returning ${COLS}`,
+    [id, await hashPassword(password), new Date()]
+  ));
+}
+
 export async function deleteUser(id) {
   if (!isId(id)) return null;
   return tx(async (c) => {

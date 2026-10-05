@@ -5,8 +5,9 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useLayoutEffect, useRef, useState, ViewTransition } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
-import { getSession, logout } from '../lib/api';
+import { getSession, logout, ROLE_NAME, type SessionUser } from '../lib/api';
 import { ThemeToggle } from './ThemeToggle';
+import { PasswordChange } from './PasswordChange';
 
 // In page order: a link to the right of the current page slides the next
 // page in from the right (nav-forward), one to the left from the left.
@@ -71,7 +72,7 @@ export function SiteNav() {
   // drawer into the bar. .site, not body, so it keeps the site's colour tokens.
   const [drawerHost, setDrawerHost] = useState<Element | null>(null);
   useEffect(() => { setDrawerHost(navRef.current?.closest('.site') ?? document.body); }, []);
-  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+  const [user, setUser] = useState<SessionUser | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [detailView, setDetailView] = useState<'profile' | 'settings' | null>(null);
 
@@ -225,7 +226,7 @@ export function SiteNav() {
                         <p>
                           {detailView === 'profile'
                             ? user.email
-                            : 'Theme, workspace preferences, and session details live here.'}
+                            : 'Your theme, and your password.'}
                         </p>
                       </div>
 
@@ -233,14 +234,15 @@ export function SiteNav() {
                         <div className="site-account-stack">
                           <div className="site-account-item static"><span>Name</span><strong>{user.name}</strong></div>
                           <div className="site-account-item static"><span>Email</span><strong>{user.email}</strong></div>
-                          <div className="site-account-item static"><span>Role</span><strong>Editor</strong></div>
+                          <div className="site-account-item static"><span>Role</span><strong>{ROLE_NAME[user.role] ?? user.role}</strong></div>
                         </div>
                       ) : (
-                        <div className="site-account-stack">
-                          <div className="site-account-item"><span>Theme</span><ThemeToggle /></div>
-                          <div className="site-account-item static"><span>Notifications</span><strong>Enabled</strong></div>
-                          <div className="site-account-item static"><span>Session</span><strong>Secure</strong></div>
-                        </div>
+                        <>
+                          <div className="site-account-stack">
+                            <div className="site-account-item"><span>Theme</span><ThemeToggle /></div>
+                          </div>
+                          <PasswordChange cls="site" email={user.email} />
+                        </>
                       )}
                     </div>
 

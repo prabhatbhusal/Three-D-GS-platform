@@ -357,6 +357,9 @@ export const requestPasswordReset = (email: string) =>
 /** Set a new password from a reset link, and sign in with it. */
 export const resetPasswordWith = (token: string, password: string) =>
   request<SessionReply>('/api/auth/reset', { method: 'POST', body: JSON.stringify({ token, password }) });
+/** Change your own password. This browser stays signed in; every other session ends. */
+export const changePassword = (current: string, password: string) =>
+  request<SessionReply>('/api/auth/password', { method: 'POST', body: JSON.stringify({ current, password }) });
 export const setTeamRole = (id: string, role: 'admin' | 'editor') =>
   request<SessionUser>(`/api/team/${encodeURIComponent(id)}/role`, { method: 'PATCH', body: JSON.stringify({ role }) });
 
@@ -451,6 +454,7 @@ export const API_BASE_URL = API_BASE;
 
 /** 'staff': a client's staff account, invited to answer a project's guests (no studio editing). */
 export interface SessionUser { id: string; name: string; email: string; role: 'admin' | 'editor' | 'staff' }
+export const ROLE_NAME: Record<SessionUser['role'], string> = { admin: 'Admin', editor: 'Editor', staff: 'Client staff' };
 interface SessionReply { authenticated: boolean; user: SessionUser | null }
 
 /** `email` omitted = the legacy shared editor password (server/.env

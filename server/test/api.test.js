@@ -1865,6 +1865,29 @@ test('forgot password: a known email gets a one-time link by email; an unknown o
   assert.equal((await api('POST', '/api/auth/login', { email: 'fran@geonova.com.np', password: 'fresh-start-9' })).status, 200);
 });
 
+test('change password: needs the current one, keeps this session, signs out every other one', async () => {
+  const me = await signUpUser('Careful Cam', 'cam@geonova.com.np');
+  const other = await api('POST', '/api/auth/login', { email: 'cam@geonova.com.np', password: 'plenty-long-8' });
+  const otherCookie = other.headers.get('set-cookie').split(';')[0];
+  await new Promise((r) => setTimeout(r, 5)); // the change lands after both sessions were issued
+
+  cookie = '';
+  assert.equal((await api('POST', '/api/auth/password', { current: 'plenty-long-8', password: 'brand-new-99' })).status, 401, 'signed in only');
+  cookie = me.cookie;
+  assert.equal((await api('POST', '/api/auth/password', { current: 'wrong-wrong-1', password: 'brand-new-99' })).status, 400, 'wrong current password');
+  assert.equal((await api('POST', '/api/auth/password', { current: 'plenty-long-8', password: 'short' })).status, 400, 'too short');
+
+  const ok = await api('POST', '/api/auth/password', { current: 'plenty-long-8', password: 'brand-new-99' });
+  assert.equal(ok.status, 200);
+  cookie = ok.headers.get('set-cookie').split(';')[0];
+  assert.equal((await api('GET', '/api/auth/session')).json.authenticated, true, 'this browser stays signed in');
+  cookie = otherCookie;
+  assert.equal((await api('GET', '/api/auth/session')).json.authenticated, false, 'the other session is signed out');
+  cookie = '';
+  assert.equal((await api('POST', '/api/auth/login', { email: 'cam@geonova.com.np', password: 'plenty-long-8' })).status, 401, 'old password gone');
+  assert.equal((await api('POST', '/api/auth/login', { email: 'cam@geonova.com.np', password: 'brand-new-99' })).status, 200);
+});
+
 test('the studio warns before publishing a space whose scan files are not on this server', async () => {
   signIn();
   await api('PUT', '/api/scenes/no-files-here', sceneDoc('no-files-here'));

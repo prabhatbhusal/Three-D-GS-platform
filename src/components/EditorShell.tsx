@@ -19,13 +19,14 @@ import { uiConfig, setUiConfig, useUiConfig } from '../lib/uiConfig';
 import {
   saveScene, getSession, logout, getPublishState, publishSceneNow, unpublishScene, revertScene, getVersions, restoreVersion,
   resolveAsset, safeUrl, getProperties, assetUrl, buildFloorPlan, uploadFloorPlan, removeFloorPlan, getEmbed, setEmbed,
-  getSiteDraft, renameFloorPlanRooms, type SiteDoc
+  getSiteDraft, renameFloorPlanRooms, ROLE_NAME, type SiteDoc
 } from '../lib/api';
 import { forgetPlan } from '../lib/floorMap';
 import type { SessionUser, PublishState, EmbedSettings, SceneVersion } from '../lib/api';
 import { HotspotMarkers } from './HotspotMarkers';
 import { Uploader } from './Uploader';
 import { ThemeToggle } from './ThemeToggle';
+import { PasswordChange } from './PasswordChange';
 import type { ViewerState, EditorApi } from '../@types/app.types';
 import type { Hotspot, HotspotType } from '../@types/hotspot.types';
 import type { Collider, Property, Scene, SceneDoc } from '../@types/scene.types';
@@ -661,7 +662,7 @@ function Account() {
                   <p>
                     {detailView === 'profile'
                       ? user.email
-                      : 'Theme, workspace preferences, and session details live here.'}
+                      : 'Your theme, and your password.'}
                   </p>
                 </div>
 
@@ -669,14 +670,15 @@ function Account() {
                   <div className="ed2-sheet-list">
                     <div><span>Name</span><strong>{user.name}</strong></div>
                     <div><span>Email</span><strong>{user.email}</strong></div>
-                    <div><span>Role</span><strong>Editor</strong></div>
+                    <div><span>Role</span><strong>{ROLE_NAME[user.role] ?? user.role}</strong></div>
                   </div>
                 ) : (
-                  <div className="ed2-sheet-list">
-                    <div><span>Theme</span><ThemeToggle className="ed2-theme" /></div>
-                    <div><span>Notifications</span><strong>Enabled</strong></div>
-                    <div><span>Session</span><strong>Secure</strong></div>
-                  </div>
+                  <>
+                    <div className="ed2-sheet-list">
+                      <div><span>Theme</span><ThemeToggle className="ed2-theme" /></div>
+                    </div>
+                    <PasswordChange cls="ed2" email={user.email} />
+                  </>
                 )}
               </div>
 
