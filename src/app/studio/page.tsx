@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   createProperty, deleteProperty, claimProperty, getProperties, getProperty, getScenes, moveSceneToProperty, renameProperty,
-  addPropertyMember, removePropertyMember, getSession, getActivity, getProjectLeads, setProjectLeadEmails, projectLeadsCsvUrl, type ProjectLeads, setProjectTheme, setProjectInfo, uploadProjectLogo, removeProjectLogo, API_BASE_URL, LAST_PROJECT_KEY, type SessionUser, type ActivityEntry
+  addPropertyMember, removePropertyMember, getSession, getActivity, getProjectLeads, setProjectLeadEmails, projectLeadsCsvUrl, type ProjectLeads, setProjectTheme, setProjectInfo, uploadProjectLogo, removeProjectLogo, API_BASE_URL, LAST_PROJECT_KEY, getGallery, apiUrl, type SessionUser, type ActivityEntry
 } from '../../lib/api';
 import { useStudioSession } from '../../features/auth/useStudioSession';
 import { ThemeToggle } from '../../components/ui/ThemeToggle';
@@ -45,6 +45,16 @@ export default function StudioPage() {
 
   useEffect(() => { getSession().then((s) => setMe(s?.user ?? null)).catch(() => {}); }, []);
 
+  // Each project's picture: its first published space's view (the public gallery list).
+  const [pics, setPics] = useState<Record<string, string>>({});
+  useEffect(() => {
+    getGallery().then((list) => {
+      const out: Record<string, string> = {};
+      for (const g of list ?? []) if (g.propertyId && g.thumb && !out[g.propertyId]) out[g.propertyId] = apiUrl(g.thumb) ?? '';
+      setPics(out);
+    }).catch(() => {}); // no pictures: the letter tiles stay
+  }, []);
+
   const load = useCallback(() => {
     setError('');
     Promise.all([getProperties(), getScenes()])
@@ -76,7 +86,7 @@ export default function StudioPage() {
             <a href="/" className="ed2-home" aria-label="Home" title="Home">
               <svg viewBox="0 0 24 24" aria-hidden><path d="M3 11 12 4l9 7" /><path d="M5 10v10h5v-6h4v6h5V10" /><rect className="ed2-home-door" x="10.6" y="14.6" width="2.8" height="5" rx="0.6" /></svg>
             </a>
-            Studio
+            <span className="pl-brand-word">RCAAS<span>.tech</span> Studio</span>
           </span>
           <span className="pl-top-actions">
             {me?.role === 'admin' && <button className="pl-btn" onClick={() => setTeam(true)}>Team</button>}
@@ -111,7 +121,7 @@ export default function StudioPage() {
           {properties && properties.length > 0 && (
             <div className="pl-grid">
               {ordered.map((p) => (
-                <ProjectCard key={p.id} project={p} current={p.id === last} me={me} onChanged={load} />
+                <ProjectCard key={p.id} project={p} current={p.id === last} me={me} onChanged={load} pic={pics[p.id]} />
               ))}
             </div>
           )}
@@ -143,7 +153,7 @@ export default function StudioPage() {
 
 /** One project: open it, or rename / delete / share it from the ⋯ menu — the
  *  menu only offers actions its owner or an admin can actually do. */
-function ProjectCard({ project, current, me, onChanged }: { project: Property; current: boolean; me: SessionUser | null; onChanged: () => void }) {
+function ProjectCard({ project, current, me, onChanged, pic }: { project: Property; current: boolean; me: SessionUser | null; onChanged: () => void; pic?: string }) {
   const [menu, setMenu] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -231,7 +241,11 @@ It becomes yours: from then on only you, and whoever you share it with, can see 
 
   return (
     <div className={`pl-card ${current ? 'is-current' : ''}`}>
-      <span className="pl-card-tile" aria-hidden>{project.title.trim()[0]}</span>
+      {pic
+        // a published space's picture, from the API (next/image isn't set up for it)
+        // eslint-disable-next-line @next/next/no-img-element
+        ? <img className="pl-card-pic" src={pic} alt="" loading="lazy" />
+        : <span className="pl-card-tile" aria-hidden>{project.title.trim()[0]}</span>}
       <span className="pl-card-txt">
         {renaming ? (
           <input
@@ -251,6 +265,12 @@ It becomes yours: from then on only you, and whoever you share it with, can see 
         <span className="pl-card-meta">
           {count === 1 ? '1 space' : `${count} spaces`}
           {current && <span className="pl-tag">Last opened</span>}
+        </span>
+        {/* the places a project's work happens, one click each (also in the ⋯ menu) */}
+        <span className="pl-card-go">
+          <a href={`/studio/${encodeURIComponent(project.id)}/site`}>Website</a>
+          <a href={`/studio/${encodeURIComponent(project.id)}/reservations`}>Reservations</a>
+          <a href={`/studio/${encodeURIComponent(project.id)}/report`} target="_blank" rel="noopener">Report ↗</a>
         </span>
         {error && <span className="ed2-warn ed2-fine">{error}</span>}
       </span>

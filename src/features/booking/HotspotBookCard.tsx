@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getHereHall, getHereTables, requestHere, safeUrl, type Availability, type EventSession } from '../../lib/api';
-import { bookingHref, isoDay, nightsBetween } from './booking';
+import { bookingHref, nightsBetween, venueDay } from './booking';
 import { countIntent } from '../../lib/stats';
 import { useT } from '../../lib/i18n';
 import type { Hotspot } from '../../@types/hotspot.types';
@@ -53,7 +53,7 @@ export function HotspotBookCard({ project, space, hs, tables = [], preview = fal
   const own = safeUrl(pl.bookUrl);
   // a table's day and time start empty: the first day with a free sitting, and this table's first free time
   const [ask, setAsk] = useState({
-    date: kind === 'table' ? '' : isoDay(kind === 'hall' ? 1 : 0), checkout: isoDay(1), time: kind === 'table' && own ? '19:00' : '',
+    date: kind === 'table' ? '' : venueDay(kind === 'hall' ? 1 : 0), checkout: venueDay(1), time: kind === 'table' && own ? '19:00' : '',
     session: 'evening' as EventSession, occasion: '', guests: kind === 'hall' ? 100 : 2, table: hs.id
   });
   const [form, setForm] = useState({ name: '', phone: '', email: '', notes: '', website: '' });
@@ -131,7 +131,7 @@ export function HotspotBookCard({ project, space, hs, tables = [], preview = fal
     if (problem || preview || loading) return;
     if (own) {
       // their own booking page, with the dates filled in
-      window.open(bookingHref(own, { checkin: ask.date || isoDay(0), checkout: kind === 'room' ? ask.checkout : ask.date || isoDay(0), guests: ask.guests }), '_blank', 'noopener');
+      window.open(bookingHref(own, { checkin: ask.date || venueDay(0), checkout: kind === 'room' ? ask.checkout : ask.date || venueDay(0), guests: ask.guests }), '_blank', 'noopener');
       return;
     }
     if (!form.name.trim() || !form.phone.trim()) return setError(t('Add your name and phone, so we can confirm.'));
@@ -197,10 +197,10 @@ export function HotspotBookCard({ project, space, hs, tables = [], preview = fal
                 <span className="vw-sheet-field-txt">
                   <span>{kind === 'room' ? t('Check in') : t('Day')}</span>
                   {booksTables ? (
-                    <input type="date" value={day} min={avail?.dates[0]?.date ?? isoDay(0)} max={avail?.dates.at(-1)?.date}
+                    <input type="date" value={day} min={avail?.dates[0]?.date ?? venueDay(0)} max={avail?.dates.at(-1)?.date}
                       onChange={(e) => e.target.value && set({ date: e.target.value })} />
                   ) : (
-                    <input type="date" value={ask.date || isoDay(0)} min={isoDay(kind === 'hall' ? 1 : 0)}
+                    <input type="date" value={ask.date || venueDay(0)} min={venueDay(kind === 'hall' ? 1 : 0)}
                       onChange={(e) => set({ date: e.target.value, ...(kind === 'room' && e.target.value >= ask.checkout ? { checkout: e.target.value } : {}) })} />
                   )}
                 </span>

@@ -494,6 +494,9 @@ assetsRouter.get('/:assetId/*', async (req, res, next) => {
     const range = req.headers.range;
     res.setHeader('Accept-Ranges', 'bytes');
     res.setHeader('Content-Type', contentType);
+    // Opened on its own, a file stays a file: an uploaded SVG with a script in
+    // it can't run on this origin. <img>, <video> and fetch() are unaffected.
+    res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox");
     res.setHeader('Vary', 'Accept-Encoding');
     // A scan's files are written once, at upload, so browsers and a CDN may
     // keep them for good; only the floor plan is redrawn in place.

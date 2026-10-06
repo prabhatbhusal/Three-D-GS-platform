@@ -22,6 +22,21 @@ export function isoDay(days = 0, from = new Date()): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+/** The calendar date `days` from now at the venue (its timezone, Nepal's by
+ *  default), as YYYY-MM-DD: the day the server calls today (reservations.js
+ *  nowIn). A visitor abroad, on an earlier date than the venue, would
+ *  otherwise be offered a check-in the server rejects as past. */
+export function venueDay(days = 0, timeZone = 'Asia/Kathmandu', from = new Date()): string {
+  let ymd: string;
+  try {
+    ymd = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(from);
+  } catch {
+    ymd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kathmandu', year: 'numeric', month: '2-digit', day: '2-digit' }).format(from);
+  }
+  const [y, m, d] = ymd.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
 export function nightsBetween(checkin: string, checkout: string): number {
   const a = Date.parse(`${checkin}T00:00:00Z`);
   const b = Date.parse(`${checkout}T00:00:00Z`);

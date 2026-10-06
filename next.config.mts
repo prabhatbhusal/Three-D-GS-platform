@@ -30,6 +30,20 @@ const nextConfig: NextConfig = {
   // .next, then swaps them, so a deploy never serves a half-written build.
   distDir: process.env.NEXT_DIST_DIR || '.next',
 
+  // Every page: the browser takes declared types as given and sends no full
+  // referrer to other sites. The studio and sign-in also never show inside
+  // another site's frame (clickjacking); /tour is left framable on purpose,
+  // since clients embed it on their own websites.
+  async headers() {
+    const noFrame = [{ key: 'X-Frame-Options', value: 'DENY' }, { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" }];
+    return [
+      { source: '/:path*', headers: [{ key: 'X-Content-Type-Options', value: 'nosniff' }, { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' }] },
+      { source: '/studio', headers: noFrame },
+      { source: '/studio/:path*', headers: noFrame },
+      { source: '/login', headers: noFrame }
+    ];
+  },
+
   // LCCRender (src/vendor/sdk/lcc-web-sdk.js) is a module-level singleton.
   // React's Strict Mode double-invokes effects in dev, which tears the live
   // renderer down mid-mount — same reason main.jsx never used <StrictMode>.

@@ -44,7 +44,9 @@ scenesRouter.get('/:id/published', wrap(async (req, res) => {
   const doc = await getPublishedScene(req.params.id);
   if (!doc) return res.status(404).json({ error: 'This space is not published.' });
   const link = (t) => `/api/scenes/${encodeURIComponent(doc.id)}/published/thumbs/${encodeURIComponent(t.id)}.jpg?v=${doc.publishedVersion}`;
-  res.json({ ...doc, tracks: (doc.tracks ?? []).map((t) => (t.thumb?.startsWith?.('data:') ? { ...t, thumb: link(t) } : t)) });
+  // visitors get the space, not which studio account owns it
+  const { ownerId, ...pub } = doc;
+  res.json({ ...pub, tracks: (pub.tracks ?? []).map((t) => (t.thumb?.startsWith?.('data:') ? { ...t, thumb: link(t) } : t)) });
 }));
 
 // A published camera track's thumbnail, as a JPEG.

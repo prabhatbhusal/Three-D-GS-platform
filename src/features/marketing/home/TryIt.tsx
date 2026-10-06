@@ -3,6 +3,7 @@
  *  a plain link. Styles: home.css .hp-cards. */
 import Link from 'next/link';
 import { Icon, type IconName } from '../../../components/ui/Icon';
+import { withBase } from '../../../lib/basePath';
 
 const TRY: { href: string; reload: boolean; t: string; b: string; ic: IconName }[] = [
   { href: '/tour', reload: true, ic: 'walk', t: 'Walk a live tour', b: 'Open a published space and move through it: viewpoints, walking, orbiting, flying.' },
@@ -21,7 +22,7 @@ export function TryIt() {
         {TRY.map((x) => (
           <li key={x.href}>
             {x.reload
-              ? <a href={x.href} className="hp-card hp-card-try"><Icon name={x.ic} className="hp-card-ic" /><h3>{x.t}</h3><p>{x.b}</p></a>
+              ? <a href={withBase(x.href)} className="hp-card hp-card-try"><Icon name={x.ic} className="hp-card-ic" /><h3>{x.t}</h3><p>{x.b}</p></a>
               : <Link href={x.href} transitionTypes={['nav-forward']} className="hp-card hp-card-try"><Icon name={x.ic} className="hp-card-ic" /><h3>{x.t}</h3><p>{x.b}</p></Link>}
           </li>
         ))}

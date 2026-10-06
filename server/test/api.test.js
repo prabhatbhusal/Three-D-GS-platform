@@ -1050,6 +1050,20 @@ test('an asset id can never climb out of the data folder', async () => {
   });
   assert.equal(status, 400);
   assert.ok(readdirSync(path.join(DATA, 'scenes')).length > 0, 'data folder untouched');
+
+  // The upload steps too (2026-10-06): an asset id of ".." on the chunk route
+  // used to write the bytes beside uploads-staging, into the data folder itself.
+  const raw = (method, p, body, type) => new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port: PORT, method, path: p, headers: { cookie, 'Content-Type': type } }, (res) => {
+      res.resume();
+      resolve(res.statusCode);
+    });
+    req.on('error', reject);
+    req.end(body);
+  });
+  assert.equal(await raw('POST', '/api/assets/%2E%2E/files', JSON.stringify({ relPath: 'pwned.json' }), 'application/json'), 400);
+  assert.equal(await raw('PUT', '/api/assets/%2E%2E/files/chunk?relPath=pwned.json&offset=0', '{"pwned":true}', 'application/octet-stream'), 400);
+  assert.ok(!existsSync(path.join(DATA, 'pwned.json')), 'nothing written outside uploads-staging');
 });
 
 test('a space keeps its night version through save and publish, and the lists report it', async () => {
@@ -1083,6 +1097,7 @@ test('a published space’s picture is a real image link, for lists and link pre
 
   // the tour's copy of the space carries its view pictures as links, not inline
   const pub = (await api('GET', '/api/scenes/og-lobby/published')).json;
+  assert.ok(!('ownerId' in pub), 'the public copy names no studio account');
   assert.equal(pub.tracks[0].thumb, null);
   assert.match(pub.tracks[1].thumb, /^\/api\/scenes\/og-lobby\/published\/thumbs\/vp-b\.jpg\?v=\d+$/);
   assert.deepEqual(Buffer.from(await (await fetch(BASE + pub.tracks[1].thumb)).arrayBuffer()), jpeg);

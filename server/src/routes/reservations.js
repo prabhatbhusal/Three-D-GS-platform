@@ -428,7 +428,7 @@ reservationsRouter.post('/:id/requests', wrap(async (req, res) => {
       : 'Someone has just asked for this table at that time. Pick another time or table.' });
   }
   res.status(201).json({ ok: true, id: r.id });
-  tellTheTeam(p, r, `Booking request:${r.item}, ${requestWhen(r)} — ${r.name}`, `New booking request for ${venueOf(p)}, from the 3D tour (${r.spaceTitle})`,
+  tellTheTeam(p, r, `Booking request: ${r.item}, ${requestWhen(r)} — ${r.name}`, `New booking request for ${venueOf(p)}, from the 3D tour (${r.spaceTitle})`,
     [['Name', r.name], ['Phone', r.phone], ['Email', r.email], ['Booking', r.item], ['When', requestWhen(r)], ['Guests', r.party],
       ['Event', r.occasion], ['Price', r.price], ['Deposit', r.deposit], ['Notes', r.notes]]);
 }));
@@ -593,7 +593,7 @@ reservationsRouter.patch('/:id/reservations/:rid', requireEditorSession, wrap(as
     const when = `${dayName(r.date)} at ${r.time}`;
     mail = status === 'confirmed'
       ? { subject: `Your table at ${venue} is confirmed`, text: `Hello ${r.name},\n\nYour table for ${r.party} on ${when} is confirmed${r.tableLabel ? ` (${r.tableLabel})` : ''}.\n\nSee you then,\n${venue}` }
-      : { subject: `About your table at ${venue}`, text: `Hello ${r.name},\n\nSorry, we can’t seat you on ${when}. Another time may be free:\n${siteLink(p.id)}#reserve\n\n${venue}` };
+      : { subject: `About your table at ${venue}`, text: `Hello ${r.name},\n\nSorry, we can’t seat you on ${when}. Another time may be free:\n${siteLink(p.id)}#reserve${r.outlet ? `-${r.outlet}` : ''}\n\n${venue}` };
   }
   const short = asked
     ? (status === 'confirmed'

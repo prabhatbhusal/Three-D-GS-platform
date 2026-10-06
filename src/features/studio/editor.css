@@ -1312,3 +1312,43 @@ a.ed2-switch-item:hover { background: var(--ed-raise); }
   border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(0, 0, 0, 0.55);
   pointer-events: none;
 }
+
+/* ================================================================= */
+/*  The studio in the site's own look (2026-10-06): the home button   */
+/*  wears the nav's grey mark (site.css .site-mark), not teal; the    */
+/*  header says RCAAS.tech Studio; project cards show a published     */
+/*  space's picture and the website, reservations and report one      */
+/*  click away. These override the rules above.                       */
+/* ================================================================= */
+.ed2-home {
+  color: #161616;
+  background: linear-gradient(145deg, #F2F2F2, #A8A8A8 60%, #5E5E5E) 0 0 / 100% 100%;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+.ed2-home:hover {
+  background-position: 0 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 0 0 3px rgba(240, 240, 240, 0.18), 0 6px 16px rgba(0, 0, 0, 0.45);
+}
+.ed2-home:focus-visible { outline-color: var(--ed-signal); }
+.ed2-home svg { filter: none; }
+.ed2-home .ed2-home-door { fill: #161616; }
+
+.pl-brand-word { font-weight: 700; letter-spacing: -0.02em; }
+.pl-brand-word span { color: var(--ed-text-dim); font-weight: 450; margin-right: 0.35em; }
+
+.pl-grid { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
+.pl-card { align-items: flex-start; }
+.pl-card-pic {
+  flex: 0 0 auto; width: 104px; height: 70px; border-radius: 10px; object-fit: cover;
+  background: var(--ed-raise); filter: grayscale(0.3);
+  transition: filter 0.3s;
+}
+.pl-card:hover .pl-card-pic { filter: none; }
+/* above the title link that stretches over the card, so each is its own click */
+.pl-card-go { position: relative; z-index: 1; display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; }
+.pl-card-go a {
+  font: 500 11.5px/1.4 var(--sans); color: var(--ed-text-dim); text-decoration: none;
+  background: linear-gradient(currentColor, currentColor) left bottom / 0 1px no-repeat;
+  transition: color 0.2s, background-size 0.3s;
+}
+.pl-card-go a:hover, .pl-card-go a:focus-visible { color: var(--ed-text); background-size: 100% 1px; outline: none; }

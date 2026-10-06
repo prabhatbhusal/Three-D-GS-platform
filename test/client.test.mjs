@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { cardBox, nearestIds, showsCard, NEAR_DISTANCE, CARD_W, CARD_H } from '../src/features/hotspots/hotspotLayout.ts';
 import { safeUrl, resolveAsset, assetUrl } from '../src/lib/api.ts';
-import { bookingHref, stayProblem, nightsBetween, isoDay, freeForStay, roomsNeeded } from '../src/features/booking/booking.ts';
+import { bookingHref, stayProblem, nightsBetween, isoDay, venueDay, freeForStay, roomsNeeded } from '../src/features/booking/booking.ts';
 import { resolveInitialTier } from '../src/features/scene/deviceTier.ts';
 
 test('booking link carries the visitor\'s dates and guests', () => {
@@ -29,6 +29,16 @@ test('a stay must be in the future, at least one night, with a guest', () => {
   assert.match(stayProblem({ checkin: '2026-09-22', checkout: '2026-09-24', guests: 0 }, today), /guest/);
   assert.equal(nightsBetween('2026-10-30', '2026-11-02'), 3, 'across a month end');
   assert.equal(isoDay(1, new Date(2026, 11, 31)), '2027-01-01', 'across a year end');
+});
+
+test('the Book now card counts days at the venue, not on the visitor’s clock', () => {
+  // 22:00 on 4 October in New York is already 07:45 on 5 October in Kathmandu,
+  // the day the server calls today (reservations.js nowIn)
+  const at = new Date('2026-10-04T22:00:00-04:00');
+  assert.equal(venueDay(0, 'Asia/Kathmandu', at), '2026-10-05');
+  assert.equal(venueDay(1, 'Asia/Kathmandu', at), '2026-10-06');
+  assert.equal(venueDay(1, 'Asia/Kathmandu', new Date('2026-12-31T12:00:00+05:45')), '2027-01-01', 'across a year end');
+  assert.equal(venueDay(0, 'Not/AZone', at), '2026-10-05', 'an unknown zone falls back to Nepal');
 });
 
 test('rooms left for a stay: the fullest night counts, the check-out night does not', () => {

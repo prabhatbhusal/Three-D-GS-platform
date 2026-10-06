@@ -44,6 +44,14 @@ const allowed = (origin) => !origin || origin === ORIGIN || (DEV && LOCALHOST.te
 // visitor's, not 127.0.0.1 — or every rate limit would be one bucket shared
 // by everybody. Only a proxy on loopback is believed, so it can't be spoofed.
 app.set('trust proxy', 'loopback');
+app.disable('x-powered-by');
+// Every answer: browsers take the declared type as given (no sniffing a
+// file into a page), send no full referrer to other sites, and never show
+// the API inside a frame. Nothing here is meant to be framed.
+app.use((req, res, next) => {
+  res.set({ 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'strict-origin-when-cross-origin', 'X-Frame-Options': 'DENY' });
+  next();
+});
 app.use(cors({ origin: (origin, done) => done(null, allowed(origin)), credentials: true }));
 app.use(cookieParser());
 app.use(express.json({ limit: '2mb' })); // scene JSON docs are small; thumbs are data URLs, so give this some room
@@ -68,11 +76,14 @@ app.use('/api/concierge', conciergeRouter);
 app.use('/api/sites', reservationsRouter);
 app.use('/api/sites', sitesRouter);
 
+// An error we raised on purpose carries a status and says what went wrong;
+// anything else (a file or database failure) is logged here and the visitor
+// gets a plain sentence, never its message, which can name paths and tables.
 // Express knows an error handler by its four arguments, so `next` stays.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err, req, res, next) => {
   console.error(err);
-  res.status(err.status || 500).json({ error: err.message || 'Internal error' });
+  res.status(err.status || 500).json({ error: err.status ? err.message : 'Something went wrong on our side. Try again in a moment.' });
 });
 
 /**
