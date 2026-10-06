@@ -213,8 +213,7 @@ function TopBar({ onPreview, sceneId, property }: { onPreview: () => void; scene
         </nav>
       )}
       <div className="ed2-brand">
-        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- the studio’s 3D renderer is a page singleton: leave with a full page load */}
-        <a href="/" className="ed2-home" aria-label="Home" title="Home">
+        <a href={property ? `/studio/${encodeURIComponent(property.id)}` : '/studio'} className="ed2-home" aria-label="Project home" title="Project home">
           <svg viewBox="0 0 24 24" aria-hidden><path d="M3 11 12 4l9 7" /><path d="M5 10v10h5v-6h4v6h5V10" /><rect className="ed2-home-door" x="10.6" y="14.6" width="2.8" height="5" rx="0.6" /></svg>
         </a>
         <input
@@ -444,6 +443,16 @@ function PublishPanel({ sceneId, onClose }: { sceneId: string; onClose: () => vo
               : 'Not published. Visitors can’t open this space.'}
           </p>
         )}
+
+        {/* the ready checklist (server store.js readiness), of the saved space */}
+        {!!info?.ready?.length && (
+          <ul className="pub-ready" aria-label="Ready for visitors">
+            {info.ready.map((c) => (
+              <li key={c.key} className={c.done ? 'is-done' : undefined}><span aria-hidden>{c.done ? '✓' : ''}</span>{c.label}<span className="se-sr">{c.done ? ', done' : ', not yet'}</span></li>
+            ))}
+          </ul>
+        )}
+        {info && hasUnsavedChanges(sceneId) && <p className="up-sub">This checks the saved space: save to include your latest changes.</p>}
 
         {!!info?.blockers.length && (
           <ul className="pub-list is-block">{info.blockers.map((b) => <li key={b}>{b}</li>)}</ul>

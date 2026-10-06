@@ -82,7 +82,7 @@ scenesRouter.get('/:id/publish', requireEditorSession, sceneGuard, wrap(async (r
     ...checks,
     warnings: [...missing, ...checks.warnings],
     ready: [
-      { key: 'files', label: 'Its scan, uploaded to this server', done: !!draft.splat?.variants?.high?.assetId && !missing.length },
+      { key: 'files', label: 'Its scan on this server', done: !!draft.splat?.variants?.high?.assetId && !missing.length },
       ...readiness(draft)
     ]
   });

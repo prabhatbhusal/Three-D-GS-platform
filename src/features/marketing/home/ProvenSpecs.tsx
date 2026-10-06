@@ -6,7 +6,7 @@ import { SPECS } from '../siteContent';
 
 export function ProvenSpecs() {
   return (
-    <section className="hp-block" aria-labelledby="hp-proof-title">
+    <section className="hp-block" aria-labelledby="hp-proof-title" data-chapter="Proof">
       <header className="hp-block-head">
         <h2 id="hp-proof-title">Proven on real jobs.</h2>
         <p>Measured on site in Kathmandu and Lalitpur, not quoted from a brochure.</p>

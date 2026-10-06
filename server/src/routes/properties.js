@@ -13,7 +13,7 @@
 import { Router } from 'express';
 import {
   listProperties, getProperty, createProperty, renameProperty, deleteProperty, listScenes,
-  addPropertyMember, removePropertyMember, propertyIsVisible, propertyStaffSees, propertyIsManageable, propertyIsClaimable, claimProperty, setPropertyTheme, setPropertyInfo, setLeadEmails
+  addPropertyMember, removePropertyMember, propertyIsVisible, propertyStaffSees, propertyIsManageable, propertyIsClaimable, claimProperty, setPropertyTheme, setPropertyInfo, setLeadEmails, setPropertyFeatures, FEATURES
 } from '../store.js';
 import { listLeads, leadsCsv } from '../leadsStore.js';
 import { monthStats, monthOf } from '../stats.js';
@@ -29,6 +29,7 @@ import { createStaffAccount } from '../usersStore.js';
 import { record, recent } from '../activity.js';
 import { removeSite } from './sites.js';
 import { readReservations } from '../reservations.js';
+import { sendMail, teamRecipients, venueMail } from '../mailer.js';
 
 export const propertiesRouter = Router();
 
@@ -39,11 +40,15 @@ const freshSession = async (req) => (await fresh(req.session)) ?? { sub: req.ses
 
 const NOT_FOUND = { error: 'That project does not exist.' };
 
-/** Public: a project's branding and WhatsApp number, for its tours. Nothing else about it. */
+/** Public: a project's branding, WhatsApp number and whether it takes
+ *  enquiries and bookings, for its tours. Nothing else about it. */
 propertiesRouter.get('/:id/theme', wrap(async (req, res) => {
   const p = await getProperty(req.params.id);
   if (!p) return res.status(404).json(NOT_FOUND);
-  res.json({ title: p.title, theme: p.theme ?? {}, whatsapp: p.info?.whatsapp ?? null });
+  res.json({
+    title: p.title, theme: p.theme ?? {}, whatsapp: p.info?.whatsapp ?? null,
+    features: { enquiries: p.features.enquiries, reservations: p.features.reservations }
+  });
 }));
 
 /** Owner or admin: the project, or the reason they can't change it. */
@@ -51,7 +56,7 @@ async function manageable(req, res) {
   const session = await freshSession(req);
   const p = await getProperty(req.params.id);
   if (!p || !propertyIsVisible(p, session)) { res.status(404).json(NOT_FOUND); return null; }
-  if (!propertyIsManageable(p, session)) { res.status(403).json({ error: 'Only the project\u2019s owner can change its branding.' }); return null; }
+  if (!propertyIsManageable(p, session)) { res.status(403).json({ error: 'Only the project\u2019s owner can change that.' }); return null; }
   return p;
 }
 
@@ -157,6 +162,30 @@ propertiesRouter.put('/:id/lead-emails', requireEditorSession, wrap(async (req, 
     if (err.status) return res.status(err.status).json({ error: err.message });
     throw err;
   }
+}));
+
+/** Which parts of the platform the project uses (store.js FEATURES). Owner only. */
+propertiesRouter.put('/:id/features', requireEditorSession, wrap(async (req, res) => {
+  const p = await manageable(req, res);
+  if (!p) return;
+  const next = await setPropertyFeatures(p.id, req.body ?? {});
+  const changed = FEATURES.filter((k) => next.features[k] !== p.features[k]);
+  if (changed.length) await record(req, p.id, 'changed the features it uses', p.title, changed.map((k) => `${k} ${next.features[k] ? 'on' : 'off'}`).join(', '));
+  res.json(next);
+}));
+
+/** Anyone who can see the project: a test email to where its enquiries go, to
+ *  check the email set-up. Says why when it can't send (mailer.js resendReason). */
+propertiesRouter.post('/:id/lead-emails/test', requireEditorSession, wrap(async (req, res) => {
+  const p = await visibleProject(req, res);
+  if (!p) return;
+  const to = teamRecipients(p.leadEmails ?? []);
+  const r = await sendMail({
+    to, subject: `Test email for ${p.theme?.brand || p.title}`,
+    text: `This is a test from RCAAS.tech. Enquiries and booking requests for ${p.theme?.brand || p.title} will come to this address.\n\nGuests' emails are sent in the venue's name, and their replies go to ${venueMail(p).replyTo || 'nobody yet: add the brand email or an enquiry address'}.`,
+    ...venueMail(p)
+  });
+  res.status(r.sent ? 200 : 502).json(r.sent ? r : { error: r.reason, to });
 }));
 
 /** Brand name, accent colour, heading font. */
@@ -269,7 +298,7 @@ propertiesRouter.get('/:id', requireEditorSession, wrap(async (req, res) => {
 }));
 
 /** What the client's staff see of a project: its name and brand, no one's details. */
-const staffView = (p) => ({ id: p.id, title: p.title, theme: p.theme ?? {}, ownerId: p.ownerId, members: [], staff: [], access: 'staff', spaceCount: 0 });
+const staffView = (p) => ({ id: p.id, title: p.title, theme: p.theme ?? {}, features: p.features, ownerId: p.ownerId, members: [], staff: [], access: 'staff', spaceCount: 0 });
 
 // Create a project (team accounts only).
 propertiesRouter.post('/', requireEditorSession, wrap(async (req, res) => {

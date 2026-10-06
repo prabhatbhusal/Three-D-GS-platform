@@ -9,7 +9,8 @@
     "test": "node --test",
     "assets:push": "node scripts/push-assets.js",
     "make-admin": "node scripts/make-admin.js",
-    "db:import-users": "node scripts/import-users.js"
+    "db:import-users": "node scripts/import-users.js",
+    "seed:sample": "node scripts/seed-sample-site.mjs"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",

@@ -67,6 +67,8 @@ export interface Property {
   theme?: import('./config.types').ProjectTheme;
   /** Its brand information; see ProjectInfo. */
   info?: import('./config.types').ProjectInfo;
+  /** Which parts of the platform it uses; the server fills every one in. */
+  features?: import('./config.types').ProjectFeatures;
   /** Only on GET /api/properties. */
   spaceCount?: number;
   /** Only on GET /api/properties: a project from before accounts, listed by name only, to claim. */

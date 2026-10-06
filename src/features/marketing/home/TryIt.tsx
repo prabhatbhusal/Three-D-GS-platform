@@ -13,7 +13,7 @@ const TRY: { href: string; reload: boolean; t: string; b: string; ic: IconName }
 
 export function TryIt() {
   return (
-    <section className="hp-block" aria-labelledby="hp-try-title">
+    <section className="hp-block" aria-labelledby="hp-try-title" data-chapter="Try it">
       <header className="hp-block-head">
         <h2 id="hp-try-title">Try it yourself.</h2>
         <p>No sign-up, no app. It all opens in the browser you are using now.</p>

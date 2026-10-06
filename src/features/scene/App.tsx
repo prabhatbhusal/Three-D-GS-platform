@@ -32,7 +32,7 @@ import { touch, isTouchDevice } from './mobileInput';
 import { Viewer } from '../tour/Viewer';
 import { EditorShell } from '../studio/EditorShell';
 import { editorActive } from './editorActive';
-import { useUiConfig } from '../../lib/uiConfig';
+import { uiConfig, useUiConfig } from '../../lib/uiConfig';
 import { getScenes } from '../../lib/api';
 import { playClip, unlockAudio } from '../../lib/audio';
 import { resolveAsset } from '../../lib/api';
@@ -493,7 +493,7 @@ export default function App({ property }: { property?: Property } = {}) {
             </p>
           </div>
         </div>
-        <EnquiryPanel sceneId={firstScene()} sceneName={conf?.name} />
+        <EnquiryPanel sceneId={firstScene()} sceneName={conf?.name} whatsapp={uiConfig.whatsapp} enquiries={uiConfig.enquiries !== false} />
       </div>
     );
   }

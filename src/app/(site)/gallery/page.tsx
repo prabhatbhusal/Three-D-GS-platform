@@ -1,4 +1,3 @@
-import type { Metadata } from 'next';
 import Link from 'next/link';
 import { connection } from 'next/server';
 import { SitePage } from '../../../features/marketing/layout/SitePage';
@@ -7,12 +6,11 @@ import { Section } from '../../../components/ui/Section';
 import { Icon } from '../../../components/ui/Icon';
 import { API_BASE_URL, withoutNightVersions, type GalleryItem } from '../../../lib/api';
 import { withBase } from '../../../lib/basePath';
+import { pageMeta } from '../../../lib/shareMeta';
+import { BreadcrumbJsonLd } from '../../../features/marketing/JsonLd';
 
-export const metadata: Metadata = {
-  alternates: { canonical: '/gallery' },
-  title: 'Live tours',
-  description: 'Published interactive 3D tours of hotels, halls and spaces. Open one and walk it.'
-};
+export const metadata = pageMeta('/gallery', 'Live 3D tours you can walk',
+  'Published interactive 3D tours of hotels, halls and spaces. Open one and walk it.');
 
 type ClientSite = { id: string; title: string; line: string };
 
@@ -47,6 +45,7 @@ export default async function GalleryPage() {
 
   return (
     <SitePage>
+      <BreadcrumbJsonLd name="Live tours" path="/gallery" />
       <PageHead center label="live tours" facts={items?.length ? [`${items.length} spaces open now`, 'No app, no plugin'] : undefined}
         lede="Every space here is a live Gaussian-splat tour, published from our studio. Pick one and walk in.">
         Rooms you can walk into right now.

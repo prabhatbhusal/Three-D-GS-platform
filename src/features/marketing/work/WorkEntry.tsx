@@ -11,7 +11,7 @@ import { STATUS, WORK } from '../siteContent';
 export function WorkEntry({ w }: { w: (typeof WORK)[number] }) {
   const m = media(`work/${w.slug}`);
   return (
-    <li id={w.slug} className={`ip-case is-${w.status}`}>
+    <li id={w.slug} className={`ip-case is-${w.status}`} data-chapter={w.place}>
       <div className="ip-case-side">
         <p className={`ip-status is-${w.status}`}>{STATUS[w.status]}</p>
         {w.when && <p>{w.when}</p>}

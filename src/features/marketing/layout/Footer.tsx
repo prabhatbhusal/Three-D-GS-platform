@@ -4,7 +4,7 @@
  *  Services (each links to its row), Projects (each place we have measured,
  *  with its status), Company and Legal; the wordmark across the whole width
  *  (its letters rise in, SiteGsap .ft-mark); and a base line ending on Kathmandu's
- *  coordinates, where the home page's globe opens. SitePage puts it under
+ *  coordinates, where the home page's scan was made. SitePage puts it under
  *  every marketing page. Lists come from siteContent.ts, so a new service or
  *  project appears here by itself. Styles: inner.css .ft. */
 import Link from 'next/link';
@@ -15,7 +15,7 @@ import { RoomCloud } from './RoomCloud';
 
 // [label, href, external]: external links open in a new tab
 const COMPANY_LINKS: [string, string, boolean?][] = [
-  ['All work', '/work'], ['How it works', '/how-it-works'], ['Live tours', '/gallery'], ['About', '/about'], ['Contact', '/contact'],
+  ['All work', '/work'], ['How it works', '/how-it-works'], ['What is a splat tour?', '/gaussian-splatting'], ['Live tours', '/gallery'], ['About', '/about'], ['Contact', '/contact'],
   ['LinkedIn', 'https://www.linkedin.com/company/geonova-solutions-pvt-ltd/', true]
 ];
 const LEGAL: [string, string][] = [['Terms of Service', '/terms'], ['Privacy Policy', '/privacy'], ['Security Policy', '/security'], ['Cookie Policy', '/cookies']];

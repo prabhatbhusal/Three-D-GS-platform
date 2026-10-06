@@ -7,7 +7,9 @@ import { SITE_URL } from '../../lib/shareMeta';
  *  route rather than app/sitemap.ts for the reason in robots.txt/route.ts. */
 export const revalidate = 3600;
 
-const PAGES = ['/', '/work', '/services', '/how-it-works', '/gallery', '/about', '/contact', '/terms', '/privacy', '/security', '/cookies'];
+const PAGES = ['/', '/services', '/work', '/how-it-works', '/gaussian-splatting', '/gallery', '/about', '/contact', '/terms', '/privacy', '/security', '/cookies'];
+// when the pages' words last changed: bump it with a copy edit (a search engine uses it to decide when to re-read)
+const PAGES_MODIFIED = '2026-10-06';
 
 async function get<T>(path: string): Promise<T[]> {
   try {
@@ -32,7 +34,7 @@ export async function GET() {
     if (!prev || s.publishedAt > prev) hubs.set(s.propertyId, s.publishedAt);
   }
   const urls: { loc: string; lastmod?: string | null; priority: number }[] = [
-    ...PAGES.map((p) => ({ loc: `${SITE_URL}${p === '/' ? '' : p}`, priority: p === '/' ? 1 : 0.7 })),
+    ...PAGES.map((p) => ({ loc: `${SITE_URL}${p === '/' ? '' : p}`, lastmod: PAGES_MODIFIED, priority: p === '/' ? 1 : p === '/gaussian-splatting' ? 0.9 : 0.7 })),
     ...sites.map((s) => ({ loc: `${SITE_URL}/s/${encodeURIComponent(s.id)}`, lastmod: s.publishedAt, priority: 0.8 })),
     ...[...hubs].map(([id, d]) => ({ loc: `${SITE_URL}/t/${encodeURIComponent(id)}`, lastmod: d, priority: 0.6 }))
   ];

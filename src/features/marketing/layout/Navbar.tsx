@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useLayoutEffect, useRef, useState, ViewTransition } from 'react';
 import { usePathname } from 'next/navigation';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useSession } from '../../auth/useSession';
 import { Button } from '../../../components/ui/Button';
 import { Icon } from '../../../components/ui/Icon';
@@ -11,6 +11,8 @@ import { useClickOutside } from '../../../hooks/useClickOutside';
 import { AccountMenu } from './AccountMenu';
 import { NavDrop, type DropKey } from './NavDrop';
 import { ReachIcons } from './Reach';
+import { MobileMenu } from './MobileMenu';
+import { ThemeToggle } from '../../../components/ui/ThemeToggle';
 
 // In page order: a link to the right of the current page slides the next
 // page in from the right (nav-forward), one to the left from the left.
@@ -22,17 +24,19 @@ const LINKS: [string, string, DropKey?][] = [
 ];
 
 /** The marketing site's floating nav: brand, page links (Services and Work
- *  open a dropdown), WhatsApp and call icons, and either Sign in and Book a
- *  capture (team sign-up is on the sign-in page) or the signed-in person's
- *  menu (AccountMenu). It sits in app/(site)/layout.tsx, so it stays on
- *  screen while pages change underneath it. Styles: site.css .site-nav,
- *  inner.css .drop. */
+ *  open a dropdown), the theme switch, WhatsApp and call icons, and either
+ *  Sign in and Book a capture (team sign-up is on the sign-in page) or the
+ *  signed-in person's menu (AccountMenu). Up to 1240 px wide the links and
+ *  actions give way to a Menu button that grows the bar into MobileMenu.
+ *  It sits in app/(site)/layout.tsx, so it stays on screen while pages
+ *  change underneath it. Styles: site.css .site-nav and .mnav, inner.css .drop. */
 export function Navbar() {
   const pathname = usePathname();
   const here = LINKS.findIndex(([href]) => href === pathname);
   const navRef = useRef<HTMLElement | null>(null);
   const [user, setUser] = useSession();
   const [drop, setDrop] = useState<DropKey | null>(null);
+  const [menu, setMenu] = useState(false); // the phone and tablet menu (MobileMenu)
   const shutTimer = useRef(0);
   const hold = () => window.clearTimeout(shutTimer.current);
   const shutSoon = () => { hold(); shutTimer.current = window.setTimeout(() => setDrop(null), 180); };
@@ -45,7 +49,22 @@ export function Navbar() {
   useLayoutEffect(() => {
     navRef.current?.closest('.site')?.scrollTo({ top: 0, behavior: 'instant' });
     setDrop(null);
+    setMenu(false);
   }, [pathname]);
+
+  // The open menu holds the page still under it, and Esc closes it (focus back on its button).
+  useEffect(() => {
+    if (!menu) return;
+    const site = navRef.current?.closest<HTMLElement>('.site');
+    site?.setAttribute('data-menu-open', '');
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setMenu(false);
+      navRef.current?.querySelector<HTMLButtonElement>('.site-menu-btn')?.focus();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => { site?.removeAttribute('data-menu-open'); document.removeEventListener('keydown', onKey); };
+  }, [menu]);
 
   // Esc shuts the dropdown and puts focus back on its chevron.
   useEffect(() => {
@@ -96,7 +115,8 @@ export function Navbar() {
   }, [pathname]);
 
   return (
-    <header className="site-nav" ref={navRef}>
+    <>
+    <header className="site-nav" ref={navRef} data-menu={menu ? '' : undefined}>
       <Link href="/" transitionTypes={['nav-back']} className="site-brand" aria-label="RCAAS.tech home">
         <span className="site-mark" aria-hidden />
         <span className="site-brand-word">RCAAS<span className="site-brand-tld">.tech</span></span>
@@ -134,6 +154,7 @@ export function Navbar() {
           );
         })}
       </nav>
+      <ThemeToggle className="site-theme-toggle site-theme" />
       <div className="site-actions">
         {/* reload: the studio needs a full page load for its LCCRender singleton (§12) */}
         {user && <Button href="/studio" reload variant="primary">Open studio</Button>}
@@ -147,9 +168,21 @@ export function Navbar() {
           </>
         )}
       </div>
+      <button type="button" className="site-menu-btn" aria-expanded={menu} aria-controls="site-menu" onClick={() => setMenu(!menu)}>
+        <span className="site-menu-word">{menu ? 'Close' : 'Menu'}</span>
+        <span className="site-menu-ic" aria-hidden><i /><i /></span>
+      </button>
       <AnimatePresence>
         {drop && <NavDrop key={drop} which={drop} id={`drop-${drop}`} onEnter={hold} onLeave={shutSoon} onPick={() => setDrop(null)} />}
       </AnimatePresence>
     </header>
+    {/* the page dims behind an open dropdown; clicks pass through it (useClickOutside closes) */}
+    <AnimatePresence>
+      {drop && <motion.div className="site-drop-scrim" aria-hidden initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} />}
+    </AnimatePresence>
+    <AnimatePresence>
+      {menu && <MobileMenu pathname={pathname} signedIn={!!user} onClose={() => setMenu(false)} />}
+    </AnimatePresence>
+    </>
   );
 }

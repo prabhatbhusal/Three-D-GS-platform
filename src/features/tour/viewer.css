@@ -928,3 +928,6 @@ button.vw-book { border: 0; cursor: pointer; }
   .vw-place { top: 64px; left: 18px; }
   .vw-rail { right: 12px; }
 }
+
+/* A project without enquiries (its features) shows its WhatsApp chat as the pill: a link, not underlined. */
+a.vw-cta-btn { text-decoration: none; }

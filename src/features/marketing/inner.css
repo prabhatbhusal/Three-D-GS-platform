@@ -1,5 +1,5 @@
-/* The marketing pages' shared look (2026-10-05, after weevolveit.com on the
- * owner's request): charcoal dotted ground, poster-size Geist Mono headings,
+/* The marketing pages' shared look (2026-10-05, on the
+ * owner's request): charcoal ground ruled in scan rows, poster-size Geist Mono headings,
  * JetBrains Mono for small print, Material icons, and no boxes or borders
  * around information: type, space and icons carry it. Also the loading
  * screen, the nav's dropdowns, the contact icons, the footer and the scroll
@@ -20,8 +20,7 @@
 
 .lp-page {
   background-color: var(--bg);
-  background-image: radial-gradient(var(--ip-hair) 1px, transparent 1.3px);
-  background-size: 22px 22px;
+  background-image: repeating-linear-gradient(to bottom, var(--ip-hair) 0 1px, transparent 1px 22px);
 }
 
 .site [id] { scroll-margin-top: 110px; }
@@ -108,13 +107,20 @@ html[data-intro='seen'] .site-loader { display: none; }
 .site-loader-foot span:last-child { color: var(--ip-ink); font-variant-numeric: tabular-nums; }
 
 /* -------------------------------------------------------- nav dropdowns */
-.site-drop-at { position: static; display: inline-flex; align-items: center; }
+/* The chevron sits inside its link's right padding, so the current page's
+ * viewfinder (.site-links-pill) frames it too instead of cutting across it. */
+.site-drop-at { position: relative; display: inline-flex; align-items: center; }
+.site-links .site-drop-at > a { padding-right: 30px; }
 .site-drop-btn {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  translate: 0 -50%;
   display: grid;
   place-items: center;
   width: 22px;
   height: 28px;
-  margin-left: -10px;
+  margin: 0;
   padding: 0;
   border: 0;
   border-radius: 6px;
@@ -141,15 +147,15 @@ html[data-intro='seen'] .site-loader { display: none; }
   grid-template-columns: minmax(0, 1fr) minmax(220px, 0.3fr);
   gap: 28px 40px;
   padding: 30px 32px 32px;
-  border-radius: 28px;
-  background: #141414;
-  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.5);
+  border-radius: 24px;
+  background: var(--drop-bg, #141414);
+  box-shadow: inset 0 0 0 1px var(--line), 0 30px 90px var(--sh);
   color: var(--text);
   overflow: hidden;
 }
 /* a viewfinder's four corners, drawn as eight short bars */
 .drop-corners {
-  --c: rgba(240, 240, 240, 0.45);
+  --c: color-mix(in srgb, var(--text) 45%, transparent);
   --l: 18px;
   --w: 1.5px;
   position: absolute;
@@ -173,9 +179,9 @@ html[data-intro='seen'] .site-loader { display: none; }
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.75), transparent);
+  background: linear-gradient(90deg, transparent, var(--text), transparent);
   pointer-events: none;
-  animation: drop-scan 1s var(--ip-ease) 0.05s both;
+  animation: drop-scan 0.6s var(--ip-ease) both;
 }
 @keyframes drop-scan { from { top: 0; opacity: 1; } to { top: 100%; opacity: 0; } }
 
@@ -199,7 +205,7 @@ html[data-intro='seen'] .site-loader { display: none; }
   transition: background 0.35s var(--ip-ease);
 }
 .drop-item:hover,
-.drop-item:focus-visible { background: rgba(255, 255, 255, 0.05); outline: none; }
+.drop-item:focus-visible { background: color-mix(in srgb, var(--text) 6%, transparent); outline: none; }
 .drop-item:focus-visible { box-shadow: inset 0 0 0 1.5px var(--text); }
 .drop-ic {
   grid-row: span 2;
@@ -226,7 +232,7 @@ html[data-intro='seen'] .site-loader { display: none; }
 .drop-t-lg { font-size: 18px; letter-spacing: -0.025em; }
 .drop-side { display: grid; align-content: start; gap: 14px; padding: 14px 4px 0; }
 .drop-k { margin: 0; font: 400 11.5px/1 var(--ip-code); color: var(--dim); }
-.drop-sectors { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 10px; font: 400 13px/1.3 var(--sans); color: #D0D0D0; }
+.drop-sectors { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 10px; font: 400 13px/1.3 var(--sans); color: var(--ip-body); }
 .drop-sectors li { display: flex; align-items: center; gap: 10px; }
 .drop-sectors .ic { font-size: 16px; color: var(--dim); }
 .drop-blurb { margin: 0 0 6px; font: 400 13px/1.65 var(--ip-code); color: var(--ip-body); }
@@ -839,3 +845,77 @@ html[data-intro='seen'] .site-loader { display: none; }
   .ip-head { padding-top: 140px; }
   .ft-top { flex-direction: column; align-items: flex-start; }
 }
+
+/* ======================================================= light, 2026-10-06 */
+/* The marketing pages open light now (app/layout.tsx), after lightweight.info:
+ * graphite type on a cool silver paper, the same dot ground, the same one
+ * typeface. Tokens first, then the few rules that wrote a dark colour
+ * directly. The footer, the loading screen and the dark mission band stay
+ * dark in both themes: they keep the dark set of tokens. */
+:root[data-theme='light'] .site {
+  --ip-ink: #111215;
+  --ip-body: #34363C;
+  --ip-dim: #5F626B;
+  --ip-faint: #9A9DA5;
+  --ip-hair: rgba(17, 18, 21, 0.1);
+  --drop-bg: #F5F5F7;
+}
+:root[data-theme='light'] :is(.ft, .site-loader, .ip-mission[data-nav-dark]) {
+  --bg: #161616;
+  --panel: #1F1F1F;
+  --raise: #282828;
+  --line: #2C2C2C;
+  --line-lit: #404040;
+  --text: #F5F5F5;
+  --dim: #B8B8B8;
+  --accent: #F2F2F2;
+  --accent-fill: #F2F2F2;
+  --accent-ink: #161616;
+  --grid: rgba(255, 255, 255, 0.05);
+  --ip-ink: #F0F0F0;
+  --ip-body: #CFCFCF;
+  --ip-dim: #9C9C9C;
+  --ip-faint: #5F5F5F;
+  --ip-hair: rgba(255, 255, 255, 0.075);
+  color: var(--text);
+}
+:root[data-theme='light'] .reach a { background: rgba(17, 18, 21, 0.06); }
+:root[data-theme='light'] .reach a:is(:hover, :focus-visible),
+:root[data-theme='light'] .reach a::after { color: #F5F5F7; }
+/* the footer is dark in both themes: its icons keep the dark look */
+:root[data-theme='light'] .ft .reach a { background: rgba(255, 255, 255, 0.07); }
+:root[data-theme='light'] .ft .reach a:is(:hover, :focus-visible),
+:root[data-theme='light'] .ft .reach a::after { color: #161616; }
+:root[data-theme='light'] .open-now[data-open]::before { animation-name: ip-ping-light; }
+@keyframes ip-ping-light {
+  0% { box-shadow: 0 0 0 0 rgba(17, 18, 21, 0.35); }
+  70%, 100% { box-shadow: 0 0 0 9px rgba(17, 18, 21, 0); }
+}
+:root[data-theme='light'] :is(.pic, .ip-tour-pic) { background: #DCDDE1; }
+:root[data-theme='light'] .pic img { filter: grayscale(0.25); }
+:root[data-theme='light'] :is(.ip-words-t, .ip-kit-track b) { color: #B3B6BD; }
+:root[data-theme='light'] .ip-steps-n { color: #CDCFD4; }
+:root[data-theme='light'] .ip-steps::before { background: rgba(17, 18, 21, 0.14); }
+:root[data-theme='light'] .ip-two p { color: #2A2C31; }
+:root[data-theme='light'] .ip-blank { border-bottom-color: rgba(17, 18, 21, 0.35); }
+:root[data-theme='light'] .ip-tour-ph { color: #B3B6BD; background-image: radial-gradient(rgba(17, 18, 21, 0.09) 1px, transparent 1.3px); }
+:root[data-theme='light'] .ip-tour-go { color: #F5F5F7; }
+:root[data-theme='light'] .gauge-track { background: rgba(17, 18, 21, 0.22); }
+:root[data-theme='light'] .gauge-fill { background: #111215; }
+:root[data-theme='light'] .gauge-n { color: #111215; }
+
+/* ---------------------------------- the explainer (2026-10-06) */
+.ip-compare { max-width: 1100px; overflow-x: auto; }
+.ip-compare table { width: 100%; min-width: 720px; border-collapse: collapse; font: 400 14.5px/1.6 var(--sans); color: var(--ip-body); }
+.ip-compare caption { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.ip-compare th, .ip-compare td { padding: 16px 20px 16px 0; text-align: left; vertical-align: top; border-bottom: 1px solid var(--ip-hair); }
+.ip-compare thead th { font: 600 13px/1.3 var(--ip-code); color: var(--ip-dim); }
+.ip-compare thead th:last-child, .ip-compare tbody td:last-child { color: var(--ip-ink); }
+.ip-compare tbody th { font: 600 14.5px/1.5 var(--ip-mono); color: var(--ip-ink); width: 18%; }
+.ip-terms { max-width: 900px; margin: 0; display: grid; gap: 4px; }
+.ip-terms > div { display: grid; grid-template-columns: minmax(150px, 1fr) 3fr; gap: 8px 32px; padding: 18px 0; border-bottom: 1px solid var(--ip-hair); }
+.ip-terms dt { font: 600 clamp(1rem, 1.6vw, 1.25rem)/1.3 var(--ip-mono); letter-spacing: -0.02em; color: var(--ip-ink); }
+.ip-terms dd { margin: 0; max-width: 62ch; font: 400 15.5px/1.7 var(--sans); color: var(--ip-body); }
+@media (max-width: 640px) { .ip-terms > div { grid-template-columns: 1fr; } }
+.ip-next { max-width: 70ch; margin: 40px 0 0; font: 400 15.5px/1.8 var(--sans); color: var(--ip-body); }
+.ip-next a { color: var(--ip-ink); text-decoration: underline; text-underline-offset: 4px; }

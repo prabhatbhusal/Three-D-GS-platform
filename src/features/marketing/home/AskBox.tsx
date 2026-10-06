@@ -15,7 +15,7 @@ export function AskBox() {
     location.href = `mailto:${COMPANY.email}?subject=${encodeURIComponent('A capture enquiry from RCAAS.tech')}&body=${encodeURIComponent(body)}`;
   };
   return (
-    <section className="hp-ask" aria-labelledby="hp-ask-title">
+    <section className="hp-ask" aria-labelledby="hp-ask-title" data-chapter="Ask">
       <h2 id="hp-ask-title">What do you want to scan?</h2>
       <p>A lobby, a campus, a temple courtyard, a bridge. Say what it is and where, and we will reply within a working day.</p>
       <form className="hp-ask-form" onSubmit={send}>

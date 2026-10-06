@@ -50,11 +50,13 @@ interface EnquiryPanelProps {
   /** The project's WhatsApp number: a chat button above the form. Many
    *  visitors would rather message than fill one in. */
   whatsapp?: string | null;
+  /** False when the project takes no enquiries (its features): only the WhatsApp chat, if it has one. */
+  enquiries?: boolean;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
 
-export function EnquiryPanel({ sceneId, sceneName, propertyId, label, hotspot, whatsapp, open: openProp, onOpenChange }: EnquiryPanelProps) {
+export function EnquiryPanel({ sceneId, sceneName, propertyId, label, hotspot, whatsapp, enquiries = true, open: openProp, onOpenChange }: EnquiryPanelProps) {
   const t = useT();
   // Asked from inside a space, the enquiry is about that space unless they
   // say otherwise: it's chosen for them. (The project page's form isn't.)
@@ -91,6 +93,18 @@ export function EnquiryPanel({ sceneId, sceneName, propertyId, label, hotspot, w
       setError(err instanceof Error ? err.message : t('That didn’t go through — check your connection and try again.'));
     }
   };
+
+  if (!enquiries) {
+    return whatsapp ? (
+      <a className="vw-cta-btn" target="_blank" rel="noopener noreferrer" onClick={() => countIntent(sceneId, 'whatsapp')}
+        href={whatsappHref(whatsapp, sceneId !== 'hub' && sceneName
+          ? t('Hi! I’m looking at {place} in your virtual tour.', { place: sceneName })
+          : t('Hi! I found you through your virtual tour.'))}>
+        <Chat />
+        <span>{t('Chat on WhatsApp')}</span>
+      </a>
+    ) : null;
+  }
 
   return (
     <>

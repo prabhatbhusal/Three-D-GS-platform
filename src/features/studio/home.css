@@ -1,0 +1,95 @@
+/* A project's home (/studio/<project>, app/studio/[property]/page.tsx).
+ * The spaces' pictures are the one big thing; everything else is quiet type
+ * on the studio's panels, in the studio's tokens (editor.css). */
+
+.ph .pl-head h1 { margin: 0; }
+.ph .ph-h { margin: 0 0 12px; font: 600 15px/1.2 var(--sans); color: var(--ed-text); }
+.ph .pl-body > .ph-h { margin-top: 32px; }
+
+/* Needs you: one line each, a link to where it's dealt with. */
+.ph-needs { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 6px; }
+.ph-needs a {
+  display: block; padding: 10px 14px; line-height: 1.45;
+  border-left: 2px solid var(--ed-signal); border-radius: var(--ed-r-sm);
+  background: var(--ed-panel); color: var(--ed-text-dim); text-decoration: none;
+}
+.ph-needs a:hover { color: var(--ed-text); background: var(--ed-raise); }
+.ph-needs b { color: var(--ed-text); font-weight: 600; }
+
+/* Spaces: a picture each, its state on it. */
+.ph-spaces { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.ph-space {
+  display: flex; flex-direction: column; min-width: 0; overflow: hidden;
+  background: var(--ed-panel); border: 1px solid var(--ed-line); border-radius: 12px;
+}
+.ph-pic { position: relative; display: block; aspect-ratio: 16 / 10; background: var(--ed-well); }
+.ph-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* no picture until it's published: the site's dot grid, not an empty box */
+.ph-pic-none {
+  position: absolute; inset: 0;
+  background-image: radial-gradient(var(--ed-line-lit) 1px, transparent 1.4px);
+  background-size: 12px 12px; opacity: 0.7;
+}
+.ph-state {
+  position: absolute; left: 10px; top: 10px; padding: 4px 9px; border-radius: 999px;
+  font: 600 10.5px/1 var(--sans); color: var(--ed-text-dim);
+  background: color-mix(in srgb, var(--ed-bg) 82%, transparent); border: 1px solid var(--ed-line);
+}
+.ph-state.is-live { color: var(--ed-signal-ink); background: var(--ed-signal); border-color: var(--ed-signal); }
+.ph-space-txt { display: grid; gap: 6px; padding: 12px 14px 14px; }
+.ph-space-name { color: var(--ed-text); font-weight: 600; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ph-space-name:hover { text-decoration: underline; }
+.ph-ready { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ed-text-dim); cursor: help; }
+.ph-ticks { display: inline-flex; gap: 3px; }
+.ph-ticks i { width: 14px; height: 4px; border-radius: 2px; background: var(--ed-line-lit); }
+.ph-ticks i.is-on { background: var(--ed-text); }
+.ph-links { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-top: 4px; }
+.ph-space .ph-links a { color: var(--ed-text-dim); font-size: 12.5px; }
+.ph-space .ph-links a:hover { color: var(--ed-text); }
+
+.ph-space-add {
+  appearance: none; cursor: pointer; justify-content: center; align-items: center; gap: 6px;
+  min-height: 220px; padding: 20px; text-align: center; font: inherit; color: var(--ed-text);
+  background: transparent; border: 1px dashed var(--ed-line-lit);
+}
+.ph-space-add:hover { background: var(--ed-raise); border-style: solid; }
+.ph-add-mark { font-size: 22px; line-height: 1; }
+
+/* Below the spaces: two columns of quiet panels. */
+.ph-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 32px; align-items: start; }
+.ph-col { display: grid; gap: 14px; }
+.ph-block { padding: 18px; background: var(--ed-panel); border: 1px solid var(--ed-line); border-radius: 12px; }
+.ph-block > p { margin: 0 0 8px; }
+.ph-figs { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 14px; margin: 0 0 10px; }
+.ph-figs dt { font-size: 12px; color: var(--ed-text-dim); }
+.ph-figs dd { margin: 4px 0 0; font: 600 24px/1 var(--sans); font-variant-numeric: tabular-nums; color: var(--ed-text); }
+
+.ph-log { list-style: none; margin: 0 0 4px; padding: 0; display: grid; gap: 10px; }
+.ph-log li { color: var(--ed-text-dim); line-height: 1.4; }
+.ph-log b { color: var(--ed-text); font-weight: 600; }
+.ph-log time { display: block; font-size: 11.5px; }
+
+/* What this project uses: a switch per feature. */
+.ph-features { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 14px; }
+.ph-features li { display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; }
+.ph-features li > span { display: grid; gap: 2px; }
+.ph-features .pl-sub { margin: 0; font-size: 12.5px; }
+.ph-switch {
+  appearance: none; flex: none; position: relative; width: 38px; height: 22px; margin-top: 2px; padding: 0;
+  border-radius: 999px; border: 1px solid var(--ed-line-lit); background: var(--ed-well); cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.ph-switch > span {
+  position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+  background: var(--ed-text-dim); transition: transform 0.15s, background 0.15s;
+}
+.ph-switch[aria-checked='true'] { background: var(--ed-signal); border-color: var(--ed-signal); }
+.ph-switch[aria-checked='true'] > span { transform: translateX(16px); background: var(--ed-signal-ink); }
+.ph-switch:disabled { opacity: 0.5; cursor: default; }
+
+@media (max-width: 760px) {
+  .ph-cols { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ph-switch, .ph-switch > span { transition: none; }
+}

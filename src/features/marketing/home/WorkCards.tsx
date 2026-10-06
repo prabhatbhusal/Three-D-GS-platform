@@ -7,7 +7,7 @@ import { STATUS, WORK, workImg } from '../siteContent';
 
 export function WorkCards() {
   return (
-    <section className="hp-block" aria-labelledby="hp-work-title">
+    <section className="hp-block" aria-labelledby="hp-work-title" data-chapter="Places">
       <header className="hp-block-head">
         <h2 id="hp-work-title">Places we have walked.</h2>
         <p>Measured on site in Kathmandu, Lalitpur and Butwal, not quoted from a brochure.</p>

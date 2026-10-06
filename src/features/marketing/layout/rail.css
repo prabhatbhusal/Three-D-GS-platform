@@ -1,0 +1,78 @@
+/* The chapter rail (layout/ChapterRail.tsx), 2026-10-06: on the marketing pages
+ * (.site) and on clients' websites (.ws), each of which sets the tokens it reads:
+ * --text, --dim, --line, --bg, and the rail's own --rail-font, --rail-ease. */
+.rail { --rail-font: var(--ip-code, ui-monospace, monospace); --rail-ease: var(--ip-ease, cubic-bezier(0.22, 1, 0.36, 1)); }
+/* After lightweight.info (layout/ChapterRail.tsx): numbers down the left
+ * edge on a line that fills as you read; only the part you're in says its
+ * name, so it never sits on the page's words; pointing at the rail shows
+ * every name on a frosted strip. Wide screens only. */
+.rail {
+  position: fixed;
+  left: 14px;
+  top: 50%;
+  z-index: 8;
+  translate: 0 -50%;
+  display: none;
+}
+@media (min-width: 1200px) and (hover: hover) { .rail { display: block; } }
+.rail ol {
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 6px 10px 6px 14px;
+  display: grid;
+  gap: 4px;
+  border-radius: 14px;
+  /* a faint frosted strip, so the numbers read over whatever passes under them (the places strip) */
+  background: color-mix(in srgb, var(--bg) 62%, transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  transition: background 0.35s var(--rail-ease), box-shadow 0.35s var(--rail-ease);
+}
+/* the line, and its filled part */
+.rail ol::before,
+.rail ol::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 12px;
+  bottom: 12px;
+  width: 1px;
+  background: var(--line);
+}
+.rail ol::after { background: var(--text); transform-origin: top; transform: scaleY(var(--rail-p, 0)); }
+.rail button {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 5px 0;
+  border: 0;
+  background: none;
+  color: var(--dim);
+  cursor: pointer;
+  font: 400 11px/1 var(--rail-font);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.rail-n { font-variant-numeric: tabular-nums; transition: color 0.3s; }
+.rail-t {
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-width 0.5s var(--rail-ease), opacity 0.3s;
+}
+.rail li.is-past .rail-n { color: var(--text); opacity: 0.55; }
+.rail li.is-here .rail-n,
+.rail li.is-here .rail-t { color: var(--text); }
+.rail li.is-here .rail-t { max-width: 160px; opacity: 1; }
+.rail:hover ol {
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  box-shadow: inset 0 0 0 1px var(--line);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.rail:hover .rail-t { max-width: 160px; opacity: 1; }
+.rail button:hover { color: var(--text); }
+.rail button:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; border-radius: 4px; }
+.rail button:focus-visible .rail-t { max-width: 160px; opacity: 1; }

@@ -75,12 +75,13 @@ export const visibleScenes = () =>
   SCENES.filter((s) => (!tourIds || tourIds.has(s.id)) && (!propertyScope || s.propertyId === propertyScope));
 
 /** The studio works inside one client's property: only its spaces are listed,
- *  and the first of them is what the renderer loads. Returns false when the
- *  property has no spaces yet, so the page can offer an upload instead of
- *  opening some other client's model. */
-export function scopeToProperty(propertyId: string): boolean {
+ *  and the renderer loads `prefer` if it is one of them, else the first.
+ *  Returns false when the property has no spaces yet, so the page can offer
+ *  an upload instead of opening some other client's model. */
+export function scopeToProperty(propertyId: string, prefer?: string | null): boolean {
   propertyScope = propertyId;
-  const first = visibleScenes()[0];
+  const list = visibleScenes();
+  const first = list.find((s) => s.id === prefer) ?? list[0];
   startScene = first?.id ?? null;
   return !!first;
 }

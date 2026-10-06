@@ -14,16 +14,19 @@ import { SECTORS, SERVICES, STATUS, WORK, serviceImg, workImg } from '../siteCon
 export type DropKey = 'services' | 'work';
 
 const EASE = [0.22, 1, 0.36, 1] as const;
+// The panel is opaque from the first frame and unrolls downwards (a curtain, its
+// scan line leading: inner.css .drop::after); it never fades, or the page
+// would show through it. Its items rise in after the curtain has passed them.
 const panel: Variants = {
-  shut: { opacity: 0, y: -10, clipPath: 'inset(0% 0% 100% 0% round 28px)', transition: { duration: 0.28, ease: EASE } },
+  shut: { y: -6, clipPath: 'inset(0% 0% 100% 0% round 24px)', transition: { duration: 0.3, ease: EASE } },
   open: {
-    opacity: 1, y: 0, clipPath: 'inset(0% 0% 0% 0% round 28px)',
-    transition: { duration: 0.55, ease: EASE, staggerChildren: 0.035, delayChildren: 0.08 }
+    y: 0, clipPath: 'inset(0% 0% 0% 0% round 24px)',
+    transition: { duration: 0.5, ease: EASE, staggerChildren: 0.04, delayChildren: 0.12 }
   }
 };
 const item: Variants = {
-  shut: { opacity: 0, y: 12, filter: 'blur(6px)' },
-  open: { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.5, ease: EASE } }
+  shut: { opacity: 0, y: 14 },
+  open: { opacity: 1, y: 0, transition: { duration: 0.45, ease: EASE } }
 };
 
 export function NavDrop({ which, id, onEnter, onLeave, onPick }: {

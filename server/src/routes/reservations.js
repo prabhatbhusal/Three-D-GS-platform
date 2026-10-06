@@ -32,7 +32,7 @@ import { getProperty, getPublishedScene } from '../store.js';
 import { requireEditorSession } from '../middleware/auth.js';
 import { visibleProject, staffProject } from './properties.js';
 import { readSite, liveBooking, liveStays, publicStays, liveEvents, publicEvents, cleanSite, reviewed } from './sites.js';
-import { sendMail, teamRecipients } from '../mailer.js';
+import { sendMail, teamRecipients, venueMail } from '../mailer.js';
 import { record } from '../activity.js';
 import {
   LIVE, STATUSES, atOutlet, availability, bestTable, bookableDates, readReservations, newReservation, nowIn, slotsFor, tableFree, withReservations
@@ -68,6 +68,23 @@ async function eventsOf(pid) {
   const cfg = p ? liveEvents((await readSite(p.id))?.published) : null;
   return cfg ? { p, cfg } : null;
 }
+
+// A project that switched reservations off (store.js FEATURES) takes none,
+// whatever its website or hotspots still say: the reads every tour makes
+// answer "none" as usual, and everything else a guest could send is refused.
+// The studio's own list and status changes still work, for what came before.
+const BOOKING_PATH = /^\/(booking|availability|stays|events|requests|waitlist|preview\/(availability|stays|events))(\/|$)/;
+const NONE = { '/booking': { booking: null, places: [] }, '/stays': { stays: null }, '/events': { events: null } };
+reservationsRouter.use('/:id', (req, res, next) => {
+  // this router shares /api/sites with the website's: only booking paths are gated
+  const guest = BOOKING_PATH.test(req.path) || (req.path === '/reservations' && req.method === 'POST');
+  if (!guest) return next();
+  getProperty(req.params.id).then((p) => {
+    if (!p || p.features.reservations) return next();
+    if (req.method === 'GET' && NONE[req.path]) return res.json(NONE[req.path]);
+    res.status(404).json({ error: 'This place doesn’t take bookings online. Send an enquiry instead.' });
+  }, next);
+});
 
 // Every tour asks whether its project takes table bookings, so "no" is an
 // ordinary answer here, not a 404 that each visitor's browser logs as an error.
@@ -484,7 +501,7 @@ function tellWaiter(p, w) {
   const text = `${venue}: good news, ${what} may now be free. Book it before someone else does: ${siteLink(p.id)}#${w.of === 'room' ? 'stay' : `reserve${w.outlet ? `-${w.outlet}` : ''}`}`;
   Promise.all([
     textGuest(w.phone, text),
-    w.email ? sendMail({ to: [w.email], subject: `A place may be free at ${venue}`, text: `Hello ${w.name},\n\n${text}\n\n${venue}` }) : null
+    w.email ? sendMail({ to: [w.email], subject: `A place may be free at ${venue}`, text: `Hello ${w.name},\n\n${text}\n\n${venue}`, ...venueMail(p) }) : null
   ]).then(([texted, mailed]) => withReservations(p.id, (list) => {
     const x = list.find((y) => y.id === w.id);
     if (x) x.noticeDelivery = { ...texted, ...(mailed ? { email: mailed } : {}), at: new Date().toISOString() };
@@ -610,7 +627,7 @@ reservationsRouter.patch('/:id/reservations/:rid', requireEditorSession, wrap(as
     : (status === 'confirmed'
       ? `${venue}: your table for ${r.party} on ${shortDay(r.date)} at ${r.time} is confirmed. See you then.`
       : `${venue}: sorry, we can’t seat you on ${shortDay(r.date)} at ${r.time}. Another time may be free: ${siteLink(p.id)}#reserve${r.outlet ? `-${r.outlet}` : ""}`);
-  Promise.all([textGuest(r.phone, short), r.email ? sendMail({ to: [r.email], ...mail, replyTo: undefined }) : null])
+  Promise.all([textGuest(r.phone, short), r.email ? sendMail({ to: [r.email], ...mail, ...venueMail(p) }) : null])
     .then(([texted, mailed]) => withReservations(p.id, (list) => {
       const x = list.find((y) => y.id === r.id);
       if (x) x.guestDelivery = { ...(mailed ?? { sent: false, reason: 'no email address' }), ...texted, at: new Date().toISOString() };

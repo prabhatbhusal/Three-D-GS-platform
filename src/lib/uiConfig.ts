@@ -57,9 +57,13 @@ const FONTS: Record<BrandFont, string> = {
 /** A project's branding (its theme, else its title and the defaults) onto
  *  the tour. Called by /tour for the project it opens, and by the studio for
  *  the project it edits, so Preview shows what visitors will. */
-export function applyTheme(theme: ProjectTheme | undefined, fallbackBrand: string, whatsapp: string | null = null) {
+export function applyTheme(theme: ProjectTheme | undefined, fallbackBrand: string, whatsapp: string | null = null,
+  features?: { enquiries?: boolean; reservations?: boolean }) {
   setUiConfig({
     whatsapp,
+    // a project that switched them off (its features): no enquiry form, no Book now on its hotspots
+    enquiries: features?.enquiries !== false,
+    bookings: features?.reservations !== false,
     brand: theme?.brand || fallbackBrand,
     // without its own colour, a tour is monochrome like the site (2026-10-05; it was gold)
     accent: theme?.accent || '#ededed',

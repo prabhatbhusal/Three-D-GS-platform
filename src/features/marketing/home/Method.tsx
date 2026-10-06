@@ -1,23 +1,22 @@
 'use client';
 /**
- * "From one walk to a live tour" (2026-10-05, after weevolveit.com's method,
- * our own): right under the hero, the dark page breaks into halftone dots
- * that shrink away to light paper, then the section pins and one cloud of
+ * "From one walk to a live tour" (2026-10-05): right under the hero, the dark page breaks into scan lines
+ * that thin away to light paper, then the section pins and one cloud of
  * points re-forms for each step as you scroll:
- *   the globe → Capture, a scanned room → Process, the room as Gaussian
+ *   a scanner's sweep → Capture, a scanned room → Process, the room as Gaussian
  *   splats → Author, a floor plan with hotspot pins → Publish, a phone.
  * Every shape has the same number of points, so each flows into the next
  * (three.js, one Points mesh, the shapes as attributes, mixed in the shader
  * with a little stagger and lift so the cloud pours rather than snaps). The
  * words for each step slide in beside it; ticks along the foot show where you
- * are. Reduced motion: no pin, the steps stacked, the globe still.
+ * are. Reduced motion: no pin, the steps stacked, the sweep still.
  * Styles: home.css .hp-mm.
  */
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { Button } from '../../../components/ui/Button';
 import { STEPS } from '../siteContent';
-import { withBase } from '../../../lib/basePath';
+import { cssVar, onTheme } from '../siteTheme';
 
 const N = 4200;
 const INK = '#141414';
@@ -42,19 +41,17 @@ function turn(p: Float32Array, rx: number, ry: number) {
   return p;
 }
 
-/** The globe: the hero's land points (lat/lon ×100 as Int16), or an even sphere without them. */
-function globe(ll: Int16Array | null) {
-  const p = new Float32Array(N * 3), R = 1.75, rad = Math.PI / 180;
-  const count = ll ? ll.length / 2 : 0;
+/** The opening: a scanner's sweep: rings of returns on the ground round the scanner, a post at the centre. */
+function sweep() {
+  const p = new Float32Array(N * 3), r = seeded(3), rings = 14;
   for (let i = 0; i < N; i++) {
-    let lat: number, lon: number;
-    if (count) { const j = Math.floor((i * count) / N); lat = ll![j * 2] / 100; lon = ll![j * 2 + 1] / 100; }
-    else { lat = Math.asin(1 - (2 * (i + 0.5)) / N) / rad; lon = (i * 137.508) % 360; }
-    p[i * 3] = R * Math.cos(lat * rad) * Math.cos(lon * rad);
-    p[i * 3 + 1] = R * Math.sin(lat * rad);
-    p[i * 3 + 2] = -R * Math.cos(lat * rad) * Math.sin(lon * rad);
+    const post = i < 260;
+    const ringNo = 1 + (i % rings), a = r() * Math.PI * 2, rad = 0.25 + ringNo * 0.14 + (r() - 0.5) * 0.02;
+    p[i * 3] = post ? (r() - 0.5) * 0.05 : Math.cos(a) * rad;
+    p[i * 3 + 1] = post ? r() * 1.1 - 0.9 : -0.9 + Math.sin(a * 3 + ringNo) * 0.03 * (ringNo / rings);
+    p[i * 3 + 2] = post ? (r() - 0.5) * 0.05 : Math.sin(a) * rad * 0.92;
   }
-  return p;
+  return turn(p, 0.5, 0);
 }
 
 /** Capture: a room as LiDAR sees it: floor, two walls with a doorway, a counter, a table. */
@@ -152,7 +149,7 @@ const FRAG = `
   uniform vec3 uColor; varying float vA;
   void main() { float d = length(gl_PointCoord - 0.5); if (d > 0.5) discard; gl_FragColor = vec4(uColor, vA * smoothstep(0.5, 0.3, d)); }`;
 
-/** The halftone edge: the dark page as dots that shrink away to paper (or grow back, `flip`) as it scrolls past. */
+/** The scan-line edge: the dark page as horizontal lines that thin away to paper (or thicken back, `flip`) as it scrolls past. */
 function Halftone({ flip = false }: { flip?: boolean }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   useEffect(() => {
@@ -161,6 +158,8 @@ function Halftone({ flip = false }: { flip?: boolean }) {
     const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const cell = 22;
     let raf = 0;
+    // the page's ground (home.css --hp-ground): charcoal in the dark theme, silver in the light
+    let ground = '#161616';
     const draw = () => {
       raf = 0;
       const dpr = Math.min(2, devicePixelRatio || 1), w = cv.clientWidth, h = cv.clientHeight;
@@ -170,24 +169,22 @@ function Halftone({ flip = false }: { flip?: boolean }) {
       const b = cv.getBoundingClientRect();
       // 0 while the edge is below the screen, 1 once it has passed the top
       const p = still ? 0.5 : Math.min(1, Math.max(0, (innerHeight - b.top) / (innerHeight + b.height)));
-      ctx.fillStyle = '#161616';
-      for (let y = cell / 2; y < h + cell; y += cell) {
+      ctx.fillStyle = ground;
+      for (let y = 0; y < h + cell; y += cell) {
         const v = flip ? 1 - y / h : y / h;
-        for (let x = (Math.floor(y / cell) % 2) * (cell / 2); x < w + cell; x += cell) {
-          const wobble = Math.sin(x * 0.013 + y * 0.004) * 0.12;
-          const cover = Math.min(1, Math.max(0, 1.15 - v * 1.6 - (p - 0.5) * (flip ? -0.6 : 0.6) + wobble));
-          if (cover <= 0.02) continue;
-          ctx.beginPath();
-          ctx.arc(x, y, cover * cell * 0.74, 0, Math.PI * 2);
-          ctx.fill();
-        }
+        const wobble = Math.sin(y * 0.011) * 0.1;
+        const cover = Math.min(1, Math.max(0, 1.15 - v * 1.6 - (p - 0.5) * (flip ? -0.6 : 0.6) + wobble));
+        if (cover <= 0.02) continue;
+        // a bar per row, thinner the less it covers, broken into dashes the way a scan's rows are
+        const bar = cover * cell * 0.92, gap = 18 + ((y / cell) % 5) * 9;
+        for (let x = ((y / cell) * 37) % gap - gap; x < w; x += gap) ctx.fillRect(x, y + (cell - bar) / 2, gap * (0.35 + cover * 0.65), bar);
       }
     };
     const onScroll = () => { if (!raf) raf = requestAnimationFrame(draw); };
-    draw();
+    const offTheme = onTheme(() => { ground = cssVar(cv.closest('.hp') ?? cv, '--hp-ground', '#161616'); draw(); });
     if (!still) scroller?.addEventListener('scroll', onScroll, { passive: true });
     addEventListener('resize', onScroll);
-    return () => { cancelAnimationFrame(raf); scroller?.removeEventListener('scroll', onScroll); removeEventListener('resize', onScroll); };
+    return () => { offTheme(); cancelAnimationFrame(raf); scroller?.removeEventListener('scroll', onScroll); removeEventListener('resize', onScroll); };
   }, [flip]);
   return <canvas ref={ref} className={flip ? 'hp-mm-tone is-flip' : 'hp-mm-tone'} aria-hidden />;
 }
@@ -218,7 +215,7 @@ export function Method() {
     for (let i = 0; i < N; i++) rnd[i] = r();
     geo.setAttribute('aRnd', new THREE.BufferAttribute(rnd, 1));
     const roomPts = room();
-    const shapes = [globe(null), roomPts, splats(roomPts), plan(), phone(roomPts)];
+    const shapes = [sweep(), roomPts, splats(roomPts), plan(), phone(roomPts)];
     shapes.forEach((s, i) => geo.setAttribute(`a${i}`, new THREE.BufferAttribute(s, 3)));
     geo.setAttribute('position', new THREE.BufferAttribute(shapes[0], 3));
     const mat = new THREE.ShaderMaterial({
@@ -228,10 +225,6 @@ export function Method() {
     const points = new THREE.Points(geo, mat);
     points.frustumCulled = false;
     group.add(points);
-    // the globe in the hero's own land shapes, once they arrive
-    fetch(withBase('/media/globe-land.bin')).then((res) => res.arrayBuffer()).then((buf) => {
-      (geo.getAttribute('a0') as THREE.BufferAttribute).copyArray(globe(new Int16Array(buf))).needsUpdate = true;
-    }).catch(() => {});
 
     const size = () => {
       const w = cv.clientWidth, h = cv.clientHeight;
@@ -256,7 +249,7 @@ export function Method() {
       if (Math.abs(target - s) < 0.0005) s = target;
       const t = (now - t0) / 1000;
       mat.uniforms.uS.value = s;
-      const spin = Math.max(0, 1 - s * 1.5); // the globe turns; the later shapes only sway
+      const spin = Math.max(0, 1 - s * 1.5); // the sweep turns; the later shapes only sway
       group.rotation.y = spin * t * 0.25 + (1 - spin) * Math.sin(t * 0.35) * 0.3;
       group.rotation.x = Math.sin(t * 0.25) * 0.05;
       renderer.render(scene, camera);
@@ -272,10 +265,16 @@ export function Method() {
     io.observe(tr);
     const ro = new ResizeObserver(() => { size(); read(); frame(performance.now()); });
     ro.observe(cv);
+    // the cloud in the section's ink (home.css --mm-ink): dark on paper, light on the light theme's dark band
+    const offTheme = onTheme(() => {
+      (mat.uniforms.uColor.value as THREE.Color).set(cssVar(tr.closest('.hp-mm') ?? tr, '--mm-ink', INK));
+      if (!raf) frame(performance.now());
+    });
     read();
     frame(performance.now());
     scroller?.addEventListener('scroll', onScroll, { passive: true });
     return () => {
+      offTheme();
       cancelAnimationFrame(raf);
       io.disconnect(); ro.disconnect();
       scroller?.removeEventListener('scroll', onScroll);
@@ -284,7 +283,7 @@ export function Method() {
   }, []);
 
   return (
-    <section className="hp-mm" aria-labelledby="hp-mm-title">
+    <section className="hp-mm" aria-labelledby="hp-mm-title" data-chapter="Method">
       <Halftone />
       <header className="hp-mm-head">
         <p className="hp-mm-kicker">rcaas.tech / method</p>

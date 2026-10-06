@@ -1,4 +1,3 @@
-import type { Metadata } from 'next';
 import { SitePage } from '../../../features/marketing/layout/SitePage';
 import { PageHead } from '../../../components/ui/PageHead';
 import { Section } from '../../../components/ui/Section';
@@ -6,12 +5,11 @@ import { Icon } from '../../../components/ui/Icon';
 import { MediaFill } from '../../../features/marketing/SiteMotion';
 import { media } from '../../../features/marketing/media';
 import { KIT, STATUS, WORK } from '../../../features/marketing/siteContent';
+import { pageMeta } from '../../../lib/shareMeta';
+import { BreadcrumbJsonLd } from '../../../features/marketing/JsonLd';
 
-export const metadata: Metadata = {
-  alternates: { canonical: '/about' },
-  title: 'About',
-  description: 'RCAAS.tech captures hotels, campuses, heritage sites and infrastructure with LiDAR in Kathmandu, as an authorised XGRIDS partner in Nepal.'
-};
+export const metadata = pageMeta('/about', 'About RCAAS.tech: LiDAR reality capture in Kathmandu',
+  'RCAAS.tech captures hotels, campuses, heritage sites and infrastructure with LiDAR in Kathmandu, as an authorised XGRIDS partner in Nepal.');
 
 const MISSION = 'Transforming engineering with 3D geospatial solutions that empower industries, drive innovation, and create a sustainable future.';
 
@@ -23,6 +21,7 @@ export default function AboutPage() {
   const film = media('about');
   return (
     <SitePage>
+      <BreadcrumbJsonLd name="About" path="/about" />
       <PageHead label="about" facts={['RCAAS.tech', 'Kathmandu, Nepal', 'Authorised XGRIDS partner']}
         lede="RCAAS.tech is a reality-capture company in Kageshwari-Manohara, Kathmandu. We have documented monuments, infrastructure and campuses with survey-grade LiDAR, and now put that precision to work selling rooms, halls and seats.">
         Built by engineers, for sales.

@@ -350,7 +350,7 @@ export function Viewer({ state, isTouch, autoStart = false, tour = false }: View
               places={tables?.places} onReserve={tables ? (id, at) => { setOpenHs(null); reserve(id, at); } : undefined}
               rooms={stays?.stays.rooms} onBookRoom={stays ? (id) => { setOpenHs(null); bookRoom(id); } : undefined}
               halls={events?.events.halls} onBookHall={events ? (id) => { setOpenHs(null); setHallPick(id); setSheet('event'); } : undefined}
-              onBookHere={pid ? (id) => { setOpenHs(null); setHereHs(id); setSheet('here'); } : undefined}
+              onBookHere={pid && ui.bookings !== false ? (id) => { setOpenHs(null); setHereHs(id); setSheet('here'); } : undefined}
             />
           )}
           {!isTouch && controllable && <div className="vw-cross" />}
@@ -365,7 +365,7 @@ export function Viewer({ state, isTouch, autoStart = false, tour = false }: View
        *  App.tsx sets from features/scene/scenes.ts before the SDK even starts loading. */}
       {state?.activeId && (
         <EnquiryPanel sceneId={state.activeId} sceneName={state.activeName}
-          hotspot={lastHs?.sceneId === state.activeId ? lastHs : null} whatsapp={ui.whatsapp}
+          hotspot={lastHs?.sceneId === state.activeId ? lastHs : null} whatsapp={ui.whatsapp} enquiries={ui.enquiries !== false}
           open={sheet === 'ask'} onOpenChange={(o) => setSheet(o ? 'ask' : null)} />
       )}
     </div>

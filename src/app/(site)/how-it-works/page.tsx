@@ -1,16 +1,13 @@
-import type { Metadata } from 'next';
 import { SitePage } from '../../../features/marketing/layout/SitePage';
 import { PageHead } from '../../../components/ui/PageHead';
 import { Section } from '../../../components/ui/Section';
 import { Icon } from '../../../components/ui/Icon';
 import { FAQ, STEPS } from '../../../features/marketing/siteContent';
-import { FaqJsonLd } from '../../../features/marketing/JsonLd';
+import { BreadcrumbJsonLd, FaqJsonLd, HowToJsonLd } from '../../../features/marketing/JsonLd';
+import { pageMeta } from '../../../lib/shareMeta';
 
-export const metadata: Metadata = {
-  alternates: { canonical: '/how-it-works' },
-  title: 'How it works',
-  description: 'Capture, process, author, publish: how a LiDAR walk-through becomes a live 3D tour on your website, and answers to common questions.'
-};
+export const metadata = pageMeta('/how-it-works', 'How a LiDAR scan becomes a 3D tour',
+  'Capture, process, author, publish: how a LiDAR walk-through becomes a live 3D tour on your website, and answers to common questions.');
 
 // What a tour is not, each crossed out as it scrolls into view.
 const NOTS = [
@@ -25,6 +22,8 @@ const NOTS = [
 export default function HowPage() {
   return (
     <SitePage>
+      <BreadcrumbJsonLd name="How it works" path="/how-it-works" />
+      <HowToJsonLd />
       <PageHead center label="how it works" facts={['1 walk on site', 'Days, not months', 'One link to share']}
         lede="Four steps from the first walk-through to a tour on your own website.">
         From a walk&#8209;through to your website.

@@ -188,7 +188,10 @@
 .rb-room { position: relative; display: grid; border: 1px solid var(--line); border-radius: 18px; background: var(--card); overflow: hidden; transition: border-color 0.3s, box-shadow 0.3s, opacity 0.3s, filter 0.3s; }
 .rb-room-pick { display: grid; align-content: start; padding: 0; border: 0; background: none; text-align: left; }
 .rb-room img, .rb-room-ph { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
-.rb-room-ph { background: linear-gradient(135deg, color-mix(in srgb, var(--ws-accent) 25%, var(--card)), var(--card)); }
+/* (2026-10-06) no photo: no empty box standing in for one; the accent along the card's top instead */
+.rb-room-ph { display: none; }
+.rb-room:has(.rb-room-ph) { border-top: 3px solid var(--ws-accent); }
+.rb-room:has(.rb-room-ph) .rb-room-txt { padding-top: 20px; }
 .rb-room-txt { display: grid; gap: 4px; padding: 14px 16px 16px; }
 .rb-room-txt > b { font: 400 22px/1.2 var(--ws-serif); }
 .rb-room-txt .tb-dim { font-size: 14px; }

@@ -25,16 +25,16 @@ const FACES: Record<BrandFont, string> = {
   classic: "'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', serif"
 };
 
-type Hub = { title: string; theme: ProjectTheme; whatsapp: string | null; spaces: GalleryItem[] };
+type Hub = { title: string; theme: ProjectTheme; whatsapp: string | null; enquiries: boolean; spaces: GalleryItem[] };
 
 async function load(id: string): Promise<Hub | null> {
   const opts = { cache: 'no-store' } as const;
   try {
     const t = await fetch(`${API_BASE_URL}/api/properties/${encodeURIComponent(id)}/theme`, opts);
     if (!t.ok) return null;
-    const { title, theme, whatsapp } = await t.json();
+    const { title, theme, whatsapp, features } = await t.json();
     const g = await fetch(`${API_BASE_URL}/api/gallery?property=${encodeURIComponent(id)}`, opts);
-    return { title, theme: theme ?? {}, whatsapp: whatsapp ?? null, spaces: g.ok ? withoutNightVersions(await g.json()) : [] };
+    return { title, theme: theme ?? {}, whatsapp: whatsapp ?? null, enquiries: features?.enquiries !== false, spaces: g.ok ? withoutNightVersions(await g.json()) : [] };
   } catch {
     return null;
   }
@@ -123,7 +123,7 @@ export default async function HubPage({ params }: { params: Promise<{ property: 
       </footer>
 
       {/* the enquiry form, working with no 3D on the page at all */}
-      <EnquiryPanel sceneId="hub" sceneName={`${name} (project page)`} propertyId={property} label={`Ask ${name}`} whatsapp={hub.whatsapp} />
+      <EnquiryPanel sceneId="hub" sceneName={`${name} (project page)`} propertyId={property} label={`Ask ${name}`} whatsapp={hub.whatsapp} enquiries={hub.enquiries} />
     </div>
   );
 }

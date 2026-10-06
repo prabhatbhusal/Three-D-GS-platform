@@ -1,5 +1,5 @@
 import { SITE_URL } from '../../lib/shareMeta';
-import { COMPANY, FAQ, SERVICES, STEPS } from '../../features/marketing/siteContent';
+import { COMPANY, FAQ, GUIDE, SERVICES, STEPS } from '../../features/marketing/siteContent';
 
 /** /llms.txt (llmstxt.org): the site in plain Markdown for AI assistants and
  *  answer engines, built from the same content as the pages so it never drifts. */
@@ -10,6 +10,10 @@ export function GET() {
   const body = `# ${COMPANY.brand}
 
 > ${COMPANY.summary} Based in ${COMPANY.city}, Nepal, an authorised XGRIDS partner.
+
+${GUIDE.answer}
+
+A longer version of everything here: ${SITE_URL}/llms-full.txt
 
 ## Services
 
@@ -26,6 +30,7 @@ ${FAQ.map((f) => `### ${f.q}\n\n${f.a}`).join('\n\n')}
 ## Pages
 
 ${[
+    page(GUIDE.path, GUIDE.title, 'the definition, how it compares with 360° tours and meshes, a glossary and common questions'),
     page('/', 'Home', 'what a walkable 3D tour does for a business'),
     page('/services', 'Services', 'tours, point clouds, drawings, heritage and infrastructure records'),
     page('/how-it-works', 'How it works', 'capture, process, author, publish, and the FAQ'),

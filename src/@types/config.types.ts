@@ -36,7 +36,13 @@ export interface UiConfig {
   font?: BrandFont;
   /** The project's WhatsApp number (applyTheme): the enquiry sheet's Chat on WhatsApp. */
   whatsapp?: string | null;
+  /** Whether the project takes enquiries and bookings (its features, applyTheme). Unset = yes. */
+  enquiries?: boolean;
+  bookings?: boolean;
 }
+
+/** The parts of the platform a project uses (server/src/store.js FEATURES). Each is on unless switched off. */
+export interface ProjectFeatures { enquiries: boolean; reservations: boolean; website: boolean; report: boolean; activity: boolean }
 
 export type BrandFont = 'serif' | 'sans' | 'classic';
 /** A project's branding, as stored on it (server/src/store.js setPropertyTheme). */

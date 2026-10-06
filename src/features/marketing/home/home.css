@@ -1,7 +1,7 @@
 /* ================================================================== */
-/*  The home page (2026-10-05): the world as a point cloud.            */
-/*  A graphite ground with a dot grid (a scan's point spacing), one    */
-/*  point-cloud globe, poster-size JetBrains Mono, monochrome, and one */
+/*  The home page (2026-10-05): a scanned pagoda made of splats.       */
+/*  A graphite ground ruled like a scan's rows, one Gaussian-splat     */
+/*  pagoda (SplatPagoda.tsx), poster-size JetBrains Mono, monochrome, and one */
 /*  light section for the method (Method.tsx, .hp-mm). The hero,       */
 /*  places and film stay dark, and the method light, in either theme:  */
 /*  each sets the site tokens its buttons read (--text, --bg, …).      */
@@ -30,39 +30,38 @@
   background-color: var(--hp-ground);
 }
 
-/* the dot grid */
+/* rows ruled like a scanner's passes */
 .hp-hero,
 .hp-film {
-  background-image: radial-gradient(var(--hp-hair) 1px, transparent 1.3px);
-  background-size: 22px 22px;
+  background-image: repeating-linear-gradient(to bottom, var(--hp-hair) 0 1px, transparent 1px 22px);
   background-position: center top;
 }
 
 /* ------------------------------------------------------------- hero */
 .hp-hero {
-  /* the globe's diameter: PointGlobe.tsx sizes it with the same sum */
-  --globe-d: min(56vh, 90vw, 700px);
+  /* the pagoda's width: SplatPagoda.tsx sizes it with the same sum */
+  --scan-d: min(56vh, 90vw, 700px);
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   min-height: 100svh;
-  padding: calc(var(--nav-h) + 24px + var(--globe-d) * 0.84) 16px 88px;
+  padding: calc(var(--nav-h) + 24px + var(--scan-d) * 0.84) 16px 88px;
   overflow: hidden;
   text-align: center;
 }
-.hp-hero > :not(.hp-globe) { position: relative; z-index: 1; }
+.hp-hero > :not(.hp-scan) { position: relative; z-index: 1; }
 
-/* the globe's canvas covers the whole hero, edge to edge: no frame around it */
-.hp-globe {
+/* the pagoda's canvas covers the whole hero, edge to edge: no frame around it */
+.hp-scan {
   position: absolute;
   inset: 0;
   z-index: 0;
   cursor: grab;
   touch-action: pan-y;
 }
-.hp-globe:active { cursor: grabbing; }
-.hp-globe canvas {
+.hp-scan:active { cursor: grabbing; }
+.hp-scan canvas {
   position: absolute;
   inset: 0;
   display: block;
@@ -70,7 +69,7 @@
   height: 100% !important;
 }
 
-/* Kathmandu, beside its pin (PointGlobe moves the box to the pin each frame) */
+/* the tag beside the spire's tip (SplatPagoda moves the box each frame) */
 .hp-pin {
   position: absolute;
   top: 0;
@@ -107,7 +106,7 @@
   display: flex;
   flex-direction: column;
   margin: 0;
-  font: 600 clamp(2.5rem, 7.2vw, 7rem)/0.98 var(--hp-mono);
+  font: 600 clamp(2.2rem, 7.2vw, 7rem)/0.98 var(--hp-mono);
   letter-spacing: -0.05em;
   text-wrap: balance;
 }
@@ -342,7 +341,7 @@
 .hp-ask {
   padding: clamp(80px, 11vw, 140px) 16px;
   text-align: center;
-  background-image: radial-gradient(var(--hp-hair) 1px, transparent 1.3px);
+  background-image: repeating-linear-gradient(to bottom, var(--hp-hair) 0 1px, transparent 1px 22px);
   background-size: 22px 22px;
 }
 .hp-ask h2 {
@@ -498,7 +497,7 @@
   .hp-mm-step ul { display: none; }
   .hp-mm-n { font-size: 7rem; top: -0.5em; }
 }
-/* reduced motion: no pin, the steps one under another, the globe still */
+/* reduced motion: no pin, the steps one under another, the sweep still */
 @media (prefers-reduced-motion: reduce) {
   .hp-mm-track { height: auto; }
   .hp-mm-stage { position: relative; height: auto; overflow: visible; padding-top: 60vh; }
@@ -506,4 +505,93 @@
   .hp-mm-steps { display: grid; gap: 64px; width: var(--wrap); margin: 0 auto; }
   .hp-mm-step { position: relative; left: auto; top: auto; width: auto; translate: none; opacity: 1; filter: none; transform: none; }
   .hp-mm-ticks { display: none; }
+}
+
+/* ======================================================= light, 2026-10-06 */
+/* The home page on the silver paper (the default now): graphite dots and
+ * type, the pagoda drawn in ink (SplatPagoda reads the theme), and the method
+ * turned over: a dark band on the light page, as it was a light one on the
+ * dark (Method.tsx reads its colours from these tokens). */
+:root[data-theme='light'] .hp {
+  --hp-ground: #E9EAED;
+  --hp-ink: #111215;
+  --hp-dim: #5F626B;
+  --hp-hair: rgba(17, 18, 21, 0.1);
+  --hp-signal-lit: #111215;
+}
+:root[data-theme='light'] .hp-pin-tag { border-color: rgba(17, 18, 21, 0.16); background: rgba(245, 245, 247, 0.9); }
+:root[data-theme='light'] .hp-ask-form { border-color: rgba(17, 18, 21, 0.16); background: #F5F5F7; }
+:root[data-theme='light'] .hp-ask-form input::placeholder { color: #8A8D96; }
+:root[data-theme='light'] .hp-mm {
+  --mm-paper: #141516;
+  --mm-ink: #F0F0F0;
+  --mm-dim: #9C9C9C;
+}
+:root[data-theme='light'] .hp-mm-n { color: rgba(255, 255, 255, 0.06); }
+:root[data-theme='light'] .hp-mm-step p { color: #CFCFCF; }
+:root[data-theme='light'] .hp-mm-ticks {
+  background: linear-gradient(var(--c), var(--c)) left top / calc(var(--p, 0) * 100%) 1.5px no-repeat,
+              linear-gradient(rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.16)) left top / 100% 1px no-repeat;
+}
+
+/* the hero's four corner crosshairs: a scanner's registration targets */
+.hp-hero > .hp-cross {
+  position: absolute;
+  z-index: 1;
+  width: 15px;
+  height: 15px;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--hp-dim), var(--hp-dim)) center / 100% 1px no-repeat,
+    linear-gradient(var(--hp-dim), var(--hp-dim)) center / 1px 100% no-repeat;
+  opacity: 0.7;
+}
+.hp-cross-tl { top: calc(var(--nav-h, 66px) + 26px); left: 28px; }
+.hp-cross-tr { top: calc(var(--nav-h, 66px) + 26px); right: 28px; }
+.hp-cross-bl { bottom: 28px; left: 28px; }
+.hp-cross-br { bottom: 28px; right: 28px; }
+@media (max-width: 760px) { .hp-cross { display: none; } }
+
+/* ------------------------------------------ the studio window, 2026-10-06 */
+/* After linear.app: the real studio in a frame, a screen per tab, the screen
+ * in the page's own theme (StudioWindow.tsx). */
+.hp-sw-tabs {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0;
+  width: var(--wrap); margin: 0 auto 28px; border-top: 1px solid var(--hp-hair);
+}
+.hp-sw-tabs button {
+  display: grid; gap: 6px; align-content: start; padding: 18px 18px 6px 0; margin: 0;
+  border: 0; border-top: 2px solid transparent; margin-top: -1px; background: none;
+  color: var(--hp-dim); text-align: left; cursor: pointer; font: inherit;
+  transition: color 0.3s, border-color 0.3s;
+}
+.hp-sw-tabs b { font: 600 15px/1.2 var(--hp-mono); letter-spacing: -0.02em; color: inherit; }
+.hp-sw-tabs span { font: 400 13px/1.5 var(--sans); max-width: 32ch; }
+.hp-sw-tabs button:hover,
+.hp-sw-tabs button.is-on { color: var(--hp-ink); }
+.hp-sw-tabs button.is-on { border-top-color: var(--hp-ink); }
+.hp-sw-tabs button:focus-visible { outline: 2px solid var(--hp-ink); outline-offset: 4px; }
+.hp-sw-stage { width: var(--wrap); margin: 0 auto; perspective: 1600px; }
+.hp-sw-frame {
+  position: relative; aspect-ratio: 16 / 10; overflow: hidden; border-radius: 14px;
+  background: var(--hp-ground);
+  box-shadow: 0 0 0 1px var(--hp-hair), 0 50px 120px -40px rgba(0, 0, 0, 0.45);
+}
+/* tips up into place as it scrolls in, where the browser can */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .hp-sw-frame { animation: hp-sw-tip linear both; animation-timeline: view(); animation-range: entry 0% cover 40%; transform-origin: 50% 100%; }
+  }
+}
+@keyframes hp-sw-tip { from { transform: rotateX(16deg) translateY(40px) scale(0.94); opacity: 0.4; } to { transform: none; opacity: 1; } }
+.hp-sw-shot { position: absolute; inset: 0; opacity: 0; transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+.hp-sw-shot.is-on { opacity: 1; }
+.hp-sw-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top left; }
+/* the screen in the page's theme */
+.hp-sw-img.is-light { display: none; }
+:root[data-theme='light'] .hp-sw-img.is-light { display: block; }
+:root[data-theme='light'] .hp-sw-img.is-dark { display: none; }
+@media (max-width: 899px) {
+  .hp-sw-tabs { grid-template-columns: 1fr 1fr; }
+  .hp-sw-tabs span { display: none; }
 }

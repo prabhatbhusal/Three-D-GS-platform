@@ -241,7 +241,7 @@ sitesRouter.get('/', wrap(async (req, res) => {
     const pid = f.slice(0, -5);
     const saved = await readSite(pid);
     const p = saved?.published && (await getProperty(pid));
-    if (p) out.push({ id: pid, publishedAt: saved.publishedAt ?? null, title: p.title, line: saved.published.hero?.title || saved.published.hero?.lede || '' });
+    if (p?.features.website) out.push({ id: pid, publishedAt: saved.publishedAt ?? null, title: p.title, line: saved.published.hero?.title || saved.published.hero?.lede || '' });
   }
   res.json(out);
 }));
@@ -249,7 +249,7 @@ sitesRouter.get('/', wrap(async (req, res) => {
 // A project's published website, ready to render at /s/:project.
 sitesRouter.get('/:id', wrap(async (req, res) => {
   const p = await getProperty(req.params.id);
-  const saved = p && (await readSite(p.id));
+  const saved = p?.features.website && (await readSite(p.id));
   if (!saved?.published) return res.status(404).json({ error: 'This project has no website yet.' });
   res.json(await renderSite(p, saved.published, saved.publishedAt));
 }));
@@ -288,11 +288,14 @@ async function renderSite(p, site, publishedAt) {
     }
   }
 
+  // With reservations off (store.js FEATURES) the page offers no booking, whatever the draft says.
+  const books = p.features.reservations;
   return {
-    project: { id: p.id, title: p.title, theme: p.theme ?? {}, info: p.info ?? {} },
+    project: { id: p.id, title: p.title, theme: p.theme ?? {}, info: p.info ?? {}, features: { enquiries: p.features.enquiries, reservations: books } },
     site: {
-      ...site, rooms, booking: liveBooking(site), stays: await publicStays(p.id, site), events: await publicEvents(p.id, site),
-      dining: (site.dining ?? []).map((o) => ({ ...o, booking: liveBooking(site, o.id) }))
+      ...site, rooms,
+      booking: books ? liveBooking(site) : null, stays: books ? await publicStays(p.id, site) : null, events: books ? await publicEvents(p.id, site) : null,
+      dining: (site.dining ?? []).map((o) => ({ ...o, booking: books ? liveBooking(site, o.id) : null }))
     },
     tour: tour && embed ? {
       space: tour.id, title: tour.title, key: embedKey(tour.id, embed.version),

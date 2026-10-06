@@ -3,6 +3,7 @@ import { Loader } from '../../features/marketing/layout/Loader';
 import { SmoothScroll } from '../../features/marketing/layout/SmoothScroll';
 import { SiteJsonLd } from '../../features/marketing/JsonLd';
 import { Cursor } from '../../components/ui/Cursor';
+import { ChapterRail } from '../../features/marketing/layout/ChapterRail';
 import '../../features/marketing/site.css';
 import '../../features/marketing/landing.css';
 import '../../features/marketing/inner.css';
@@ -23,6 +24,7 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
       <SiteJsonLd />
       <Navbar />
       {children}
+      <ChapterRail />
       <Cursor />
       <SmoothScroll />
     </main>

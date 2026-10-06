@@ -51,6 +51,7 @@ export default function ReservationsPage({ params }: { params: Promise<{ propert
   const [tab, setTab] = useState<Tab>('reply');
   const [kind, setKind] = useState<'all' | Kind>('all');
   const [staff, setStaff] = useState(false); // the client's staff: no setup to go to
+  const [booksOff, setBooksOff] = useState(false); // the project switched bookings off (its home)
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
 
@@ -65,7 +66,7 @@ export default function ReservationsPage({ params }: { params: Promise<{ propert
 
   useEffect(() => {
     if (!ok) return;
-    getProperty(id).then((p) => { if (p) { setTitle(p.theme?.brand || p.title); setStaff(p.access === 'staff'); } }).catch(() => {});
+    getProperty(id).then((p) => { if (p) { setTitle(p.theme?.brand || p.title); setStaff(p.access === 'staff'); setBooksOff(p.features?.reservations === false); } }).catch(() => {});
     load();
     const t = setInterval(load, 30000);
     return () => clearInterval(t);
@@ -129,8 +130,7 @@ export default function ReservationsPage({ params }: { params: Promise<{ propert
     <div className="ed2 se">
       <header className="se-bar">
         {/* plain <a>: the studio holds a page-singleton renderer and wants a full load */}
-        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-        <a href="/studio" className="se-back">← Projects</a>
+        <a href={staff ? '/studio' : `/studio/${encodeURIComponent(id)}`} className="se-back">{staff ? '← Projects' : '← Project'}</a>
         <div className="se-title"><b>Reservations</b><span>{title}</span></div>
         {error && <span className="se-err" role="alert">{error}</span>}
         <button onClick={load}>Refresh</button>
@@ -138,7 +138,10 @@ export default function ReservationsPage({ params }: { params: Promise<{ propert
       </header>
 
       <main className="se-body">
-        {!booking?.on && !stays?.on && !events?.on && !list.some((r) => r.kind === 'request') && (
+        {booksOff && (
+          <div className="se-note" role="note"><p>Bookings are off for this project: its tours and website take none. Anything asked before is still below.</p></div>
+        )}
+        {!booksOff && !booking?.on && !stays?.on && !events?.on && !list.some((r) => r.kind === 'request') && (
           <div className="se-note" role="note">
             {staff ? (
               <p>Online booking isn’t switched on for this place yet. Whoever runs its website can turn it on.</p>

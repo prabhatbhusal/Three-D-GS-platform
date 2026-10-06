@@ -3,7 +3,7 @@
  * The marketing site's pointer, after prabhatbhusal.com.np: a ring that
  * follows the mouse on a spring and a dot exactly at it, drawn in difference
  * blend so it reads over any colour. Over links and buttons the ring grows;
- * over anything marked data-cursor="drag" (the home page's globe) it grows
+ * over anything marked data-cursor="drag" (the home page's pagoda) it grows
  * more; over a text field it steps aside for the normal caret. Only with a
  * mouse (a fine pointer that hovers): touch keeps the usual behaviour.
  * Mounted by app/(site)/layout.tsx. Styles: site.css .site-cursor.

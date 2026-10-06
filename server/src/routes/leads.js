@@ -72,6 +72,10 @@ leadsRouter.post('/', async (req, res, next) => {
     const scene = sceneId !== 'hub' ? await getScene(sceneId).catch(() => null) : null;
     if (scene) propertyId = scene.propertyId ?? null;
     else if (sceneId === 'hub' && typeof body.propertyId === 'string' && (await getProperty(body.propertyId))) propertyId = body.propertyId;
+    // A project that switched enquiries off takes none, even from a page published before.
+    if (propertyId && !(await getProperty(propertyId))?.features.enquiries) {
+      return res.status(403).json({ error: 'This place doesn’t take enquiries here. Contact it directly.' });
+    }
 
     const lead = await saveLead({
       propertyId,

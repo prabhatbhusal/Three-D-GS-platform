@@ -130,9 +130,10 @@ export function readiness(doc) {
   const p = doc.spawn?.position;
   const ownStart = Array.isArray(p) && p.length === 3 && !(p[0] === 0 && p[1] === 1.7 && p[2] === 3);
   return [
-    { key: 'start', label: 'A start view of its own', done: ownStart },
-    { key: 'track', label: 'A camera track (also its picture)', done: !!doc.tracks?.length },
-    { key: 'hotspot', label: 'A hotspot to open', done: !!doc.hotspots?.length }
+    { key: 'start', label: 'Its own start view', done: ownStart },
+    // a track's first view is also the space's picture (gallery, link previews)
+    { key: 'track', label: 'A camera track', done: !!doc.tracks?.length },
+    { key: 'hotspot', label: 'A hotspot', done: !!doc.hotspots?.length }
   ];
 }
 
@@ -314,7 +315,25 @@ export function propertyIdFor(title) {
 /** `ownerId`/`members` arrived 2026-09-24; a property saved before then has
  *  neither. `ownerId: null` means "no owner yet": nobody's work to see, only
  *  to claim (propertyIsClaimable, POST /api/properties/:id/claim). */
-const fillPropertyDefaults = (doc) => (doc ? { ownerId: null, members: [], staff: [], ...doc } : doc);
+const fillPropertyDefaults = (doc) => (doc ? { ownerId: null, members: [], staff: [], ...doc, features: featuresOf(doc) } : doc);
+
+/** The parts of the platform a project uses (2026-10-06): a café takes no room
+ *  bookings, a heritage site or a college no bookings at all. Each is on unless
+ *  switched off, so every project from before keeps all of them. Off hides it
+ *  in the studio; the public ones (enquiries, reservations, website) are also
+ *  refused by the API, so a page published earlier can't still send them. */
+export const FEATURES = ['enquiries', 'reservations', 'website', 'report', 'activity'];
+export const featuresOf = (p) => Object.fromEntries(FEATURES.map((k) => [k, p?.features?.[k] !== false]));
+/** Booleans for known features only; anything else is ignored. */
+export async function setPropertyFeatures(id, patch) {
+  const p = await getProperty(id);
+  if (!p) return null;
+  const features = { ...p.features };
+  for (const k of FEATURES) if (typeof patch?.[k] === 'boolean') features[k] = patch[k];
+  const next = { ...p, features };
+  await fs.writeFile(propertyFile(id), JSON.stringify(next, null, 2));
+  return next;
+}
 
 /**
  * Can this session see the project in a list, or open it directly? Its owner

@@ -1,0 +1,35 @@
+{
+  "ownerId": "f2d67606-2967-472e-a04b-00a40cfa7db4",
+  "members": [],
+  "staff": [],
+  "id": "chyasal-house",
+  "version": 1,
+  "title": "Chyasal House",
+  "createdAt": "2026-10-06T08:57:34.588Z",
+  "features": {
+    "enquiries": true,
+    "reservations": true,
+    "website": true,
+    "report": true,
+    "activity": true
+  },
+  "theme": {
+    "brand": "Chyasal House",
+    "accent": "#8c3a22",
+    "font": "classic",
+    "logo": "brand_chyasal-house/logo.png?v=1791277054585"
+  },
+  "info": {
+    "tagline": "Rooms, a café and an event loft above old Patan",
+    "about": "A sample client of RCAAS.tech: a small guesthouse in Chyasal, Lalitpur, with a café and a 130 m² loft for workshops, exhibitions and dinners. Made to show what a client website can hold.",
+    "phone": "+977 1 5550 123",
+    "whatsapp": "9779800000123",
+    "email": "hello@chyasalhouse.example.test",
+    "address": "Chyasal, Lalitpur 44600, Nepal",
+    "website": "https://chyasalhouse.example.test",
+    "instagram": "https://instagram.com/chyasalhouse.example"
+  },
+  "leadEmails": [
+    "frontdesk@chyasalhouse.example.test"
+  ]
+}

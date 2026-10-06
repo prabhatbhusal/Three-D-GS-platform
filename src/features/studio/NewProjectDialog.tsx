@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { filesFromDataTransfer, filesFromFileList, isVideo360File, uploadVariant, uploadVideo360 } from './upload';
-import { createProperty, getScenes, saveScene, saveSiteDraft, setProjectInfo, setProjectTheme, uploadProjectLogo } from '../../lib/api';
+import { createProperty, getScenes, saveScene, saveSiteDraft, setProjectFeatures, setProjectInfo, setProjectTheme, uploadProjectLogo } from '../../lib/api';
 import { TEMPLATES, templateFor, type PlaceKind } from './siteTemplates';
 import { BrandInfoFields, infoProblem } from './BrandInfoFields';
 import { inkOn, paletteFromImage } from '../../lib/brandColor';
@@ -165,6 +165,7 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
         return;
       }
       if (starter.site) await saveSiteDraft(p.id, starter.site).catch(() => { /* a blank website: nothing lost */ });
+      if (starter.features) await setProjectFeatures(p.id, starter.features).catch(() => { /* all on: switch off from its home */ });
       if (result) {
         const name = spaceName.trim() || title.trim();
         const id = freeSceneId(`${p.id}-${slugify(name)}`);
@@ -172,7 +173,7 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
         await saveScene(id, blankSceneDoc(id, name, { high }, p.id, result.format ?? 'lcc2'));
         hydrateScenes(await getScenes());
       }
-      location.assign(`/studio/${p.id}`);
+      location.assign(result ? `/studio/${p.id}/edit` : `/studio/${p.id}`); // its first space to work on, else its home
     } catch (e) {
       setCreateError(e instanceof Error ? e.message : 'Could not create the project. Try again.');
       setCreating(false);

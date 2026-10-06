@@ -1,175 +1,251 @@
-/* A project's website (/s/<project>). Three looks, chosen in the studio
+/* A project's website (/s/<project>), redrawn 2026-10-06 as numbered
+ * chapters, after lightweight.info and linear.app: a photo opening with the
+ * place's figures along its foot, the live tour in a window, then each part
+ * of the page as a chapter (its number and label in the margin, its title
+ * large beside them, on a hairline). Three looks, chosen in the studio
  * ([data-style]), each wearing the project's own accent (--ws-accent) and
  * heading face (--ws-serif):
- *   heritage  warm paper, deep brown ink, ornaments, a framed photo edge
- *   modern    white, crisp, square corners
+ *   heritage  warm paper, deep brown ink
+ *   modern    white, crisp, small corners
  *   night     warm dark, the accent glowing
  * The look is the brand's choice, not the visitor's OS theme: a hotel's site
  * looks the same to everyone. Its own scroll container: globals.css locks
- * body for the 3D app. */
+ * body for the 3D app. The booking panels inside are table-booking.css. */
 
 .ws {
   --ink: #2a1f17;
-  --dim: #75685b;
-  --paper: #f7f1e7;
-  --card: #fffbf4;
-  --band: #efe6d7;
-  --line: rgba(42, 31, 23, 0.13);
-  --radius: 16px;
+  --dim: #6f6255;
+  --paper: #f4eee4;
+  --card: #fbf7f0;
+  --band: #eae1d2;
+  --line: rgba(42, 31, 23, 0.14);
+  --radius: 14px;
   /* the accent as text: pulled toward the ink so a pale gold still reads on paper */
   --ws-accent-ink: color-mix(in oklab, var(--ws-accent) 55%, var(--ink));
-  --wide: min(1240px, calc(100% - 32px));
-  --text: min(760px, calc(100% - 32px));
+  --wide: min(1240px, calc(100% - 40px));
+  --narrow: min(820px, calc(100% - 40px));
+  /* a chapter's margin column, where its number and label sit; text under the title lines up past it */
+  --margin: max(150px, 23%);
+  --gap: clamp(24px, 5vw, 72px);
+  --indent: calc(var(--margin) + var(--gap));
+  --bar: 64px;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  /* what the chapter rail (marketing/layout/rail.css) reads */
+  --text: var(--ink);
+  --bg: var(--paper);
+  --rail-font: system-ui, 'Segoe UI', Roboto, sans-serif;
+  /* the enquiry pill and sheet are the tour's (viewer.css): here they wear the brand's accent, not the tour's gold */
+  --gold: var(--ws-accent);
+  --gold-ink: var(--ws-on-accent, #fff);
+  --gold-on-light: var(--ws-accent-ink);
+  --gold-on-light-ink: #fff;
   position: fixed;
   inset: 0;
   overflow-y: auto;
   scroll-behavior: smooth;
-  scroll-padding-top: 84px;
+  scroll-padding-top: calc(var(--bar) + 16px);
   color: var(--ink);
   background: var(--paper);
   font: 400 17px/1.7 system-ui, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 .ws[data-style='modern'] {
-  --ink: #151515; --dim: #5d5d5d; --paper: #fbfbf9; --card: #ffffff; --band: #f1f1ee;
-  --line: rgba(21, 21, 21, 0.1); --radius: 4px;
+  --ink: #111111; --dim: #5c5c5c; --paper: #fafaf8; --card: #ffffff; --band: #f0f0ec;
+  --line: rgba(17, 17, 17, 0.1); --radius: 6px;
 }
 .ws[data-style='night'] {
-  --ink: #f2ece2; --dim: #b1a697; --paper: #11100e; --card: #1b1916; --band: #181613;
+  --ink: #f2ece2; --dim: #aba092; --paper: #0f0e0c; --card: #191714; --band: #15130f;
   --line: rgba(242, 236, 226, 0.12);
   --ws-accent-ink: color-mix(in oklab, var(--ws-accent) 70%, var(--ink));
 }
+.ws[data-sheet] { overflow: hidden; }
 .ws :where(a:not(.ws-btn)) { color: inherit; }
-.ws h1, .ws h2, .ws h3 { font-family: var(--ws-serif); font-weight: 400; letter-spacing: -0.01em; text-wrap: balance; }
-.ws[data-style='modern'] :is(h1, h2, h3) { letter-spacing: -0.025em; }
+.ws h1, .ws h2, .ws h3 { font-family: var(--ws-serif); font-weight: 400; letter-spacing: -0.015em; text-wrap: balance; }
+.ws[data-style='modern'] :is(h1, h2, h3) { letter-spacing: -0.03em; }
 .ws-dim { color: var(--dim); }
 
-/* ---- buttons */
+/* ---- buttons and links */
 .ws-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  margin-top: 18px; min-height: 50px; padding: 0 30px; border: 0; border-radius: 999px; cursor: pointer;
-  font: inherit; font-size: 15px; font-weight: 600; line-height: 1; letter-spacing: 0.03em; text-decoration: none;
+  margin-top: 18px; min-height: 50px; padding: 0 28px; border: 0; border-radius: 999px; cursor: pointer;
+  font: inherit; font-size: 15px; font-weight: 600; line-height: 1; letter-spacing: 0.02em; text-decoration: none;
   color: var(--ws-on-accent, #fff); background: var(--ws-accent);
-  transition: filter 0.2s, translate 0.2s;
+  transition: filter 0.2s, translate 0.25s var(--ease);
 }
-.ws-btn:hover { filter: brightness(1.07); translate: 0 -1px; }
+.ws-btn:hover { filter: brightness(1.07); translate: 0 -2px; }
 .ws-btn-ghost { color: var(--ink); background: transparent; box-shadow: inset 0 0 0 1px currentColor; }
 .ws[data-style='modern'] .ws-btn { border-radius: var(--radius); }
+.ws-link {
+  margin-top: 22px; padding: 0 0 4px; border: 0; border-bottom: 1px solid currentColor; background: none;
+  color: var(--ws-accent-ink); font: inherit; font-size: 15px; font-weight: 600; letter-spacing: 0.02em; text-decoration: none; cursor: pointer;
+}
+.ws-link span { display: inline-block; transition: translate 0.25s var(--ease); }
+.ws-link:hover span { translate: 4px 0; }
+.ws-links { display: flex; flex-wrap: wrap; gap: 0 24px; }
+.ws-caption { margin: 18px 0 0; font-size: 14px; color: var(--dim); }
+.ws-caption a { color: var(--ws-accent-ink); text-decoration: none; }
 
-/* ---- section heads: a small label, the title, the look's ornament */
-.ws-kicker { margin: 0 0 12px; font-size: 12px; font-weight: 600; letter-spacing: 0.26em; text-transform: uppercase; color: var(--ws-accent-ink); }
-.ws-head { margin: 0 0 44px; text-align: center; }
-.ws-head h2, .ws-story h2, .ws-contact h2 { margin: 0; font-size: clamp(34px, 4.4vw, 56px); line-height: 1.08; }
-.ws-orn { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 18px; font-size: 9px; line-height: 1; color: var(--ws-accent); }
-.ws-orn::before, .ws-orn::after { content: ''; width: 56px; height: 1px; background: currentColor; opacity: 0.7; }
-.ws[data-style='modern'] .ws-orn { font-size: 0; gap: 0; }
-.ws[data-style='modern'] .ws-orn::before { width: 40px; height: 2px; opacity: 1; }
-.ws[data-style='modern'] .ws-orn::after { display: none; }
+/* ---- a chapter, and its head: number and label in the margin, the title beside them */
+.ws-chap { width: var(--wide); margin: clamp(104px, 15vh, 176px) auto 0; }
+.ws-head {
+  display: grid; grid-template-columns: var(--margin) minmax(0, 1fr); gap: 14px var(--gap);
+  margin: 0 0 clamp(40px, 6vw, 76px); padding-top: 22px; border-top: 1px solid var(--line);
+}
+.ws-head-k {
+  display: flex; align-items: baseline; gap: 12px; margin: 0;
+  font-size: 12.5px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim);
+}
+.ws-head-n { font-variant-numeric: tabular-nums; letter-spacing: 0.04em; color: var(--ws-accent-ink); }
+.ws-head h2 { margin: 0; font-size: clamp(38px, 5.2vw, 72px); line-height: 1.02; }
+.ws-head-lead { max-width: 46ch; margin: 18px 0 0; font-size: 18px; color: var(--dim); text-wrap: pretty; }
+.ws-sub { margin: 0 0 6px; font-size: clamp(26px, 2.6vw, 34px); line-height: 1.1; }
 
 /* ---- top bar */
 .ws-top {
-  position: sticky; top: 0; z-index: 5;
-  display: flex; align-items: center; gap: 24px;
-  padding: 12px max(16px, calc((100% - 1240px) / 2));
-  background: color-mix(in srgb, var(--paper) 88%, transparent);
-  backdrop-filter: saturate(1.4) blur(12px);
+  position: sticky; top: 0; z-index: 8; height: var(--bar); box-sizing: border-box;
+  display: flex; align-items: center; gap: 28px;
+  padding: 0 max(20px, calc((100% - 1240px) / 2));
+  background: color-mix(in srgb, var(--paper) 86%, transparent);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  backdrop-filter: saturate(1.4) blur(14px);
   border-bottom: 1px solid var(--line);
 }
-.ws-brand { display: flex; align-items: center; gap: 12px; margin-right: auto; font: 400 21px/1.1 var(--ws-serif); text-decoration: none; }
-.ws-logo { height: 40px; width: auto; max-width: 150px; object-fit: contain; }
-.ws-top nav { display: flex; gap: 22px; font-size: 14px; letter-spacing: 0.04em; }
-.ws-top nav a { text-decoration: none; color: var(--dim); transition: color 0.2s; }
-.ws-top nav a:hover { color: var(--ink); }
+.ws-brand { display: flex; align-items: center; gap: 12px; margin-right: auto; font: 400 21px/1.1 var(--ws-serif); text-decoration: none; white-space: nowrap; }
+.ws-logo { height: 38px; width: auto; max-width: 150px; object-fit: contain; border-radius: 8px; }
+.ws-nav { display: flex; gap: 28px; font-size: 14.5px; }
+.ws-nav a { position: relative; text-decoration: none; color: var(--dim); transition: color 0.2s; }
+.ws-nav a::after { content: ''; position: absolute; left: 0; right: 0; bottom: -6px; height: 1px; background: currentColor; transform: scaleX(0); transform-origin: left; transition: transform 0.35s var(--ease); }
+.ws-nav a:hover { color: var(--ink); }
+.ws-nav a:hover::after { transform: none; }
 .ws-top-cta { margin: 0; min-height: 40px; padding: 0 18px; font-size: 14px; }
+.ws-menu-btn { display: none; }
 
-/* ---- opening: words only, or words over a full-width photo */
-.ws-hero { position: relative; }
-.ws-hero-in { width: var(--text); margin: 0 auto; padding: 14vh 0 8vh; text-align: center; }
-.ws-hero-in > * { animation: ws-rise 1s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-.ws-hero-in > :nth-child(2) { animation-delay: 0.1s; }
-.ws-hero-in > :nth-child(3) { animation-delay: 0.2s; }
-.ws-hero-in > :nth-child(4) { animation-delay: 0.3s; }
-@keyframes ws-rise { from { opacity: 0; translate: 0 24px; } }
+/* ---- opening: the photo, the words at its foot, the figures along the bottom */
+.ws-hero { position: relative; isolation: isolate; }
+.ws-hero-in { width: var(--wide); margin: 0 auto; padding: clamp(72px, 14vh, 160px) 0 56px; }
+.ws-hero-in > * { animation: ws-rise 1s var(--ease) both; }
+.ws-hero-in > :nth-child(2) { animation-delay: 0.08s; }
+.ws-hero-in > :nth-child(3) { animation-delay: 0.16s; }
+.ws-hero-in > :nth-child(4) { animation-delay: 0.24s; }
+@keyframes ws-rise { from { opacity: 0; translate: 0 26px; } }
 @keyframes ws-drift { from { scale: 1.08; } }
-.ws-eyebrow { margin: 0 0 18px; font-size: 13px; font-weight: 600; letter-spacing: 0.24em; text-transform: uppercase; color: var(--ws-accent-ink); }
-.ws-hero h1 { margin: 0; font-size: clamp(44px, 8vw, 108px); line-height: 1.02; }
-.ws-lede { margin: 26px auto 0; max-width: 36em; font-size: 19px; color: var(--dim); text-wrap: pretty; }
-.ws-hero-ctas { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 34px; }
+.ws-eyebrow { margin: 0 0 20px; font-size: 13px; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ws-accent-ink); }
+.ws-hero h1 { max-width: 14ch; margin: 0; font-size: clamp(48px, 8.4vw, 136px); line-height: 0.98; }
+.ws-lede { max-width: 40ch; margin: 28px 0 0; font-size: clamp(18px, 1.5vw, 21px); color: var(--dim); text-wrap: pretty; }
+.ws-hero-ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
 .ws-hero-ctas .ws-btn { margin: 0; }
+/* words only: the paper with a faint dot ground */
+.ws-hero:not(.has-photo) { background-image: radial-gradient(var(--line) 1px, transparent 1.3px); background-size: 22px 22px; }
 
-.ws-hero.has-photo { display: grid; align-items: end; min-height: min(94svh, 1000px); overflow: hidden; color: #fff; isolation: isolate; }
-.ws-hero-img { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; animation: ws-drift 22s ease-out both; }
+.ws-hero.has-photo { display: flex; flex-direction: column; justify-content: flex-end; min-height: min(calc(100svh - var(--bar)), 1040px); overflow: hidden; color: #fff; }
+.ws-hero-img { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; animation: ws-drift 24s ease-out both; }
 .ws-hero.has-photo::after {
   content: ''; position: absolute; inset: 0; z-index: -1;
-  background: linear-gradient(to top, rgba(10, 8, 6, 0.8) 0%, rgba(10, 8, 6, 0.38) 45%, rgba(10, 8, 6, 0.08) 72%, rgba(10, 8, 6, 0.35) 100%);
+  background: linear-gradient(to top, rgba(10, 8, 6, 0.86) 0%, rgba(10, 8, 6, 0.42) 42%, rgba(10, 8, 6, 0.06) 70%, rgba(10, 8, 6, 0.3) 100%);
 }
-.ws-hero.has-photo .ws-hero-in { padding: 22vh 0 11vh; }
+.ws-hero.has-photo .ws-hero-in { padding-top: 22vh; }
 .ws-hero.has-photo h1 { text-shadow: 0 2px 30px rgba(0, 0, 0, 0.35); }
-.ws-hero.has-photo .ws-eyebrow { color: color-mix(in oklab, var(--ws-accent) 60%, #fff); }
+.ws-hero.has-photo .ws-eyebrow { color: rgba(255, 255, 255, 0.86); }
 .ws-hero.has-photo .ws-lede { color: rgba(255, 255, 255, 0.86); }
 .ws-hero.has-photo .ws-btn-ghost { color: #fff; }
-
-/* ---- the tour */
-.ws-stage { width: var(--wide); margin: 0 auto; padding-top: 12vh; text-align: center; animation: ws-rise 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) 0.3s both; }
-.ws-hero:not(.has-photo) + .ws-stage { padding-top: 0; }
-.ws-tour {
-  display: block; width: 100%; aspect-ratio: 16 / 9; max-height: 82vh;
-  border: 0; border-radius: var(--radius); background: #0d0c0b;
-  box-shadow: 0 40px 90px -40px rgba(0, 0, 0, 0.5);
+/* the corners' crosshairs: the place was measured */
+.ws-cross {
+  position: absolute; z-index: 1; width: 15px; height: 15px; pointer-events: none; opacity: 0.75;
+  background:
+    linear-gradient(currentColor, currentColor) center / 100% 1px no-repeat,
+    linear-gradient(currentColor, currentColor) center / 1px 100% no-repeat;
+  color: var(--dim);
 }
-.ws-caption { margin: 14px 0 0; font-size: 14px; color: var(--dim); }
-.ws-caption a { color: var(--ws-accent-ink); text-decoration: none; }
-
-/* ---- facts */
+.ws-hero.has-photo .ws-cross { color: rgba(255, 255, 255, 0.8); }
+.ws-cross-tl { top: 24px; left: 24px; }
+.ws-cross-tr { top: 24px; right: 24px; }
+.ws-cross-bl { bottom: 24px; left: 24px; }
+.ws-cross-br { bottom: 24px; right: 24px; }
+/* the figures: a strip of frosted glass along the photo's foot, or hairlines on paper */
 .ws-facts {
-  width: var(--wide); margin: 12vh auto 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  width: var(--wide); margin: 0 auto; padding: 0;
   border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
 }
-.ws-facts div { padding: 30px 16px; text-align: center; }
-.ws-facts div + div { border-left: 1px solid var(--line); }
-.ws-facts strong { display: block; font: 400 clamp(30px, 3.6vw, 44px)/1.1 var(--ws-serif); }
-.ws-facts span { display: block; margin-top: 6px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); }
+.ws-facts > div { padding: 22px 18px 20px; }
+.ws-facts > div + div { border-left: 1px solid var(--line); }
+.ws-facts dd { margin: 0; font: 400 clamp(28px, 3.2vw, 42px)/1.05 var(--ws-serif); font-variant-numeric: tabular-nums; }
+.ws-facts dt { margin-top: 6px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); }
+.ws-hero.has-photo .ws-facts {
+  margin-bottom: clamp(96px, 16vh, 168px); border: 1px solid rgba(255, 255, 255, 0.18); border-radius: var(--radius);
+  background: rgba(14, 12, 10, 0.32); -webkit-backdrop-filter: blur(16px) saturate(1.2); backdrop-filter: blur(16px) saturate(1.2);
+}
+.ws-hero.has-photo .ws-facts > div + div { border-left-color: rgba(255, 255, 255, 0.14); }
+.ws-hero.has-photo .ws-facts dt { color: rgba(255, 255, 255, 0.72); }
+.ws-hero:not(.has-photo) .ws-facts { margin-bottom: 48px; }
 
-/* ---- story: its first paragraph as the lead */
-.ws-story { width: var(--wide); margin: 16vh auto 0; display: grid; grid-template-columns: 1fr 1.3fr; gap: 6vw; align-items: start; }
-.ws-story .ws-orn { justify-content: flex-start; }
-.ws-story p { margin: 0 0 1.1em; color: var(--dim); }
-.ws-story p:first-child { font: 400 clamp(22px, 2.2vw, 28px)/1.45 var(--ws-serif); color: var(--ink); }
+/* ---- the tour, in a window: pulled up over the opening photo */
+.ws-window {
+  position: relative; z-index: 2; width: var(--wide); margin: 0 auto; padding: 8px;
+  border-radius: calc(var(--radius) + 8px); background: var(--card);
+  box-shadow: 0 0 0 1px var(--line), 0 60px 120px -50px rgba(0, 0, 0, 0.55);
+  animation: ws-rise 1.2s var(--ease) 0.3s both;
+}
+.ws-hero.has-photo + .ws-window { margin-top: clamp(-150px, -13vh, -72px); }
+.ws-window-bar { display: flex; align-items: center; gap: 14px; padding: 6px 10px 12px; font-size: 14px; }
+.ws-window-bar b { font: 400 18px/1.2 var(--ws-serif); }
+.ws-window-bar a { margin-left: auto; color: var(--ws-accent-ink); text-decoration: none; white-space: nowrap; }
+.ws-live {
+  display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 999px;
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--ws-accent-ink); background: color-mix(in srgb, var(--ws-accent) 12%, transparent);
+}
+.ws-live::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--ws-accent); animation: ws-ping 2s infinite; }
+@keyframes ws-ping {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ws-accent) 55%, transparent); }
+  70%, 100% { box-shadow: 0 0 0 8px transparent; }
+}
+.ws-tour {
+  display: block; width: 100%; aspect-ratio: 16 / 9; max-height: 80vh;
+  border: 0; border-radius: var(--radius); background: #0d0c0b;
+}
+.ws-window-hint { margin: 10px 10px 2px; font-size: 13px; color: var(--dim); }
 
-/* ---- spaces, as chapters */
-.ws-rooms { width: var(--wide); margin: 18vh auto 0; display: grid; gap: 14vh; }
-.ws-rooms > .ws-head { margin: 0; }
-.ws-room { display: grid; grid-template-columns: 1.25fr 1fr; gap: 5vw; align-items: center; }
+/* ---- story: the title in the margin's grid, the words under it, the first as the lead */
+.ws-story-body { margin-left: var(--indent); max-width: 62ch; }
+.ws-story-body p { margin: 0 0 1.1em; color: var(--dim); }
+.ws-story-body p:first-child { font: 400 clamp(22px, 2.3vw, 30px)/1.45 var(--ws-serif); color: var(--ink); }
+
+/* ---- spaces, as chapters of their own */
+.ws-rooms { display: grid; gap: clamp(72px, 12vh, 140px); }
+.ws-rooms > .ws-head { margin-bottom: 0; }
+.ws-room { display: grid; grid-template-columns: 1.3fr 1fr; gap: var(--gap); align-items: center; }
 .ws-room:nth-of-type(even) .ws-room-img { order: 2; }
-.ws-room-img { overflow: hidden; aspect-ratio: 4 / 3; border-radius: var(--radius); background: var(--card); }
-.ws-room-img img { display: block; width: 100%; height: 100%; object-fit: cover; transition: scale 1.2s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.ws-room-img { overflow: hidden; aspect-ratio: 16 / 11; border-radius: var(--radius); background: var(--card); }
+.ws-room-img img { display: block; width: 100%; height: 100%; object-fit: cover; transition: scale 1.4s var(--ease); }
 .ws-room:hover .ws-room-img img { scale: 1.04; }
-.ws-room-ph { background: linear-gradient(135deg, var(--card), color-mix(in srgb, var(--ws-accent) 22%, var(--card))); }
-/* heritage: an offset frame in the accent, like a mounted print */
-.ws[data-style='heritage'] .ws-room-img { box-shadow: 18px 18px 0 -2px color-mix(in srgb, var(--ws-accent) 28%, transparent); }
-.ws[data-style='heritage'] .ws-room:nth-of-type(even) .ws-room-img { box-shadow: -18px 18px 0 -2px color-mix(in srgb, var(--ws-accent) 28%, transparent); }
-.ws-num { margin: 0; font: 400 15px/1 var(--ws-serif); letter-spacing: 0.2em; color: var(--ws-accent-ink); }
-.ws-room h3 { margin: 12px 0 18px; font-size: clamp(30px, 3.4vw, 46px); line-height: 1.1; }
+/* heritage: a fine accent frame, like a mounted print */
+.ws[data-style='heritage'] .ws-room-img { outline: 1px solid color-mix(in srgb, var(--ws-accent) 40%, transparent); outline-offset: 10px; }
+.ws-num { margin: 0; font: 400 15px/1 var(--ws-serif); letter-spacing: 0.16em; color: var(--ws-accent-ink); font-variant-numeric: tabular-nums; }
+.ws-room h3 { margin: 14px 0 18px; font-size: clamp(32px, 3.6vw, 50px); line-height: 1.06; }
 .ws-room p { margin: 0 0 1em; color: var(--dim); }
+/* no photo: the words alone, past the margin, the number large beside them */
+.ws-room.is-plain { grid-template-columns: var(--margin) minmax(0, 1fr); }
+.ws-room.is-plain .ws-room-txt { grid-column: 2; max-width: 60ch; }
 .ws-features { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 0; padding: 0; list-style: none; }
 .ws-features li { padding: 5px 12px; border: 1px solid var(--line); border-radius: 999px; font-size: 13px; }
 .ws[data-style='modern'] .ws-features li { border-radius: var(--radius); }
-.ws-link {
-  margin-top: 26px; margin-right: 22px; padding: 0 0 4px; border: 0; border-bottom: 1px solid currentColor; background: none;
-  color: var(--ws-accent-ink); font: inherit; font-size: 15px; font-weight: 600; letter-spacing: 0.02em; text-decoration: none; cursor: pointer;
-}
-.ws-link span { display: inline-block; transition: translate 0.2s; }
-.ws-link:hover span { translate: 4px 0; }
 
-/* ---- photos: a masonry, and the lightbox they open in */
-.ws-gallery-wrap { width: var(--wide); margin: 18vh auto 0; }
-.ws-gallery { columns: 3 280px; column-gap: 14px; }
+/* ---- floor plan: on a sheet of its own; the plan drawn from the scan (dark) turned to ink on paper */
+.ws-plan-sheet { margin: 0 0 0 var(--indent); padding: clamp(16px, 3vw, 40px); border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); text-align: center; }
+.ws-plan-sheet img { display: block; max-width: 100%; max-height: 78vh; margin: 0 auto; }
+.ws:not([data-style='night']) .ws-plan-sheet img.is-drawn { filter: invert(1) hue-rotate(180deg) saturate(0.55) contrast(0.95); mix-blend-mode: multiply; }
+
+/* ---- photos: one large, the rest around it; each opens full size */
+/* three columns, the first photo two by two: six photos fill three rows exactly */
+.ws-gallery { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: clamp(160px, 19vw, 300px); gap: 10px; }
 .ws-gallery button {
-  display: block; width: 100%; margin: 0 0 14px; padding: 0; border: 0; overflow: hidden; cursor: zoom-in;
-  border-radius: max(0px, calc(var(--radius) - 4px)); background: var(--card); break-inside: avoid;
+  display: block; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; overflow: hidden; cursor: zoom-in;
+  border-radius: max(0px, calc(var(--radius) - 4px)); background: var(--card);
 }
-.ws-gallery img { display: block; width: 100%; height: auto; transition: scale 0.8s cubic-bezier(0.2, 0.8, 0.2, 1); }
-.ws-gallery button:hover img { scale: 1.035; }
+.ws-gallery button:first-child { grid-column: span 2; grid-row: span 2; }
+.ws-gallery img { display: block; width: 100%; height: 100%; object-fit: cover; transition: scale 1s var(--ease); }
+.ws-gallery button:hover img { scale: 1.04; }
 .ws-gallery button:focus-visible { outline: 2px solid var(--ws-accent); outline-offset: 3px; }
 
 .ws-lightbox { width: 100vw; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; color: #fff; background: rgba(8, 7, 6, 0.94); }
@@ -186,65 +262,109 @@
 .ws-lightbox .ws-lb-x { top: 16px; right: 16px; font-size: 18px; }
 .ws-lb-count { position: absolute; left: 0; right: 0; bottom: 14px; margin: 0; text-align: center; font-size: 13px; letter-spacing: 0.1em; color: rgba(255, 255, 255, 0.7); }
 
-/* ---- floor plan */
-.ws-plan { width: var(--wide); margin: 18vh auto 0; text-align: center; }
-.ws-plan img { max-width: 100%; max-height: 80vh; padding: 12px; box-sizing: border-box; border-radius: var(--radius); background: #fbf9f5; }
-
-/* ---- menu */
-.ws-menu { width: var(--text); margin: 18vh auto 0; text-align: center; }
-.ws-menu:has(.is-long) { width: var(--wide); }
-.ws-menu ul { margin: 24px 0 0; padding: 0; list-style: none; text-align: left; }
-.ws-menu ul.is-long { columns: 2 360px; column-gap: 56px; }
-.ws-menu li { padding: 16px 0; border-bottom: 1px solid var(--line); break-inside: avoid; }
+/* ---- eat and drink: the menu with a leader to each price, then the table booking */
+.ws-menu-list { margin: 0 0 0 var(--indent); padding: 0; list-style: none; }
+.ws-menu-list.is-long { columns: 2 320px; column-gap: 56px; }
+.ws-menu-list li { padding: 16px 0; border-bottom: 1px solid var(--line); break-inside: avoid; }
 .ws-menu-row { display: flex; align-items: baseline; gap: 12px; }
 .ws-menu-row b { font: 400 21px/1.3 var(--ws-serif); }
-.ws-menu-row span { flex: 1; border-bottom: 1px dotted var(--line); translate: 0 -5px; }
-.ws-menu-row em { font-style: normal; font-variant-numeric: tabular-nums; color: var(--ws-accent-ink); }
-.ws-menu li p { margin: 4px 0 0; font-size: 15px; color: var(--dim); }
+.ws-menu-row span { flex: 1; border-bottom: 1px dotted color-mix(in srgb, var(--ink) 30%, transparent); translate: 0 -5px; }
+.ws-menu-row em { font-style: normal; font-variant-numeric: tabular-nums; color: var(--ws-accent-ink); white-space: nowrap; }
+.ws-menu-list li p { margin: 4px 0 0; font-size: 15px; color: var(--dim); }
 .ws-tag {
-  margin-left: 10px; padding: 1px 8px; border-radius: 999px; font-size: 12px;
+  margin-left: 10px; padding: 1px 8px; border-radius: 999px; font-size: 12px; white-space: nowrap;
   color: var(--ws-accent-ink); border: 1px solid color-mix(in srgb, var(--ws-accent) 45%, transparent);
 }
+.ws-dine-book { margin-top: clamp(64px, 9vh, 104px); }
+.ws-dine-book > .ws-sub,
+.ws-dine-book > .ws-dim { margin-left: var(--indent); }
+.ws-dine-book > .ws-dim { margin-top: 0; margin-bottom: 32px; max-width: 46ch; }
 
-/* ---- room and table booking: the sections (the panels are features/booking/table-booking.css) */
-.ws-book { width: var(--wide); margin: 18vh auto 0; }
-.ws-book > .ws-dim { margin: -24px auto 40px; max-width: 34em; text-align: center; }
+/* ---- room and event booking: the panels are features/booking/table-booking.css */
+.ws-book .ws-head { margin-bottom: clamp(32px, 5vw, 56px); }
 
-/* ---- contact, with a map beside it when there's an address */
-.ws-contact { width: var(--text); margin: 18vh auto 0; padding-bottom: 12vh; text-align: center; }
-.ws-contact.has-map { width: var(--wide); display: grid; grid-template-columns: 1fr 1fr; gap: 5vw; text-align: left; }
-.ws-contact.has-map .ws-orn { justify-content: flex-start; }
+/* ---- offers: the price first, large; a photo when there is one */
+.ws-offer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 24px; }
+.ws-offer { display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+.ws-offer-img { aspect-ratio: 16 / 10; overflow: hidden; }
+.ws-offer-img img { display: block; width: 100%; height: 100%; object-fit: cover; transition: scale 1.2s var(--ease); }
+.ws-offer:hover .ws-offer-img img { scale: 1.04; }
+.ws-offer-txt { display: flex; flex: 1; flex-direction: column; align-items: flex-start; padding: 24px 24px 26px; }
+.ws-offer h3 { margin: 0 0 10px; font-size: clamp(24px, 2.2vw, 30px); line-height: 1.12; }
+.ws-offer p { margin: 0 0 14px; color: var(--dim); font-size: 16px; }
+.ws-offer .ws-offer-price { margin: 0 0 12px; font: 400 15px/1.2 system-ui, sans-serif; font-weight: 600; letter-spacing: 0.06em; color: var(--ws-accent-ink); }
+.ws-offer .ws-btn { margin-top: auto; }
+/* no photo: the accent as a band across its top, the words larger */
+.ws-offer.is-plain { border-top: 4px solid var(--ws-accent); }
+.ws-offer.is-plain .ws-offer-txt { padding-top: 34px; }
+.ws-offer.is-plain h3 { font-size: clamp(28px, 2.6vw, 36px); }
+
+/* ---- what guests said: quotes on hairlines */
+.ws-quotes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 40px 32px; margin-left: var(--indent); }
+.ws-quotes figure { display: flex; flex-direction: column; margin: 0; padding-top: 22px; border-top: 1px solid var(--line); }
+.ws-quotes blockquote { margin: 0 0 20px; font: 400 clamp(19px, 1.6vw, 23px)/1.5 var(--ws-serif); }
+.ws-quotes blockquote::before { content: '“'; display: block; height: 0.5em; color: var(--ws-accent-ink); font-size: 2.6em; line-height: 1; }
+.ws-quotes figcaption { display: grid; font-size: 14px; }
+.ws-quotes figcaption span { color: var(--dim); }
+.ws-reviews .ws-caption { margin-left: var(--indent); }
+
+/* ---- questions guests ask: the browser's own disclosure, past the margin */
+.ws-faq-list { margin-left: var(--indent); max-width: 760px; border-top: 1px solid var(--line); }
+.ws-faq details { border-bottom: 1px solid var(--line); }
+.ws-faq summary {
+  display: flex; justify-content: space-between; gap: 16px; padding: 22px 0; list-style: none; cursor: pointer;
+  font: 400 21px/1.4 var(--ws-serif);
+}
+.ws-faq summary::-webkit-details-marker { display: none; }
+.ws-faq summary::after { content: '+'; flex: none; color: var(--ws-accent-ink); font: 300 28px/1 system-ui, sans-serif; transition: rotate 0.3s var(--ease); }
+.ws-faq details[open] summary::after { rotate: 45deg; }
+.ws-faq summary:focus-visible { outline: 2px solid var(--ws-accent); outline-offset: 4px; }
+.ws-faq details p { max-width: 62ch; margin: 0 0 1em; color: var(--dim); }
+.ws-faq details p:last-child { margin-bottom: 24px; }
+
+/* ---- contact: a band of its own, the words large, a map beside them when there's an address */
+.ws-contact {
+  margin-top: clamp(104px, 15vh, 176px); padding: clamp(72px, 11vh, 128px) max(20px, calc((100% - 1240px) / 2));
+  background: var(--band);
+}
+.ws-contact.has-map { display: grid; grid-template-columns: 1.1fr 1fr; gap: var(--gap); align-items: stretch; }
+.ws-contact h2 { margin: 18px 0 0; font-size: clamp(44px, 6.4vw, 96px); line-height: 1; }
+.ws-contact-lead { max-width: 40ch; margin: 22px 0 0; font-size: 19px; color: var(--dim); }
 .ws-map { width: 100%; height: 100%; min-height: 420px; border: 0; border-radius: var(--radius); background: var(--card); }
 .ws[data-style='night'] .ws-map:not(.ws-map-off) { filter: invert(0.9) hue-rotate(180deg) saturate(0.7); }
 /* Before "Show map" (SiteParts SiteMap): nothing loaded from Google yet. */
 .ws-map-off { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px;
-  border: 1px solid var(--line); color: var(--ink); font: inherit; text-align: center; cursor: pointer; }
-.ws-map-off b { font: 600 18px/1.2 var(--ws-serif); color: var(--ws-accent-ink); }
+  border: 1px solid var(--line); color: var(--ink); font: inherit; text-align: center; cursor: pointer;
+  background-image: radial-gradient(var(--line) 1px, transparent 1.3px); background-size: 18px 18px; }
+.ws-map-off b { font: 600 20px/1.2 var(--ws-serif); color: var(--ws-accent-ink); }
 .ws-map-off span { max-width: 28ch; color: var(--ink); }
 .ws-map-off small { color: var(--dim); font-size: 13px; }
 .ws-map-off:hover b { text-decoration: underline; }
-
-/* How to reach the brand (its brand information): under the enquiry button. */
 .ws-reach {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px 24px;
-  margin: 40px 0 0; padding: 24px 0 0; list-style: none; text-align: left; border-top: 1px solid var(--line);
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px 28px;
+  margin: 44px 0 0; padding: 26px 0 0; list-style: none; border-top: 1px solid var(--line);
 }
 .ws-reach li { display: grid; gap: 2px; }
 .ws-reach span { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); }
 .ws-reach a { color: var(--ink); text-decoration: none; overflow-wrap: anywhere; }
 .ws-reach a:hover { color: var(--ws-accent-ink); }
 
-/* ---- footer */
-.ws-foot {
-  display: grid; grid-template-columns: 1fr auto; gap: 24px 40px;
-  padding: 56px max(16px, calc((100% - 1240px) / 2)) 28px;
-  font-size: 14px; color: var(--dim); background: var(--band); border-top: 1px solid var(--line);
-}
+/* ---- the chapter rail (marketing/layout/ChapterRail): the margin already names each chapter,
+ * so here the rail shows numbers only, and every name while it's pointed at */
+.ws .rail li.is-here .rail-t { max-width: 0; opacity: 0; }
+.ws .rail:hover li .rail-t { max-width: 160px; opacity: 1; }
+
+/* ---- footer: the name across the page */
+.ws-foot { padding: 48px max(20px, calc((100% - 1240px) / 2)) 26px; font-size: 14px; color: var(--dim); background: var(--paper); overflow: hidden; }
+.ws-foot-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 18px 40px; }
 .ws-foot-brand { display: grid; gap: 4px; }
-.ws-foot-brand b { font: 400 26px/1.2 var(--ws-serif); color: var(--ink); }
 .ws-foot nav { display: flex; gap: 18px; }
 .ws-foot nav a { text-decoration: none; color: var(--ink); }
-.ws-foot-small { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 13px; }
+.ws-foot-mark {
+  margin: clamp(28px, 5vw, 56px) 0 0; font: 400 clamp(56px, 12.5vw, 210px)/0.9 var(--ws-serif); letter-spacing: -0.035em;
+  white-space: nowrap; color: var(--ink);
+}
+.ws-foot-small { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 13px; }
 
 /* ---- Chat on WhatsApp, always to hand, above the enquiry pill (viewer.css .vw-cta-btn)
  * (#1da851: the icon keeps 3:1 against it) */
@@ -257,73 +377,65 @@
 .ws-wa svg { width: 30px; height: 30px; }
 .ws-wa:hover { scale: 1.07; }
 
-/* ---- offers: cards, each asking about itself */
-.ws-offers { width: var(--wide); margin: 18vh auto 0; }
-.ws-offer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 28px; }
-.ws-offer { display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
-.ws-offer-img { aspect-ratio: 3 / 2; overflow: hidden; }
-.ws-offer-img img { display: block; width: 100%; height: 100%; object-fit: cover; transition: scale 1.2s cubic-bezier(0.2, 0.8, 0.2, 1); }
-.ws-offer:hover .ws-offer-img img { scale: 1.04; }
-.ws-offer-txt { display: flex; flex: 1; flex-direction: column; align-items: flex-start; padding: 26px 26px 28px; }
-.ws-offer h3 { margin: 0 0 10px; font-size: clamp(24px, 2.2vw, 30px); line-height: 1.15; }
-.ws-offer p { margin: 0 0 14px; color: var(--dim); font-size: 16px; }
-.ws-offer .ws-offer-price { color: var(--ws-accent-ink); font: 400 22px/1.3 var(--ws-serif); }
-.ws-offer .ws-btn { margin-top: auto; }
-/* no photo: the accent, faintly, so the space reads as meant */
-.ws-offer:not(:has(.ws-offer-img)) { background: linear-gradient(160deg, var(--card), color-mix(in srgb, var(--ws-accent) 16%, var(--card))); }
-
-/* ---- what guests said: quotes of any length, in columns */
-.ws-reviews { width: var(--wide); margin: 18vh auto 0; }
-.ws-quotes { columns: 3 300px; column-gap: 28px; }
-.ws-quotes figure {
-  display: flex; flex-direction: column; margin: 0 0 28px; padding: 26px 28px 24px; break-inside: avoid;
-  border-top: 2px solid var(--ws-accent); border-radius: 0 0 var(--radius) var(--radius); background: var(--card);
+/* ---- the menu on a phone (SiteParts SiteMenuSheet): the chapters, numbered, in the brand's face */
+.ws-menu-ic { position: relative; width: 16px; height: 10px; }
+.ws-menu-ic i { position: absolute; left: 0; right: 0; height: 1.5px; border-radius: 2px; background: currentColor; transition: top 0.4s var(--ease), transform 0.4s var(--ease); }
+.ws-menu-ic i:first-child { top: 0; }
+.ws-menu-ic i:last-child { top: 8.5px; }
+.ws-menu-btn[aria-expanded='true'] .ws-menu-ic i { top: 4.25px; }
+.ws-menu-btn[aria-expanded='true'] .ws-menu-ic i:first-child { transform: rotate(45deg); }
+.ws-menu-btn[aria-expanded='true'] .ws-menu-ic i:last-child { transform: rotate(-45deg); }
+.ws-sheet {
+  position: fixed; top: var(--bar); left: 0; right: 0; bottom: 0; z-index: 7; overflow-y: auto;
+  display: flex; flex-direction: column; padding: 18px 20px 28px; background: var(--paper);
+  animation: ws-sheet 0.5s var(--ease) both;
 }
-.ws-quotes blockquote { margin: 0 0 20px; font: 400 clamp(18px, 1.5vw, 21px)/1.55 var(--ws-serif); }
-.ws-quotes blockquote::before { content: '“'; display: block; height: 0.45em; color: var(--ws-accent-ink); font-size: 3em; line-height: 1; }
-.ws-quotes figcaption { display: grid; font-size: 14px; }
-.ws-quotes figcaption span { color: var(--dim); }
-.ws-reviews .ws-caption { text-align: center; }
-.ws-reviews .ws-caption a { color: var(--ws-accent-ink); }
+@keyframes ws-sheet { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
+.ws-sheet ol { margin: 0; padding: 0; list-style: none; }
+.ws-sheet li { border-bottom: 1px solid var(--line); animation: ws-rise 0.6s var(--ease) both; }
+.ws-sheet li a { display: flex; align-items: baseline; gap: 14px; padding: 14px 0; text-decoration: none; font: 400 clamp(28px, 8vw, 40px)/1.1 var(--ws-serif); }
+.ws-sheet li a span { font: 600 12px/1 system-ui, sans-serif; letter-spacing: 0.08em; color: var(--ws-accent-ink); font-variant-numeric: tabular-nums; translate: 0 -0.8em; }
+.ws-sheet-cta { margin-top: auto; width: 100%; }
 
-/* ---- questions guests ask: the browser's own disclosure */
-.ws-faq { width: var(--text); margin: 18vh auto 0; }
-.ws-faq-list { border-top: 1px solid var(--line); }
-.ws-faq details { border-bottom: 1px solid var(--line); }
-.ws-faq summary {
-  display: flex; justify-content: space-between; gap: 16px; padding: 20px 0; list-style: none; cursor: pointer;
-  font: 400 20px/1.4 var(--ws-serif);
+/* ---- tablets and phones */
+@media (max-width: 960px) {
+  .ws-nav, .ws-top-cta { display: none; }
+  .ws-menu-btn {
+    display: inline-flex; align-items: center; gap: 10px; height: 40px; padding: 0 14px;
+    border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--ink);
+    font: 600 13px/1 system-ui, sans-serif; letter-spacing: 0.06em; cursor: pointer;
+  }
+  .ws[data-style='modern'] .ws-menu-btn { border-radius: var(--radius); }
 }
-.ws-faq summary::-webkit-details-marker { display: none; }
-.ws-faq summary::after { content: '+'; flex: none; color: var(--ws-accent-ink); font: 300 28px/1 system-ui, sans-serif; transition: rotate 0.25s; }
-.ws-faq details[open] summary::after { rotate: 45deg; }
-.ws-faq summary:focus-visible { outline: 2px solid var(--ws-accent); outline-offset: 4px; }
-.ws-faq details p { margin: 0 0 1em; color: var(--dim); }
-.ws-faq details p:last-child { margin-bottom: 22px; }
-
-/* ---- phones and small tablets */
-@media (max-width: 860px) {
-  .ws-top { flex-wrap: wrap; row-gap: 8px; padding-block: 10px; }
+@media (max-width: 760px) {
+  .ws { --margin: 0px; --gap: 18px; --indent: 0px; --bar: 58px; font-size: 16px; }
   .ws-brand { font-size: 18px; }
-  .ws-logo { height: 32px; }
-  .ws-top nav { order: 3; width: 100%; overflow-x: auto; gap: 18px; white-space: nowrap; scrollbar-width: none; }
-  .ws-top nav::-webkit-scrollbar { display: none; }
-  .ws-top-cta { min-height: 36px; padding: 0 14px; font-size: 13px; }
-  .ws-hero-in { padding: 9vh 0 5vh; }
-  .ws-hero.has-photo { min-height: 86svh; }
-  .ws-hero.has-photo .ws-hero-in { padding: 16vh 0 8vh; }
-  .ws-lede { font-size: 17px; }
-  .ws-tour { aspect-ratio: 3 / 4; max-height: 72vh; }
+  .ws-logo { height: 30px; }
+  .ws-head { grid-template-columns: 1fr; }
+  .ws-hero h1 { font-size: clamp(42px, 12vw, 64px); }
+  .ws-hero.has-photo .ws-hero-in { padding-top: 16vh; }
+  /* the words cover more of a phone's photo: a deeper shade behind them */
+  .ws-hero.has-photo::after { background: linear-gradient(to top, rgba(10, 8, 6, 0.9) 0%, rgba(10, 8, 6, 0.62) 50%, rgba(10, 8, 6, 0.38) 100%); }
+  .ws-hero.has-photo .ws-facts { margin-bottom: 88px; }
   .ws-facts { grid-template-columns: 1fr 1fr; }
-  .ws-facts div + div { border-left: 0; }
-  .ws-facts div:nth-child(even) { border-left: 1px solid var(--line); }
-  .ws-facts div:nth-child(n + 3) { border-top: 1px solid var(--line); }
-  .ws-story, .ws-room, .ws-contact.has-map { grid-template-columns: 1fr; }
+  .ws-facts > div + div { border-left: 0; }
+  .ws-facts > div:nth-child(even) { border-left: 1px solid var(--line); }
+  .ws-hero.has-photo .ws-facts > div:nth-child(even) { border-left-color: rgba(255, 255, 255, 0.14); }
+  .ws-facts > div:nth-child(n + 3) { border-top: 1px solid var(--line); }
+  .ws-hero.has-photo .ws-facts > div:nth-child(n + 3) { border-top-color: rgba(255, 255, 255, 0.14); }
+  .ws-cross { display: none; }
+  .ws-hero.has-photo + .ws-window { margin-top: -56px; }
+  .ws-window { padding: 6px; }
+  .ws-window-bar { flex-wrap: wrap; gap: 8px 12px; }
+  .ws-tour { aspect-ratio: 3 / 4; max-height: 72vh; }
+  .ws-room, .ws-room.is-plain, .ws-contact.has-map { grid-template-columns: 1fr; }
   .ws-room:nth-of-type(even) .ws-room-img { order: 0; }
-  .ws[data-style='heritage'] .ws-room .ws-room-img { box-shadow: 10px 10px 0 -2px color-mix(in srgb, var(--ws-accent) 28%, transparent); }
-  .ws-rooms { gap: 10vh; }
+  .ws-room.is-plain .ws-room-txt { grid-column: 1; }
+  .ws-gallery { grid-template-columns: 1fr 1fr; grid-auto-rows: 42vw; }
+  .ws-gallery button:first-child { grid-row: span 1; }
+  /* a last photo that would stand alone takes the whole row */
+  .ws-gallery button:last-child:nth-child(even) { grid-column: span 2; }
   .ws-map { min-height: 300px; }
-  .ws-foot { grid-template-columns: 1fr; }
   .ws-lb-prev, .ws-lb-next { top: auto; bottom: 8px; translate: none; }
   /* the enquiry pill is a full-width bar at the foot of a phone */
   .ws-wa { bottom: calc(66px + env(safe-area-inset-bottom, 0px)); right: 14px; width: 52px; height: 52px; }
@@ -331,13 +443,13 @@
 
 @media (prefers-reduced-motion: reduce) {
   .ws { scroll-behavior: auto; }
-  .ws-hero-in > *, .ws-stage, .ws-hero-img { animation: none; }
-  .ws-room-img img, .ws-gallery img, .ws-offer-img img, .ws-faq summary::after { transition: none; }
+  .ws-hero-in > *, .ws-window, .ws-hero-img, .ws-sheet, .ws-sheet li, .ws-live::before { animation: none; }
+  .ws-room-img img, .ws-gallery img, .ws-offer-img img, .ws-faq summary::after, .ws-menu-ic i { transition: none; }
 }
 
 /* The studio's Preview (studio/[property]/site/preview): a banner above everything. */
 .ws-preview {
-  position: sticky; top: 0; z-index: 6; margin: 0; padding: 10px 16px;
+  position: sticky; top: 0; z-index: 9; margin: 0; padding: 10px 16px;
   display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; font-size: 14px;
   background: #1c1a17; color: #fff;
 }

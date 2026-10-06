@@ -142,7 +142,7 @@
 .rs-notes { margin: 6px 0 0; font-style: italic; }
 .rs-stay { margin: 4px 0 0; font-weight: 600; }
 .rs-kinds { display: flex; gap: 6px; margin-left: auto; }
-.se .rs-kinds button.is-on { border-color: var(--ed-signal); color: var(--ed-signal); }
+.se .rs-kinds button.is-on { border-color: var(--ed-signal); color: var(--ed-signal); background: transparent; }
 .se .se-pin { border-radius: 999px 999px 999px 3px; }
 .rs-act { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .rs-status { padding: 3px 10px; border-radius: 999px; font-size: 12px; border: 1px solid var(--ed-line); }

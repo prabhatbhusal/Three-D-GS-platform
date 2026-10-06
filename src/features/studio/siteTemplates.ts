@@ -7,10 +7,12 @@
  * the website is published.
  */
 import type { SiteDoc } from '../../lib/api';
+import type { ProjectFeatures } from '../../@types/config.types';
 
 export type PlaceKind = 'hotel' | 'restaurant' | 'venue' | 'college' | 'heritage' | 'other';
 
-type Starter = { site?: Partial<SiteDoc> };
+/** `features`: what such a place doesn't use, switched off from the start (it can be turned on from its home). */
+type Starter = { site?: Partial<SiteDoc>; features?: Partial<ProjectFeatures> };
 interface Template extends Starter {
   kind: PlaceKind;
   label: string;
@@ -66,12 +68,14 @@ export const TEMPLATES: Template[] = [
   },
   {
     kind: 'college', label: 'College or school', firstSpace: 'Main building',
-    gives: 'An enquiry section for admissions and campus visits.',
+    gives: 'An enquiry section for admissions and campus visits. Bookings start switched off; turn them on from the project’s home if you need them.',
+    features: { reservations: false },
     site: { contact: { title: 'Visit the campus', body: 'Ask about admissions, courses or a campus visit.' } }
   },
   {
     kind: 'heritage', label: 'Heritage or cultural site', firstSpace: 'Courtyard',
-    gives: 'An enquiry section for visits and group bookings.',
+    gives: 'An enquiry section for visits and group bookings. Bookings start switched off; turn them on from the project’s home if you need them.',
+    features: { reservations: false },
     site: { contact: { title: 'Plan a visit', body: 'Ask about opening times, guided visits or group bookings.' } }
   },
   { kind: 'other', label: 'Something else', firstSpace: 'Reception', gives: 'A blank website to start from.' }

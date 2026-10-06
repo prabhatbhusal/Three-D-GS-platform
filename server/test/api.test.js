@@ -37,7 +37,12 @@ const mailServer = http.createServer((req, res) => {
   let body = '';
   req.on('data', (c) => { body += c; });
   req.on('end', () => {
-    mailbox.push({ auth: req.headers.authorization, ...JSON.parse(body) });
+    const mail = JSON.parse(body);
+    if (mail.to?.includes('refused@example.test')) {
+      return res.writeHead(403, { 'Content-Type': 'application/json' })
+        .end('{"statusCode":403,"name":"validation_error","message":"You can only send testing emails to your own email address (owner@example.test). To send emails to other recipients, please verify a domain at resend.com/domains."}');
+    }
+    mailbox.push({ auth: req.headers.authorization, ...mail });
     res.writeHead(200, { 'Content-Type': 'application/json' }).end('{"id":"m1"}');
   });
 });
@@ -392,7 +397,7 @@ test('a client\'s staff answer enquiries and bookings and read the report, and r
   const mine = list.find((p) => p.id === pid);
   assert.equal(mine.access, 'staff');
   assert.deepEqual([mine.members, mine.staff, mine.spaceCount], [[], [], 0], 'no one’s details, no spaces');
-  assert.deepEqual(Object.keys((await api('GET', `/api/properties/${pid}`)).json).sort(), ['access', 'id', 'members', 'ownerId', 'spaceCount', 'staff', 'theme', 'title']);
+  assert.deepEqual(Object.keys((await api('GET', `/api/properties/${pid}`)).json).sort(), ['access', 'features', 'id', 'members', 'ownerId', 'spaceCount', 'staff', 'theme', 'title']);
   // what they're there for
   const inbox = await api('GET', `/api/sites/${pid}/reservations`);
   assert.equal(inbox.status, 200);
@@ -564,7 +569,7 @@ test('a project carries its own branding: name, accent, font and logo', async ()
   // public, for the tour: just the branding, and the WhatsApp number visitors are shown anyway
   cookie = '';
   const pub = await api('GET', `/api/properties/${pid}/theme`);
-  assert.deepEqual(Object.keys(pub.json).sort(), ['theme', 'title', 'whatsapp']);
+  assert.deepEqual(Object.keys(pub.json).sort(), ['features', 'theme', 'title', 'whatsapp']);
   assert.equal(pub.json.theme.accent, '#1f6feb');
   assert.equal((await api('PUT', `/api/properties/${pid}/theme`, { accent: '#000000' })).status, 401);
 
@@ -1915,4 +1920,57 @@ test('the studio warns before publishing a space whose scan files are not on thi
   const pub = (await api('POST', '/api/scenes/no-files-here/publish')).json;
   assert.equal(pub.published, true, 'a warning, not a block: storage may be catching up');
   assert.ok(pub.warnings.some((w) => /scan files aren.t on this server/.test(w)), 'and repeated when it publishes');
+});
+
+test('a project chooses its features: off, its enquiries and bookings are refused and its website is gone', async () => {
+  signIn();
+  const pid = (await api('POST', '/api/properties', { title: 'Feature Cafe' })).json.id;
+  assert.deepEqual((await api('GET', `/api/properties/${pid}`)).json.features,
+    { enquiries: true, reservations: true, website: true, report: true, activity: true }, 'all on by default');
+  const off = await api('PUT', `/api/properties/${pid}/features`, { enquiries: false, reservations: false, website: false, bogus: false, report: 'no' });
+  assert.equal(off.status, 200);
+  assert.deepEqual(off.json.features, { enquiries: false, reservations: false, website: false, report: true, activity: true }, 'known booleans only');
+  assert.deepEqual((await api('GET', `/api/properties/${pid}/theme`)).json.features, { enquiries: false, reservations: false });
+
+  cookie = '';
+  assert.deepEqual((await api('GET', `/api/sites/${pid}/booking`)).json, { booking: null, places: [] }, 'the tour is told: none');
+  assert.deepEqual((await api('GET', `/api/sites/${pid}/stays`)).json, { stays: null });
+  const guest = { name: 'Guest', phone: '9800000009', party: 2, date: '2030-01-01', time: '19:00', space: 'x', hotspot: 'y', formRenderedAt: Date.now() - 5000 };
+  for (const path of ['requests', 'reservations', 'stays', 'events', 'waitlist']) {
+    const r = await api('POST', `/api/sites/${pid}/${path}`, guest);
+    assert.equal(r.status, 404, path);
+    assert.match(r.json.error, /bookings online/, path);
+  }
+  assert.equal((await api('GET', `/api/sites/${pid}`)).status, 404, 'no website');
+  const asked = await api('POST', '/api/leads', { sceneId: 'hub', propertyId: pid, name: 'Asker', phone: '9800000004', formRenderedAt: Date.now() - 5000 });
+  assert.equal(asked.status, 403);
+  assert.equal((await api('PUT', `/api/properties/${pid}/features`, { enquiries: true })).status, 401);
+
+  signIn();
+  assert.equal((await api('GET', `/api/sites/${pid}/reservations`)).status, 200, 'the studio still lists what came before');
+  assert.equal((await api('GET', `/api/sites/${pid}/draft`)).status, 200, 'the website routes are not booking routes');
+  await api('PUT', `/api/properties/${pid}/features`, { enquiries: true });
+  cookie = '';
+  assert.equal((await api('POST', '/api/leads', { sceneId: 'hub', propertyId: pid, name: 'Asker', phone: '9800000004', formRenderedAt: Date.now() - 5000 })).status, 200);
+});
+
+test('a test email goes where enquiries go, in the venue’s name, and a refusal says how to fix it', async () => {
+  signIn();
+  const pid = (await api('POST', '/api/properties', { title: 'Mail Lodge' })).json.id;
+  await api('PUT', `/api/properties/${pid}/info`, { email: 'desk@maillodge.example' });
+  await api('PUT', `/api/properties/${pid}/lead-emails`, { emails: ['owner@maillodge.example'] });
+  const ok = await api('POST', `/api/properties/${pid}/lead-emails/test`);
+  assert.equal(ok.status, 200, JSON.stringify(ok.json));
+  const sent = mailbox.at(-1);
+  assert.deepEqual(sent.to, ['owner@maillodge.example']);
+  assert.match(sent.from, /^Mail Lodge </, 'in the venue’s name');
+  assert.equal(sent.reply_to, 'desk@maillodge.example', 'replies reach the venue');
+
+  // Resend's test mode: anyone but the account's owner is refused
+  await api('PUT', `/api/properties/${pid}/lead-emails`, { emails: ['refused@example.test'] });
+  const no = await api('POST', `/api/properties/${pid}/lead-emails/test`);
+  assert.equal(no.status, 502);
+  assert.match(no.json.error, /verify one at resend\.com\/domains/);
+  cookie = '';
+  assert.equal((await api('POST', `/api/properties/${pid}/lead-emails/test`)).status, 401);
 });

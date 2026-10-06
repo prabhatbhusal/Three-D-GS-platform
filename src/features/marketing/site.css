@@ -73,24 +73,25 @@
    the OS preference) and flipped by ThemeToggle. Tokens only — no
    component knows which theme it is in. The accent deepens because the
    dark theme's light blue fails contrast on paper. */
+/* (2026-10-06) the default now: a cool silver paper after lightweight.info, graphite type */
 :root[data-theme='light'] .site {
-  --bg: #F6F7FA;
-  --panel: #FFFFFF;
-  --raise: #ECEEF4;
-  --line: #DDE0EA;
-  --line-lit: #BFC3D1;
-  --text: #131419;
-  --dim: #555A6B;
-  --accent: #161616;
-  --accent-fill: #161616;
-  --accent-glow: rgba(0, 0, 0, 0.14);
-  --accent-ink: #FFFFFF;
-  --teal: #555555;
-  --violet: #8A8A8A;
-  --grid: rgba(14, 22, 32, 0.07);
-  --glass: rgba(246, 247, 250, 0.86);
-  --sh: rgba(19, 33, 51, 0.12);
-  --placeholder: #8A8FA0;
+  --bg: #E9EAED;
+  --panel: #F5F5F7;
+  --raise: #DDDEE2;
+  --line: #CDCFD4;
+  --line-lit: #A6A9B1;
+  --text: #111215;
+  --dim: #565962;
+  --accent: #111215;
+  --accent-fill: #111215;
+  --accent-glow: rgba(17, 18, 21, 0.14);
+  --accent-ink: #F5F5F7;
+  --teal: #5A5D66;
+  --violet: #8C8F98;
+  --grid: rgba(17, 18, 21, 0.08);
+  --glass: rgba(233, 234, 237, 0.86);
+  --sh: rgba(20, 22, 30, 0.14);
+  --placeholder: #8A8D96;
   --danger: #B3271E;
   --danger-ink: #FFFFFF;
   --hero-grad: linear-gradient(100deg, var(--teal) 0%, var(--accent) 55%, var(--violet) 100%);
@@ -1179,36 +1180,6 @@
 
 /* ------------------------------------------------------- responsive */
 @media (max-width: 960px) {
-  /* two rows: brand and actions, then the links scrolling sideways;
-   * folded, one row of the mark and the links */
-  .site-nav {
-    flex-wrap: wrap;
-    row-gap: 2px;
-    height: auto;
-    min-height: 56px;
-    padding: 8px 8px 6px 14px;
-    border-radius: 28px;
-  }
-
-  .site-nav[data-collapsed] {
-    flex-wrap: nowrap;
-    width: calc(100% - 32px);
-    padding: 6px 8px 6px 14px;
-  }
-
-  .site-nav[data-collapsed] .site-brand-word,
-  .site-nav[data-collapsed] .site-actions { display: none; }
-
-  .site-nav[data-collapsed] .site-links { order: 0; width: auto; flex: 1; margin: 0; }
-
-  .site-links {
-    order: 3;
-    width: 100%;
-    margin-left: 0;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
   .auth {
     grid-template-columns: 1fr;
   }
@@ -1228,19 +1199,6 @@
 }
 
 @media (max-width: 620px) {
-  .site-nav {
-    gap: 10px;
-    padding-left: 14px;
-  }
-
-  .site-brand-tld {
-    display: none;
-  }
-
-  .site-btn-quiet {
-    display: none;
-  }
-
   .site-foot-links {
     margin-left: 0;
   }
@@ -1305,4 +1263,224 @@
   font: 500 11.5px/1 var(--font-nav-mono), ui-monospace, monospace;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+/* ======================================================= nav, 2026-10-06 */
+/* The theme switch sits between the links and the actions; on phones and
+ * tablets (≤ 1240 px) the links and actions give way to a Menu button, and
+ * the bar grows down into one card (MobileMenu.tsx, .mnav below): one
+ * surface, not a drawer sliding over the page. */
+.site-theme { margin-left: auto; }
+.site-theme + .site-actions { margin-left: 0; }
+.site-nav[data-collapsed] .site-theme { display: none; }
+
+.site-menu-btn { display: none; }
+
+@media (max-width: 1240px) {
+  .site-links,
+  .site-actions { display: none; }
+
+  .site-nav,
+  .site-nav[data-collapsed] {
+    width: calc(100% - 24px);
+    height: 56px;
+    gap: 8px;
+    padding: 0 8px 0 14px;
+    border-radius: 20px;
+    background: var(--nav-bg-folded);
+  }
+  /* no folding on a phone: the bar is already its smallest */
+  .site-nav[data-collapsed] .site-brand-word { max-width: 560px; opacity: 1; overflow: visible; pointer-events: auto; }
+  .site-nav[data-collapsed] .site-theme { display: inline-grid; }
+
+  .site-menu-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    height: 40px;
+    padding: 0 14px 0 16px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--raise);
+    color: var(--text);
+    font: 500 11.5px/1 var(--font-nav-mono), ui-monospace, monospace;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .site-menu-word { min-width: 5ch; text-align: left; }
+  /* two bars that cross into an X */
+  .site-menu-ic { position: relative; width: 16px; height: 10px; }
+  .site-menu-ic i {
+    position: absolute; left: 0; right: 0; height: 1.5px; border-radius: 2px; background: currentColor;
+    transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), top 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .site-menu-ic i:first-child { top: 0; }
+  .site-menu-ic i:last-child { top: 8.5px; }
+  .site-nav[data-menu] .site-menu-ic i:first-child { top: 4.25px; transform: rotate(45deg); }
+  .site-nav[data-menu] .site-menu-ic i:last-child { top: 4.25px; transform: rotate(-45deg); }
+
+  /* open, the card behind is the surface: the bar loses its own glass and its scan line */
+  /* :root[data-theme] so it outranks the light theme's own shadow on the bar */
+  :root[data-theme] .site-nav[data-menu] { background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; z-index: 41; }
+  .site-nav[data-menu]::after { display: none; }
+  .site[data-menu-open] { overflow: hidden; }
+}
+
+@media (max-width: 380px) {
+  .site-brand-tld { display: none; }
+  .site-menu-word { display: none; }
+  .site-menu-btn { padding: 0 12px; }
+}
+
+/* The menu card: the bar's own shape, grown to the screen less a margin. */
+.mnav-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.mnav {
+  position: fixed;
+  top: 10px;
+  left: 12px;
+  right: 12px;
+  bottom: 10px;
+  z-index: 40;
+  overflow: hidden;
+  border-radius: 22px;
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--line), 0 30px 80px var(--sh);
+}
+/* the scan line: down the card once as it opens */
+.mnav-scan {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 56px;
+  height: 1px;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--text) 50%, transparent);
+  animation: mnav-scan 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes mnav-scan { from { top: 56px; opacity: 0.9; } to { top: 100%; opacity: 0; } }
+.mnav-body {
+  position: absolute;
+  inset: 56px 0 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 20px 24px;
+  /* the site's dot ground, faint */
+  background-image: radial-gradient(var(--grid) 1px, transparent 1.3px);
+  background-size: 22px 22px;
+}
+.mnav-chapters { list-style: none; margin: 0; padding: 0; }
+.mnav-chapters > li { border-bottom: 1px solid var(--line); }
+.mnav-row { display: flex; align-items: center; gap: 8px; }
+.mnav-link {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 16px 0 14px;
+  color: var(--text);
+}
+.mnav-n {
+  font: 400 11px/1 var(--font-nav-mono), ui-monospace, monospace;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+  transform: translateY(-0.45em);
+}
+.mnav-t {
+  font: 600 clamp(26px, 7.4vw, 40px)/1.05 var(--font-display-mono), var(--sans);
+  letter-spacing: -0.045em;
+  transition: letter-spacing 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.mnav-link:active .mnav-t { letter-spacing: -0.02em; }
+/* the page you're on: its number lit, a viewfinder corner before its name */
+.mnav-chapters > li.is-here .mnav-n { color: var(--text); }
+.mnav-chapters > li.is-here .mnav-t::after {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: 12px;
+  vertical-align: 0.35em;
+  border-radius: 50%;
+  background: var(--text);
+}
+.mnav-more {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: none;
+  color: var(--text);
+  font-size: 20px;
+  cursor: pointer;
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), background 0.2s;
+}
+.mnav-more[aria-expanded='true'] { transform: rotate(45deg); background: var(--raise); }
+.mnav-sub {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 34px;
+  overflow: hidden;
+  display: grid;
+  gap: 0;
+}
+.mnav-sub li:last-child { padding-bottom: 14px; }
+.mnav-sub a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+  font: 400 15px/1.3 var(--sans);
+  color: var(--dim);
+}
+.mnav-sub a:active,
+.mnav-sub a:hover { color: var(--text); }
+.mnav-sub .ic { font-size: 18px; flex: none; }
+.mnav-sub small { display: block; margin-top: 2px; font-size: 11.5px; color: var(--dim); opacity: 0.8; }
+.mnav-sub .drop-status { flex: none; }
+.mnav-foot {
+  margin-top: auto;
+  padding-top: 28px;
+  display: grid;
+  gap: 10px;
+}
+.mnav-cta.site-btn { width: 100%; min-height: 50px; justify-content: center; font-size: 15px; }
+.mnav-reach { justify-content: center; margin-top: 8px; }
+.mnav-foot .open-now { justify-self: center; margin: 2px 0 0; }
+.mnav-coords {
+  margin: 0;
+  text-align: center;
+  font: 400 11px/1 var(--font-nav-mono), ui-monospace, monospace;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+}
+
+/* the page dims behind an open dropdown (desktop); clicks pass through */
+.site-drop-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--bg) 45%, transparent);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mnav-scan { display: none; }
+  .site-menu-ic i { transition: none; }
 }

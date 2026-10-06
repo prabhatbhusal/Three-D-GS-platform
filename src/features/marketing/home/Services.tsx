@@ -7,7 +7,7 @@ import { SECTORS } from '../siteContent';
 
 export function Services() {
   return (
-    <section className="hp-block" aria-labelledby="hp-services-title">
+    <section className="hp-block" aria-labelledby="hp-services-title" data-chapter="Capture">
       <header className="hp-block-head">
         <h2 id="hp-services-title">What we capture.</h2>
         <p>Anywhere a visitor decides by looking around first.</p>

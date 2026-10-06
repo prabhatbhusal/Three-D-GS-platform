@@ -7,6 +7,7 @@ import {
   scheduleSite, shareSiteForReview, stopSiteReview, uploadSiteImage, type ReviewFeedback,
   type DiningPlace, type EventHall, type SiteBooking, type SiteDoc, type SiteEvents, type SiteMenu, type SiteSpace, type SiteStays, type SiteStyle, type SiteTable, type StayRoom
 } from '../../../../lib/api';
+import type { ProjectFeatures } from '../../../../@types/config.types';
 import { useStudioSession } from '../../../../features/auth/useStudioSession';
 import '../../../../features/studio/editor.css';
 import './site-editor.css';
@@ -48,6 +49,7 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
   const [here, setHere] = useState(''); // the section in view, lit in the index
+  const [features, setFeatures] = useState<ProjectFeatures | null>(null); // what the project uses (its home)
 
   // The index lights the section the reader is in: the one crossing the band under the bar.
   const loaded = !!doc;
@@ -81,6 +83,7 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
       .then(([p, d]) => {
         if (!p || !d) throw new Error('That project doesn’t exist, or you can’t see it.');
         setTitle(p.theme?.brand || p.title);
+        setFeatures(p.features ?? null);
         setDoc(d.draft);
         setSpaces(d.spaces);
         setPublishedAt(d.publishedAt);
@@ -150,8 +153,11 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
   const published = spaces.filter((s) => s.published);
   // the viewpoints a table's "view from here" may use: the tour's space's
   const views = published.find((x) => x.id === (doc.hero.space || published[0]?.id))?.views ?? [];
+  // Bookings switched off for the project: the server offers none (sites.js renderSite), so their sections go.
+  const books = features?.reservations !== false;
+  const BOOKING = ['Table booking', 'Room booking', 'Event booking'];
   // The index beside the form: every section (titles as on the cards) and whether it has anything in it yet.
-  const sections: [string, boolean][] = [
+  const sections = ([
     ['Look', true],
     ['Opening', !!(doc.hero.title || doc.hero.lede || doc.hero.image)],
     ['Key facts', doc.facts.some((f) => f.n || f.k)],
@@ -168,14 +174,13 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
     ['Event booking', doc.events.on],
     ['Questions guests ask', doc.faq.length > 0],
     ['Enquiries', !!(doc.contact.title || doc.contact.body)]
-  ];
+  ] as [string, boolean][]).filter(([t]) => books || !BOOKING.includes(t));
 
   return (
     <div className="ed2 se">
       <header className="se-bar">
         {/* plain <a>: the studio holds a page-singleton renderer and wants a full load */}
-        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-        <a href="/studio" className="se-back">← Projects</a>
+        <a href={`/studio/${encodeURIComponent(id)}`} className="se-back">← Project</a>
         <div className="se-title">
           <b>Website</b><span>{title}</span>
         </div>
@@ -227,6 +232,12 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
         ))}
       </nav>
       <main className="se-body">
+        {features?.website === false && (
+          <div className="se-note" role="note"><p>The website is switched off for this project, so visitors can’t open it. You can still prepare it here; switch it on under <a href={`/studio/${encodeURIComponent(id)}#ph-features`}>What this project uses</a>.</p></div>
+        )}
+        {!books && (
+          <div className="se-note" role="note"><p>Bookings are off for this project, so its website takes none and the booking sections are hidden.</p></div>
+        )}
         {!published.length && (
           <p className="se-warn">None of this project’s spaces is published yet. The website shows the live tour of a published space, so publish one in the studio first.</p>
         )}
@@ -410,11 +421,11 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
           <MenuEditor menu={doc.menu} onChange={(menu) => change({ menu })} />
         </Card>
 
-        <Card title="Table booking" hint="Guests choose a day, a time and a table on your floor plan, and send a request; you confirm it in Reservations. Publish to put changes live.">
+        {books && <Card title="Table booking" hint="Guests choose a day, a time and a table on your floor plan, and send a request; you confirm it in Reservations. Publish to put changes live.">
           <Text label="This place's name, when you have more than one" value={doc.booking.name ?? ''} max={60} placeholder="The Restaurant"
             onChange={(name) => change({ booking: { ...doc.booking, name } })} />
           <TableSetup project={id} booking={doc.booking} views={views} onError={setError} onChange={(booking) => change({ booking })} />
-        </Card>
+        </Card>}
 
         <Card title="More dining places" hint="A café beside the restaurant, a rooftop bar: each has its own menu, floor plan, tables and hours, booked apart. Guests see them on the website and choose between them in the tour.">
           {doc.dining.map((o, i) => {
@@ -440,7 +451,7 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
           )}
         </Card>
 
-        <Card title="Room booking" hint="Guests pick their dates and a room, and send a request; you confirm it in Reservations. While it’s on, the tour’s Book now buttons are replaced by Book a room, so requests come here. Publish to put changes live.">
+        {books && <Card title="Room booking" hint="Guests pick their dates and a room, and send a request; you confirm it in Reservations. While it’s on, the tour’s Book now buttons are replaced by Book a room, so requests come here. Publish to put changes live.">
           <label className="se-check">
             <input type="checkbox" checked={doc.stays.on} onChange={(e) => change({ stays: { ...doc.stays, on: e.target.checked } })} />
             Take room bookings on the website
@@ -453,9 +464,9 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
           {doc.stays.on && !doc.stays.rooms.length && (
             <p className="se-warn">Room booking stays hidden on the website until there is at least one room.</p>
           )}
-        </Card>
+        </Card>}
 
-        <Card title="Event booking" hint="For weddings, parties and meetings: guests pick a hall, the day (daytime, evening or the whole day), how many and what kind of event, and send a request; you confirm it in Reservations. Publish to put changes live.">
+        {books && <Card title="Event booking" hint="For weddings, parties and meetings: guests pick a hall, the day (daytime, evening or the whole day), how many and what kind of event, and send a request; you confirm it in Reservations. Publish to put changes live.">
           <label className="se-check">
             <input type="checkbox" checked={doc.events.on} onChange={(e) => change({ events: { ...doc.events, on: e.target.checked } })} />
             Take event bookings on the website and in the tour
@@ -472,7 +483,7 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
           {doc.events.on && !doc.events.halls.some((h) => h.seated || h.standing) && (
             <p className="se-warn">Event booking stays hidden until at least one hall says how many it holds.</p>
           )}
-        </Card>
+        </Card>}
 
         <Card title="Questions guests ask" hint="Parking, check-in times, airport pick-up, pets. The answers also reach Google, which can show them under your listing.">
           {doc.faq.map((f, i) => {

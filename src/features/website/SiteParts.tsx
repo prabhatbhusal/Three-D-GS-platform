@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
@@ -122,7 +123,7 @@ export function SiteGallery({ photos, name }: { photos: Photo[]; name: string })
  * An offer's "Ask about this offer" (AskAbout) opens it too, and the enquiry
  * then says which offer the guest was looking at.
  */
-export function SiteEnquire({ project, name, preview = false, whatsapp }: { project: string; name: string; preview?: boolean; whatsapp?: string }) {
+export function SiteEnquire({ project, name, preview = false, whatsapp, enquiries = true }: { project: string; name: string; preview?: boolean; whatsapp?: string; enquiries?: boolean }) {
   const [open, setOpen] = useState(false);
   const [offer, setOffer] = useState('');
   useEffect(() => {
@@ -130,6 +131,9 @@ export function SiteEnquire({ project, name, preview = false, whatsapp }: { proj
     window.addEventListener('rcaas:ask', ask);
     return () => window.removeEventListener('rcaas:ask', ask);
   }, []);
+  // A project that takes no enquiries (its features): no form. The page already offers its WhatsApp
+  // (the floating button, the contact list) and its other contact details.
+  if (!enquiries) return null;
   // In the studio's preview no enquiry is sent: the form waits for Publish.
   if (preview) return <button type="button" className="ws-btn" disabled title="Works once the website is published">Send an enquiry</button>;
   return (
@@ -177,4 +181,46 @@ export function SiteReveal() {
     return () => io.disconnect();
   });
   return null;
+}
+
+/**
+ * The website's menu on a phone or tablet (2026-10-06): a Menu button in the
+ * top bar opens the whole page as numbered chapters in the brand's face, with
+ * the main call to action at its foot. A chapter, Esc or the button closes
+ * it; the page holds still under it. Styles: website.css .ws-sheet.
+ */
+export function SiteMenuSheet({ chapters, name, cta }: { chapters: [string, string][]; name: string; cta: [string, string] }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const ws = document.querySelector<HTMLElement>('.ws');
+    if (!open) return;
+    ws?.setAttribute('data-sheet', '');
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('keydown', onKey);
+    return () => { ws?.removeAttribute('data-sheet'); document.removeEventListener('keydown', onKey); };
+  }, [open]);
+  return (
+    <>
+      <button type="button" className="ws-menu-btn" aria-expanded={open} aria-controls="ws-sheet" onClick={() => setOpen(!open)}>
+        <span>{open ? 'Close' : 'Menu'}</span>
+        <span className="ws-menu-ic" aria-hidden><i /><i /></span>
+      </button>
+      {/* into the page, not the top bar: the bar's backdrop blur would make "fixed" mean fixed to it */}
+      {open && createPortal(
+        <div id="ws-sheet" className="ws-sheet" role="dialog" aria-modal="true" aria-label={`${name}: sections`}>
+          <ol>
+            {chapters.map(([id, label], i) => (
+              <li key={id} style={{ animationDelay: `${0.04 * i + 0.08}s` }}>
+                <a href={`#${id}`} onClick={() => setOpen(false)}>
+                  <span>{String(i + 1).padStart(2, '0')}</span>{label}
+                </a>
+              </li>
+            ))}
+          </ol>
+          <a className="ws-btn ws-sheet-cta" href={cta[0]} onClick={() => setOpen(false)}>{cta[1]}</a>
+        </div>,
+        document.querySelector('.ws') ?? document.body
+      )}
+    </>
+  );
 }

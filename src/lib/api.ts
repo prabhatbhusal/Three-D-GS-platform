@@ -7,7 +7,7 @@
  */
 import type { ApiScene, Property, SceneDoc } from '../@types/scene.types';
 import type { AudioUploadResult, UploadResult } from '../@types/upload.types';
-import type { BrandFont, ProjectInfo, ProjectTheme } from '../@types/config.types';
+import type { BrandFont, ProjectFeatures, ProjectInfo, ProjectTheme } from '../@types/config.types';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000').replace(/\/$/, '');
 
@@ -80,7 +80,10 @@ export const removePropertyMember = (id: string, userId: string) =>
 
 /** A project's branding. Public: the tour reads it. */
 export const getProjectTheme = (id: string) =>
-  request<{ title: string; theme: ProjectTheme; whatsapp?: string | null }>(`/api/properties/${encodeURIComponent(id)}/theme`);
+  request<{ title: string; theme: ProjectTheme; whatsapp?: string | null; features?: { enquiries: boolean; reservations: boolean } }>(`/api/properties/${encodeURIComponent(id)}/theme`);
+/** Owner only: switch parts of the platform on or off for the project. */
+export const setProjectFeatures = (id: string, patch: Partial<ProjectFeatures>) =>
+  request<Property>(`/api/properties/${encodeURIComponent(id)}/features`, { method: 'PUT', body: JSON.stringify(patch) });
 /** Owner or admin. `accent: null` goes back to the default. */
 export const setProjectTheme = (id: string, patch: { brand?: string; accent?: string | null; font?: BrandFont }) =>
   request<Property>(`/api/properties/${encodeURIComponent(id)}/theme`, { method: 'PUT', body: JSON.stringify(patch) });
@@ -103,6 +106,9 @@ export interface ProjectLeads { leads: Lead[]; emails: string[]; emailOn: boolea
 export const getProjectLeads = (id: string) => request<ProjectLeads>(`/api/properties/${encodeURIComponent(id)}/leads`);
 /** A plain link: the browser sends the studio's cookie with a top-level download. */
 export const projectLeadsCsvUrl = (id: string) => `${API_BASE}/api/properties/${encodeURIComponent(id)}/leads.csv`;
+/** A test email to where the project's enquiries go; rejects with the reason it couldn't send. */
+export const sendTestEmail = (id: string) =>
+  request<{ sent: true; to: string[] }>(`/api/properties/${encodeURIComponent(id)}/lead-emails/test`, { method: 'POST' });
 export const setProjectLeadEmails = (id: string, emails: string[]) =>
   request<{ emails: string[] }>(`/api/properties/${encodeURIComponent(id)}/lead-emails`, { method: 'PUT', body: JSON.stringify({ emails }) });
 
@@ -186,7 +192,7 @@ export interface SiteStays {
 export interface SiteSpace { id: string; title: string; published: boolean; views: { id: string; label: string }[] }
 export interface SiteDraft { draft: SiteDoc; publishedAt: string | null; scheduledAt: string | null; spaces: SiteSpace[] }
 export interface PublicSite {
-  project: { id: string; title: string; theme: ProjectTheme; info?: ProjectInfo };
+  project: { id: string; title: string; theme: ProjectTheme; info?: ProjectInfo; features?: { enquiries: boolean; reservations: boolean } };
   site: Omit<SiteDoc, 'booking' | 'stays' | 'events' | 'dining'> & {
     booking: SiteBooking | null; stays: SiteStays | null; events?: SiteEvents | null;
     /** Each with its live table setup, or null when its booking is off. */

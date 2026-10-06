@@ -2,7 +2,7 @@
 /**
  * The home page's motion (2026-10-05), one system for the whole page, all on
  * GSAP with the page's own scroll container (.site):
- *   - the hero headline's letters rise into place once the globe has begun
+ *   - the hero headline's letters rise into place once the pagoda has begun
  *     to settle, then the lede and the buttons;
  *   - each section heading rises line by line from behind a mask as it
  *     enters, its line of context after it;
