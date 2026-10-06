@@ -66,17 +66,18 @@ body {
 }
 
 /* The 404 page (app/not-found.tsx): here, since every page loads this file. */
-.nf { --nf-bg: #0e0f12; --nf-text: #f2f2f4; --nf-dim: #a3a6ad; --nf-line: #2a2c33; --nf-accent: #3a6df0;
+.nf { --nf-bg: #161616; --nf-text: #f0f0f0; --nf-dim: #9c9c9c; --nf-line: #2c2c2c; --nf-accent: #f0f0f0;
   min-height: 100dvh; display: flex; flex-direction: column; background: var(--nf-bg); color: var(--nf-text); font-family: var(--sans); }
-:root[data-theme='light'] .nf { --nf-bg: #f7f7f9; --nf-text: #121318; --nf-dim: #5b5f68; --nf-line: #dcdde2; }
+:root[data-theme='light'] .nf { --nf-bg: #f4f4f3; --nf-text: #151515; --nf-dim: #5b5b5b; --nf-line: #dcdcdc; --nf-accent: #151515; }
+:root[data-theme='light'] .nf-btn-main { color: #f4f4f3; }
 .nf-brand { padding: 24px; font-weight: 800; font-size: 20px; color: inherit; text-decoration: none; }
 .nf-brand span { font-weight: 500; color: var(--nf-dim); }
 .nf-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px 16px 96px; max-width: 40rem; margin: 0 auto; }
 .nf-code { margin: 0; color: var(--nf-accent); font-weight: 700; }
 .nf-body h1 { margin: 12px 0 16px; font-size: clamp(36px, 6vw, 60px); line-height: 1.1; letter-spacing: -0.025em; }
-.nf-body h1 em { font-style: normal; color: var(--nf-accent); }
+.nf-body h1 em { font-style: normal; color: var(--nf-dim); }
 .nf-body > p:not(.nf-code) { margin: 0; color: var(--nf-dim); font-size: 18px; line-height: 1.55; }
 .nf-cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 32px; }
 .nf-btn { padding: 12px 24px; border-radius: 999px; border: 1px solid var(--nf-line); color: inherit; text-decoration: none; font-weight: 600; }
-.nf-btn-main { background: var(--nf-accent); border-color: var(--nf-accent); color: #fff; }
+.nf-btn-main { background: var(--nf-accent); border-color: var(--nf-accent); color: #161616; }
 .nf-btn:hover { filter: brightness(1.1); }

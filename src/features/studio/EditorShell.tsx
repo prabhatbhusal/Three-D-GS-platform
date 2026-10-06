@@ -749,7 +749,7 @@ function SceneTree({ state, tracks, hotspots, colliders, sel, onSelect, onAddTra
     <div className="ed2-left">
       <div className="ed2-tree-grp">
         Scenes
-        <span className="ed2-tree-add" onClick={onNewSpace} title="New space">＋</span>
+        <button type="button" className="ed2-tree-add" onClick={onNewSpace} title="New space" aria-label="New space">＋</button>
       </div>
       {visibleScenes().map((s) => (
         <SceneRow
@@ -763,8 +763,8 @@ function SceneTree({ state, tracks, hotspots, colliders, sel, onSelect, onAddTra
 
       <div className="ed2-tree-grp">
         Hotspots <span className="ed2-tree-n">{hotspots.length}</span>
-        {onCopy && <span className="ed2-tree-add ed2-tree-copy" onClick={onCopy} title="Copy hotspots and tracks to other spaces">⧉</span>}
-        <span className="ed2-tree-add" onClick={() => setAddOpen((v) => !v)}>＋</span>
+        {onCopy && <button type="button" className="ed2-tree-add ed2-tree-copy" onClick={onCopy} title="Copy hotspots and tracks to other spaces" aria-label="Copy hotspots and tracks to other spaces">⧉</button>}
+        <button type="button" className="ed2-tree-add" onClick={() => setAddOpen((v) => !v)} title="Add a hotspot" aria-label="Add a hotspot" aria-expanded={addOpen}>＋</button>
       </div>
       {addOpen && (
         <div className="ed2-tree-addmenu">
@@ -785,11 +785,13 @@ function SceneTree({ state, tracks, hotspots, colliders, sel, onSelect, onAddTra
           <span className="ed2-tree-nm">{h.label}</span>
         </button>
       ))}
-      {!hotspots.length && <div className="ed2-tree-empty">press <b>H</b> to place one</div>}
+      {!hotspots.length && !addOpen && (
+        <button type="button" className="ed2-tree-empty" onClick={() => setAddOpen(true)}>＋ Add a hotspot <kbd>H</kbd></button>
+      )}
 
       <div className="ed2-tree-grp">
         Collision boxes <span className="ed2-tree-n">{colliders.length}</span>
-        <span className="ed2-tree-add" onClick={onAddCollider} title="Add an invisible wall or floor">＋</span>
+        <button type="button" className="ed2-tree-add" onClick={onAddCollider} title="Add an invisible wall or floor" aria-label="Add a collision box">＋</button>
       </div>
       {colliders.map((c) => (
         <button
@@ -801,11 +803,13 @@ function SceneTree({ state, tracks, hotspots, colliders, sel, onSelect, onAddTra
           <span className="ed2-tree-nm">{c.label}</span>
         </button>
       ))}
-      {!colliders.length && <div className="ed2-tree-empty">block holes in the scan</div>}
+      {!colliders.length && (
+        <button type="button" className="ed2-tree-empty" onClick={onAddCollider} title="An invisible wall or floor that blocks a hole in the scan">＋ Add a collision box</button>
+      )}
 
       <div className="ed2-tree-grp">
         Camera tracks <span className="ed2-tree-n">{tracks.length}</span>
-        <span className="ed2-tree-add" onClick={onAddTrack}>＋</span>
+        <button type="button" className="ed2-tree-add" onClick={onAddTrack} title="Add a camera track from this view" aria-label="Add a camera track">＋</button>
       </div>
       {tracks.map((t) => (
         <button
@@ -818,6 +822,9 @@ function SceneTree({ state, tracks, hotspots, colliders, sel, onSelect, onAddTra
           {!t.session && <span className="ed2-tree-lock">baked</span>}
         </button>
       ))}
+      {!tracks.length && (
+        <button type="button" className="ed2-tree-empty" onClick={onAddTrack} title="A flythrough that starts from this view">＋ Add a camera track</button>
+      )}
     </div>
   );
 }

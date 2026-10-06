@@ -47,6 +47,24 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
   const [busy, setBusy] = useState<'' | 'saving' | 'publishing'>('');
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
+  const [here, setHere] = useState(''); // the section in view, lit in the index
+
+  // The index lights the section the reader is in: the one crossing the band under the bar.
+  const loaded = !!doc;
+  useEffect(() => {
+    const root = document.querySelector<HTMLElement>('.ed2.se');
+    const bar = document.querySelector<HTMLElement>('.se-bar');
+    if (!loaded || !root || !bar) return;
+    const io = new IntersectionObserver((seen) => {
+      const top = seen.find((e) => e.isIntersecting);
+      if (top) setHere(top.target.id);
+    }, { root, rootMargin: '-90px 0px -70% 0px' });
+    document.querySelectorAll('.se-card[id]').forEach((el) => io.observe(el));
+    // The bar wraps on narrow screens; the index's chip row sits right under it.
+    const ro = new ResizeObserver(() => root.style.setProperty('--se-bar', `${bar.offsetHeight}px`));
+    ro.observe(bar);
+    return () => { io.disconnect(); ro.disconnect(); };
+  }, [loaded]);
 
   useEffect(() => {
     if (!ok) return;
@@ -123,6 +141,25 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
   const published = spaces.filter((s) => s.published);
   // the viewpoints a table's "view from here" may use: the tour's space's
   const views = published.find((x) => x.id === (doc.hero.space || published[0]?.id))?.views ?? [];
+  // The index beside the form: every section (titles as on the cards) and whether it has anything in it yet.
+  const sections: [string, boolean][] = [
+    ['Look', true],
+    ['Opening', !!(doc.hero.title || doc.hero.lede || doc.hero.image)],
+    ['Key facts', doc.facts.some((f) => f.n || f.k)],
+    ['Story', !!doc.story.body.trim()],
+    ['Spaces', doc.rooms.length > 0],
+    ['Offers and packages', doc.offers.length > 0],
+    ['Floor plan', doc.plan],
+    ['Photos', doc.gallery.length > 0],
+    ['Guest reviews', doc.reviews.items.length > 0],
+    ['Menu or prices', doc.menu.items.length > 0],
+    ['Table booking', doc.booking.on],
+    ['More dining places', doc.dining.length > 0],
+    ['Room booking', doc.stays.on],
+    ['Event booking', doc.events.on],
+    ['Questions guests ask', doc.faq.length > 0],
+    ['Enquiries', !!(doc.contact.title || doc.contact.body)]
+  ];
 
   return (
     <div className="ed2 se">
@@ -171,6 +208,15 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
 
       {reviewing && <ReviewPanel id={id} dirty={dirty} onSave={save} onError={setError} />}
 
+      <div className="se-layout">
+      <nav className="se-index" aria-label="Sections">
+        {sections.map(([t, filled]) => (
+          <a key={t} href={`#${secId(t)}`} className={here === secId(t) ? 'is-here' : undefined} aria-current={here === secId(t) ? 'location' : undefined}>
+            <i className={filled ? 'is-on' : undefined} aria-hidden />
+            {t}<span className="se-sr">{filled ? ', has content' : ', empty'}</span>
+          </a>
+        ))}
+      </nav>
       <main className="se-body">
         {!published.length && (
           <p className="se-warn">None of this project’s spaces is published yet. The website shows the live tour of a published space, so publish one in the studio first.</p>
@@ -442,9 +488,13 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
           <Text label="Text" value={doc.contact.body} max={400} long onChange={(v) => change({ contact: { ...doc.contact, body: v } })} />
         </Card>
       </main>
+      </div>
     </div>
   );
 }
+
+/** A section card's anchor, from its title: "Key facts" → se-key-facts. */
+const secId = (title: string) => `se-${title.toLowerCase().replace(/[^a-z]+/g, '-')}`;
 
 /**
  * The floor plan the restaurant gave, with its tables. Click the plan to add
@@ -926,7 +976,7 @@ function TableSetup({ project, booking, views, onChange, onError }: {
 
 function Card({ title, hint, children }: { title: string; hint: string; children: React.ReactNode }) {
   return (
-    <section className="se-card">
+    <section className="se-card" id={secId(title)}>
       <h2>{title}</h2>
       <p className="se-hint">{hint}</p>
       {children}

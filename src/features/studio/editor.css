@@ -315,6 +315,7 @@
   padding: 3px 6px; border-radius: 999px; background: var(--ed-raise);
 }
 .ed2-tree-add {
+  appearance: none; border: 0; padding: 0; background: transparent; font-family: inherit;
   margin-left: auto; cursor: pointer; width: 22px; height: 22px;
   display: grid; place-items: center; font-size: 13px;
   border-radius: 6px; color: var(--ed-text-dim);
@@ -362,8 +363,19 @@
   font: 600 9.5px/1 var(--sans); text-transform: capitalize; letter-spacing: 0.02em;
   color: var(--ed-text-dim); background: var(--ed-well); border: 1px solid var(--ed-line);
 }
-.ed2-tree-empty { padding: 4px 10px 8px; font-size: 11px; color: var(--ed-text-dim); }
-.ed2-tree-empty b { color: var(--ed-text); }
+/* An empty group offers its first one: a quiet dashed row that fills on hover. */
+.ed2-tree-empty {
+  appearance: none; display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 8px 9px; margin-bottom: 2px; cursor: pointer; text-align: left;
+  border: 1px dashed var(--ed-line-lit); border-radius: var(--ed-r-sm); background: transparent;
+  font: 500 12px var(--sans); color: var(--ed-text-dim);
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.ed2-tree-empty:hover { color: var(--ed-text); background: var(--ed-raise); border-style: solid; }
+.ed2-tree-empty kbd {
+  margin-left: auto; padding: 2px 6px; border-radius: 4px;
+  font: 500 10px/1 var(--mono, monospace); color: var(--ed-text-dim); background: var(--ed-well); border: 1px solid var(--ed-line);
+}
 .ed2-tree-addmenu {
   display: flex; flex-direction: column; gap: 2px; padding: 4px;
   margin: 2px 4px 4px; background: var(--ed-well);

@@ -169,6 +169,12 @@ Terms: **Property/project** = one client. **Space** = one captured room/scene do
 2. ~~Events module~~ and ~~separate dining places~~: built 2026-09-30 (see Working).
 3. Measure first frame on a low-end Android over 4G (target < 5 s) and fix what the numbers show.
 
+4. **Studio roadmap (review of 2026-10-06; the studio works, it needs focus, not a rebuild):**
+   - *Quick polish:* the website editor is ~15 boxed sections in one column with no way to jump: add a sticky section index with a filled/empty dot each. The tree's empty groups ("press H to place one") become buttons. In a splat space's inspector, Model placement (rarely used) comes first: fold it under "Advanced" and lead with Start view and Book now. Reservations' "booking is off" notice is an alarming red box: make it calm, with a button to Website → Table booking.
+   - *Recommended next:* a project home at `/studio/<project>` (spaces as pictures with their publish state, the website's state, new enquiries and bookings waiting, this month's visits), where today it drops straight into the editor; and a "ready to publish" checklist per space (start view, a hotspot, a camera track, a thumbnail, the enquiry form), shown in Publish and on the card ("3 of 5").
+   - *Then:* click-to-select hotspots and boxes in the 3D view; the website editor's preview beside it; counts of enquiries and bookings waiting on project cards; a "?" shortcut sheet.
+   - *Bigger, each a decision:* FBX/OBJ conversion in a Web Worker; clearing unreferenced uploads; availability for room hotspots; what happens when two people edit one space at once.
+
 ### Not now (don't start without a decision)
 VR/headset mode, measurement tool, furniture/layout variants, side-by-side compare, CRM sync, live booking-engine availability, self-serve capture from phone video, Supabase Auth/Storage/Edge Functions (they'd tie us to Supabase; we use it as plain Postgres).
 

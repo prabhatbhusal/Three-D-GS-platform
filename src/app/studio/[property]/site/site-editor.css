@@ -23,6 +23,32 @@
 .se .se-main { background: var(--ed-signal); color: var(--ed-signal-ink); border-color: var(--ed-signal); font-weight: 600; }
 
 .se-body { max-width: 880px; margin: 0 auto; padding: 24px 16px 80px; display: grid; gap: 16px; }
+
+/* The section index: a sticky list beside the form, a dot per section (filled = has content or is on). */
+.se-layout { display: grid; grid-template-columns: 190px minmax(0, 880px); justify-content: center; gap: 8px; }
+.se-layout .se-body { margin: 0; width: 100%; box-sizing: border-box; }
+.se-index { position: sticky; top: calc(var(--se-bar, 49px) + 12px); align-self: start; display: grid; padding: 24px 0 24px 16px; }
+.se-index a {
+  display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: var(--ed-r-sm);
+  color: var(--ed-text-dim); text-decoration: none; line-height: 1.25;
+}
+.se-index a:hover { color: var(--ed-text); }
+.se-index a.is-here { color: var(--ed-text); background: var(--ed-signal-soft); }
+.se-index i { flex: none; width: 7px; height: 7px; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--ed-line-lit); }
+.se-index i.is-on { background: var(--ed-text); box-shadow: none; }
+.se-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.se-card { scroll-margin-top: calc(var(--se-bar, 49px) + 20px); }
+@media (max-width: 1100px) {
+  .se-layout { grid-template-columns: minmax(0, 880px); }
+  .se-layout .se-body { margin: 0 auto; }
+  /* a row of chips under the bar */
+  .se-index {
+    top: var(--se-bar, 49px); z-index: 1; display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none;
+    padding: 6px 16px; background: var(--ed-bg); border-bottom: 1px solid var(--ed-line);
+  }
+  .se-index a { flex: none; white-space: nowrap; }
+  .se-card { scroll-margin-top: calc(var(--se-bar, 49px) + 56px); }
+}
 .se-warn { margin: 0; padding: 12px 14px; border: 1px solid var(--ed-danger); border-radius: var(--ed-r-sm); }
 .se-card { padding: 20px; background: var(--ed-panel); border: 1px solid var(--ed-line); border-radius: 12px; }
 .se-card h2 { margin: 0; font-size: 16px; }
