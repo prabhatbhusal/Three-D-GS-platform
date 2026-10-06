@@ -1,7 +1,7 @@
 /** Spaces (scene documents): the studio’s list, load and save, publishing with numbered snapshots, version history, and the public reads of published spaces and their pictures. */
 import { Router } from 'express';
 import {
-  listScenes, getScene, saveScene, publishChecks, publishScene, unpublishScene,
+  listScenes, getScene, saveScene, publishChecks, readiness, publishScene, unpublishScene,
   getPublishedScene, revertToPublished, listPublished, setSceneProperty, listVersions, restoreVersion
 } from '../store.js';
 import { requireEditorSession } from '../middleware/auth.js';
@@ -69,17 +69,22 @@ async function missingFiles(doc) {
   }
 }
 
-// Studio: publish state + what would block or warn, without publishing.
+// Studio: publish state, what would block or warn, and the ready checklist, without publishing.
 scenesRouter.get('/:id/publish', requireEditorSession, sceneGuard, wrap(async (req, res) => {
   const draft = await getScene(req.params.id);
   if (!draft) return notFound(res, req.params.id);
   const checks = publishChecks(draft);
+  const missing = await missingFiles(draft);
   res.json({
     status: draft.status ?? 'draft',
     publishedVersion: draft.publishedVersion ?? null,
     publishedAt: draft.publishedAt ?? null,
     ...checks,
-    warnings: [...await missingFiles(draft), ...checks.warnings]
+    warnings: [...missing, ...checks.warnings],
+    ready: [
+      { key: 'files', label: 'Its scan, uploaded to this server', done: !!draft.splat?.variants?.high?.assetId && !missing.length },
+      ...readiness(draft)
+    ]
   });
 }));
 

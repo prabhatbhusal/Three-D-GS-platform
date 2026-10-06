@@ -385,6 +385,8 @@ export interface PublishState {
   publishedAt: string | null;
   blockers: string[];
   warnings: string[];
+  /** The ready checklist (scan on the server, own start view, a track, a hotspot), of the saved draft. */
+  ready: { key: string; label: string; done: boolean }[];
 }
 export interface PublishResult {
   published: boolean;

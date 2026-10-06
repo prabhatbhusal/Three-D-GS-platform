@@ -50,6 +50,16 @@
   .se-card { scroll-margin-top: calc(var(--se-bar, 49px) + 56px); }
 }
 .se-warn { margin: 0; padding: 12px 14px; border: 1px solid var(--ed-danger); border-radius: var(--ed-r-sm); }
+/* A calm state note (not a problem): quiet panel, the way forward as links. */
+.se-note { padding: 14px 16px; background: var(--ed-panel); border-left: 2px solid var(--ed-line-lit); border-radius: var(--ed-r-sm); color: var(--ed-text-dim); }
+.se-note p { margin: 0; }
+.se-note p + p { margin-top: 8px; }
+.se-note-go { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.se-note-go a {
+  padding: 5px 10px; border-radius: 999px; border: 1px solid var(--ed-line-lit);
+  color: var(--ed-text); text-decoration: none;
+}
+.se-note-go a:hover { background: var(--ed-raise); }
 .se-card { padding: 20px; background: var(--ed-panel); border: 1px solid var(--ed-line); border-radius: 12px; }
 .se-card h2 { margin: 0; font-size: 16px; }
 .se-hint { margin: 4px 0 16px; color: var(--ed-text-dim); }

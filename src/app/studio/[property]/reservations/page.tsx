@@ -139,9 +139,21 @@ export default function ReservationsPage({ params }: { params: Promise<{ propert
 
       <main className="se-body">
         {!booking?.on && !stays?.on && !events?.on && !list.some((r) => r.kind === 'request') && (
-          <p className="se-warn">{staff
-            ? 'Online booking isn’t switched on for this place yet. Ask whoever runs its website to turn it on.'
-            : 'Website booking is off. Book now on the tour’s room, hall and table hotspots still sends requests here; to take bookings on the website too, turn on Table, Room or Event booking under Website, set it up, and publish.'}</p>
+          <div className="se-note" role="note">
+            {staff ? (
+              <p>Online booking isn’t switched on for this place yet. Whoever runs its website can turn it on.</p>
+            ) : (
+              <>
+                <p>Website booking is off. Book now on the tour’s room, hall and table hotspots still sends its requests here.</p>
+                <p className="se-note-go">
+                  To take bookings on the website too, set one up and publish:
+                  {([['table-booking', 'Tables'], ['room-booking', 'Rooms'], ['event-booking', 'Events']] as const).map(([k, l]) => (
+                    <a key={k} href={`/studio/${encodeURIComponent(id)}/site#se-${k}`}>{l}</a>
+                  ))}
+                </p>
+              </>
+            )}
+          </div>
         )}
         <div className="rs-tabs" role="tablist">
           {([['reply', `Needs a reply${waiting.length ? ` (${waiting.length})` : ''}`], ['upcoming', 'Upcoming'], ['past', 'Past'], ['all', 'All'], ['waitlist', `Waitlist${stillWaiting ? ` (${stillWaiting})` : ''}`]] as [Tab, string][]).map(([k, label]) => (

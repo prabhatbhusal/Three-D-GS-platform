@@ -123,6 +123,19 @@ export async function saveScene(id, doc, { creator = null } = {}) {
 /* Publishing (§7.5) — immutable snapshots, visitors read only these   */
 /* ------------------------------------------------------------------ */
 
+/** What makes a space ready for visitors beyond what publish insists on: the
+ *  studio's checklist (project home, Publish panel). The route adds whether
+ *  the scan files are on this server. */
+export function readiness(doc) {
+  const p = doc.spawn?.position;
+  const ownStart = Array.isArray(p) && p.length === 3 && !(p[0] === 0 && p[1] === 1.7 && p[2] === 3);
+  return [
+    { key: 'start', label: 'A start view of its own', done: ownStart },
+    { key: 'track', label: 'A camera track (also its picture)', done: !!doc.tracks?.length },
+    { key: 'hotspot', label: 'A hotspot to open', done: !!doc.hotspots?.length }
+  ];
+}
+
 /** Reasons publish must refuse, and things worth a warning. */
 export function publishChecks(doc) {
   const blockers = [];

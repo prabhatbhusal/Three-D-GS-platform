@@ -462,6 +462,16 @@
 .ed2-play { color: var(--ed-signal-ink) !important; background: var(--ed-signal) !important; border-color: var(--ed-signal) !important; }
 .ed2-del { color: var(--ed-danger) !important; }
 .ed2-export { width: 100%; margin-top: 10px; }
+/* The inspector's rarely used settings (model placement, background, JSON), folded. */
+.ed2-adv { margin-top: 14px; }
+.ed2-adv > summary {
+  display: flex; align-items: center; gap: 8px; padding: 10px 4px; cursor: pointer; list-style: none;
+  font: 600 11.5px/1 var(--sans, sans-serif); color: var(--ed-text-dim);
+}
+.ed2-adv > summary::-webkit-details-marker { display: none; }
+.ed2-adv > summary::before { content: "▸"; font-size: 10px; transition: transform 0.15s; }
+.ed2-adv[open] > summary::before { transform: rotate(90deg); }
+.ed2-adv > summary:hover { color: var(--ed-text); }
 
 /* Save lives in the top bar so it's visible whatever the inspector shows. */
 .ed2-save { position: relative; margin-left: auto; display: flex; align-items: center; gap: 10px; }

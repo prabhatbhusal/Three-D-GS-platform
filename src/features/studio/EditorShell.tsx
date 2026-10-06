@@ -837,23 +837,6 @@ function WorldInspector({ state, pose, onBump }: { state: ViewerState; pose: Pos
 
   return (
     <>
-      <PlacementSection state={state} />
-
-      <Section title="Background">
-        <div className="ed2-row">
-          <input
-            type="color" defaultValue={uiConfig.background}
-            onChange={(e) => { setUiConfig({ background: e.target.value }); state.editor.setBackground(e.target.value); }}
-          />
-          <span className="ed2-muted">clear colour</span>
-        </div>
-      </Section>
-
-      <BookingSection sceneId={state.activeId} />
-      <NightSection sceneId={state.activeId} onBump={onBump} />
-      <PlaceSection sceneId={state.activeId} onBump={onBump} />
-      <FloorPlanSection sceneId={state.activeId} />
-
       <Section title="Start view">
         <p className="ed2-pose">
           {pose ? `[${fmt(pose.x)}, ${fmt(pose.y)}, ${fmt(pose.z)}]  yaw ${fmt(pose.yaw)}` : '…'}
@@ -864,13 +847,18 @@ function WorldInspector({ state, pose, onBump }: { state: ViewerState; pose: Pos
         </div>
       </Section>
 
+      <BookingSection sceneId={state.activeId} />
+      <NightSection sceneId={state.activeId} onBump={onBump} />
+      <PlaceSection sceneId={state.activeId} onBump={onBump} />
+      <FloorPlanSection sceneId={state.activeId} />
+
       <Section title="Movement mode">
         <Segmented
           value={walkerCfg.mode}
           options={[['walk', 'Walk'], ['fly', 'Fly'], ['orbit', 'Orbit']] as const}
           onChange={(m) => { walkerCfg.mode = m; onBump(); }}
         />
-        <p className="ed2-muted ed2-fine">Fly and Orbit are studio-only authoring tools — the tour offers only Walk (CLAUDE.md §6.1).</p>
+        <p className="ed2-muted ed2-fine">How the studio camera moves. Visitors choose their own in the tour (keys 1–4).</p>
       </Section>
 
       <Section title="Feel">
@@ -895,11 +883,27 @@ function WorldInspector({ state, pose, onBump }: { state: ViewerState; pose: Pos
         <p className="ed2-muted ed2-fine">unit scale ≈ {u.toFixed(3)}</p>
       </Section>
 
-      <div className="ed2-row">
-        <button className="ed2-export" onClick={() => state.editor.exportScene()}>
-          ⧉ Copy scene JSON
-        </button>
-      </div>
+      {/* Rarely needed once a space is set up: kept out of the way, one click to open. */}
+      <details className="ed2-adv">
+        <summary>Advanced</summary>
+        <PlacementSection state={state} />
+
+        <Section title="Background">
+          <div className="ed2-row">
+            <input
+              type="color" defaultValue={uiConfig.background}
+              onChange={(e) => { setUiConfig({ background: e.target.value }); state.editor.setBackground(e.target.value); }}
+            />
+            <span className="ed2-muted">clear colour</span>
+          </div>
+        </Section>
+
+        <div className="ed2-row">
+          <button className="ed2-export" onClick={() => state.editor.exportScene()}>
+            ⧉ Copy scene JSON
+          </button>
+        </div>
+      </details>
     </>
   );
 }
@@ -1644,7 +1648,7 @@ function NightSection({ sceneId, onBump }: { sceneId: string; onBump: () => void
       <p className="ed2-muted ed2-fine">
         Upload the night scan as its own space, then pick it here. Visitors get a day/night switch that keeps
         them where they stand, and the night space leaves the tour&apos;s list. Publish both. Scans started from
-        the same spot usually line up; if the switch jumps, nudge the night one with Placement.
+        the same spot usually line up; if the switch jumps, nudge the night one with Model placement (under Advanced).
       </p>
     </Section>
   );

@@ -697,7 +697,10 @@ test('every published version is listed, and any one can be put live again', asy
   assert.equal((await api('POST', '/api/scenes/history-room/revert')).status, 200);
   assert.equal((await api('GET', '/api/scenes/history-room')).json.title, 'First take');
   assert.equal((await api('GET', '/api/embed/history-room')).json.version, embedV);
-  assert.equal((await api('GET', '/api/scenes/history-room/publish')).json.publishedVersion, 3);
+  const state = (await api('GET', '/api/scenes/history-room/publish')).json;
+  assert.equal(state.publishedVersion, 3);
+  // the ready checklist: the test doc has its own start view but no track or hotspot, and its scan isn't on disk
+  assert.deepEqual(state.ready.map((c) => [c.key, c.done]), [['files', false], ['start', true], ['track', false], ['hotspot', false]]);
 
   assert.equal((await api('POST', '/api/scenes/history-room/restore', { version: 9 })).status, 404);
 });

@@ -57,12 +57,21 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
     if (!loaded || !root || !bar) return;
     const io = new IntersectionObserver((seen) => {
       const top = seen.find((e) => e.isIntersecting);
-      if (top) setHere(top.target.id);
-    }, { root, rootMargin: '-90px 0px -70% 0px' });
+      if (!top) return;
+      setHere(top.target.id);
+      // On narrow screens the index is one scrolling row of chips: keep the lit one in it.
+      const nav = document.querySelector<HTMLElement>('.se-index');
+      const chip = nav?.querySelector<HTMLElement>(`a[href="#${top.target.id}"]`);
+      if (nav && chip && nav.scrollWidth > nav.clientWidth) nav.scrollTo({ left: chip.offsetLeft - (nav.clientWidth - chip.offsetWidth) / 2 });
+    }, { root, rootMargin: `-${bar.offsetHeight + 60}px 0px -60% 0px` });
     document.querySelectorAll('.se-card[id]').forEach((el) => io.observe(el));
     // The bar wraps on narrow screens; the index's chip row sits right under it.
-    const ro = new ResizeObserver(() => root.style.setProperty('--se-bar', `${bar.offsetHeight}px`));
+    const measure = () => root.style.setProperty('--se-bar', `${bar.offsetHeight}px`);
+    const ro = new ResizeObserver(measure);
     ro.observe(bar);
+    measure(); // now, not on the observer's first call: the jump below lands by it
+    // A link to one section (Reservations' "Tables", "Rooms", "Events"): the form wasn't there when the page opened.
+    if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();
     return () => { io.disconnect(); ro.disconnect(); };
   }, [loaded]);
 
