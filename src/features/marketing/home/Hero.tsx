@@ -1,13 +1,13 @@
-/** The home page's opening screen: the Gaussian-splat pagoda (SplatPagoda), the
+/** The home page's opening screen: the point-cloud stupa (PointStupa), the
  *  promise in poster-size mono, and the two calls to action. Styles: home.css. */
 import { Button } from '../../../components/ui/Button';
-import { SplatPagoda } from './SplatPagoda';
+import { PointStupa } from './PointStupa';
 import './home.css';
 
 export function Hero() {
   return (
     <section className="hp-hero" data-chapter="The scan">
-      <SplatPagoda className="hp-scan" />
+      <PointStupa className="hp-scan" />
       {/* a scanner's registration targets at the corners */}
       {['tl', 'tr', 'bl', 'br'].map((c) => <span key={c} className={`hp-cross hp-cross-${c}`} aria-hidden />)}
       <h1 className="hp-hero-title">

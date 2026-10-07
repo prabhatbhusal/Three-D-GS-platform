@@ -16,7 +16,7 @@ export const metadata = pageMeta('/', 'RCAAS.tech | 3D Gaussian splat virtual to
   'RCAAS.tech scans hotels, colleges, heritage sites and infrastructure with handheld LiDAR and publishes them as Gaussian-splat 3D tours that open on any phone, with enquiry and booking inside.', true);
 
 /** The home page, top to bottom (2026-10-05):
- *  splat-pagoda hero, the method (one point cloud re-forming for each step,
+ *  stupa hero, the method (one point cloud re-forming for each step,
  *  Method.tsx), places strip, what we capture, the work, try it, the
  *  numbers, and a question box. Text only for now: the photo and film
  *  sections (Film, ScanStory, WaysIn, EnquiryBleed in features/marketing/home/)

@@ -1,7 +1,7 @@
 /* ================================================================== */
-/*  The home page (2026-10-05): a scanned pagoda made of splats.       */
-/*  A graphite ground ruled like a scan's rows, one Gaussian-splat     */
-/*  pagoda (SplatPagoda.tsx), poster-size JetBrains Mono, monochrome, and one */
+/*  The home page (2026-10-05): a stupa made of points.       */
+/*  A graphite ground ruled like a scan's rows, one point-cloud       */
+/*  stupa (PointStupa.tsx), poster-size JetBrains Mono, monochrome, and one */
 /*  light section for the method (Method.tsx, .hp-mm). The hero,       */
 /*  places and film stay dark, and the method light, in either theme:  */
 /*  each sets the site tokens its buttons read (--text, --bg, …).      */
@@ -39,7 +39,7 @@
 
 /* ------------------------------------------------------------- hero */
 .hp-hero {
-  /* the pagoda's width: SplatPagoda.tsx sizes it with the same sum */
+  /* the stupa's width: PointStupa.tsx sizes it with the same sum */
   --scan-d: min(56vh, 90vw, 700px);
   position: relative;
   display: flex;
@@ -52,7 +52,7 @@
 }
 .hp-hero > :not(.hp-scan) { position: relative; z-index: 1; }
 
-/* the pagoda's canvas covers the whole hero, edge to edge: no frame around it */
+/* the stupa's canvas covers the whole hero, edge to edge: no frame around it */
 .hp-scan {
   position: absolute;
   inset: 0;
@@ -69,7 +69,7 @@
   height: 100% !important;
 }
 
-/* the tag beside the spire's tip (SplatPagoda moves the box each frame) */
+/* the tag beside the spire's tip (PointStupa moves the box each frame) */
 .hp-pin {
   position: absolute;
   top: 0;
@@ -509,7 +509,7 @@
 
 /* ======================================================= light, 2026-10-06 */
 /* The home page on the silver paper (the default now): graphite dots and
- * type, the pagoda drawn in ink (SplatPagoda reads the theme), and the method
+ * type, the stupa drawn in ink (PointStupa reads the theme), and the method
  * turned over: a dark band on the light page, as it was a light one on the
  * dark (Method.tsx reads its colours from these tokens). */
 :root[data-theme='light'] .hp {

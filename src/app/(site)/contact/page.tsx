@@ -15,6 +15,7 @@ export const metadata = pageMeta('/contact', 'Book a LiDAR capture in Kathmandu'
 export default function ContactPage() {
   return (
     <SitePage contact={false}>
+      <BreadcrumbJsonLd name="Contact" path="/contact" />
       <PageHead label="contact" lede="Fill in the blanks and we can plan the walk-through, quote it and give you a date.">
         Tell us about the space.
       </PageHead>

@@ -1,5 +1,6 @@
 import { SITE_URL } from '../../lib/shareMeta';
-import { COMPANY, FAQ, GUIDE, SERVICES, STEPS } from '../../features/marketing/siteContent';
+import { COMPANY, FAQ, SERVICES, STEPS } from '../../features/marketing/siteContent';
+import { GUIDE } from '../../features/marketing/guide';
 
 /** /llms.txt (llmstxt.org): the site in plain Markdown for AI assistants and
  *  answer engines, built from the same content as the pages so it never drifts. */

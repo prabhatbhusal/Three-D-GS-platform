@@ -1,5 +1,6 @@
 import { SITE_URL } from '../../lib/shareMeta';
-import { COMPANY, FAQ, GUIDE, SERVICES, STEPS, WORK } from '../../features/marketing/siteContent';
+import { COMPANY, FAQ, SERVICES, STEPS, WORK } from '../../features/marketing/siteContent';
+import { GUIDE } from '../../features/marketing/guide';
 
 /** /llms-full.txt: everything /llms.txt links to, in one Markdown file, so an
  *  AI assistant can read the whole public site in a single fetch. Built from

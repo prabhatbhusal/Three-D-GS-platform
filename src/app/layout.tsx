@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true, googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1, 'max-video-preview': -1 } },
   description: 'Walkable 3D virtual tours of hotels, restaurants, venues, colleges and heritage sites, captured with LiDAR in Nepal, with enquiry and booking forms inside the tour.',
   applicationName: 'RCAAS.tech',
-  openGraph: { siteName: 'RCAAS.tech', type: 'website', locale: 'en_US', images: [{ url: '/og.jpg', width: 1200, height: 630, alt: 'RCAAS.tech: a pagoda scanned and drawn as Gaussian splats' }] },
+  openGraph: { siteName: 'RCAAS.tech', type: 'website', locale: 'en_US', images: [{ url: '/og.jpg', width: 1200, height: 630, alt: 'RCAAS.tech: a stupa drawn as a point cloud' }] },
   twitter: { card: 'summary_large_image', images: ['/og.jpg'] },
   icons: { icon: withBase('/favicon.svg') }
 };

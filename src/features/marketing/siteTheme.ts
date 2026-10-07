@@ -1,6 +1,6 @@
 /** Which theme the marketing pages are in (html[data-theme], set before the
  *  first paint by app/layout.tsx and switched by the nav's ThemeToggle), for
- *  what draws its own colours: the pagoda, the method's cloud and its scan-line
+ *  what draws its own colours: the stupa, the method's cloud and its scan-line
  *  edge. `onTheme` calls back now and on every switch; it returns the undo. */
 export const isLight = () => document.documentElement.dataset.theme === 'light';
 

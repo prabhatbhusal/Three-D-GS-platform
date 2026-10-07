@@ -1,5 +1,6 @@
 import { SITE_URL } from '../../lib/shareMeta';
-import { COMPANY, FAQ, GUIDE, SERVICES, STEPS } from './siteContent';
+import { COMPANY, FAQ, SERVICES, STEPS } from './siteContent';
+import { GUIDE } from './guide';
 
 /** schema.org structured data, so search engines and AI answers read who we
  *  are, what we do and our FAQ as facts, not guesses. `<` is escaped so the
@@ -111,7 +112,7 @@ export function GuideJsonLd() {
         {
           '@type': 'TechArticle',
           headline: GUIDE.title,
-          description: GUIDE.answer,
+          description: GUIDE.short,
           url: `${SITE_URL}${GUIDE.path}`,
           image: `${SITE_URL}/og.jpg`,
           datePublished: GUIDE.published,

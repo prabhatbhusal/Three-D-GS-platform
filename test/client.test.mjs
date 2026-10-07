@@ -8,6 +8,8 @@ import { cardBox, nearestIds, showsCard, NEAR_DISTANCE, CARD_W, CARD_H } from '.
 import { safeUrl, resolveAsset, assetUrl } from '../src/lib/api.ts';
 import { bookingHref, stayProblem, nightsBetween, isoDay, venueDay, freeForStay, roomsNeeded } from '../src/features/booking/booking.ts';
 import { resolveInitialTier } from '../src/features/scene/deviceTier.ts';
+import { pageMeta } from '../src/lib/shareMeta.ts';
+import { GUIDE } from '../src/features/marketing/guide.ts';
 
 test('booking link carries the visitor\'s dates and guests', () => {
   const t = 'https://basera.com/book?arrive={checkin}&depart={checkout}&adults={guests}&n={nights}';
@@ -456,4 +458,17 @@ test('a table hotspot books its own dining place, never another one that happens
   assert.equal(bookableTable(places, 'bar', 'T2'), null, 'a table the place no longer has');
   assert.equal(bookableTable(places, '', ''), null, 'a hotspot not linked to a table');
   assert.equal(bookableTable(undefined, '', 'T1'), null, 'project takes no table bookings');
+});
+
+test('page metadata: one canonical link, brand suffix, a description a search result can show', () => {
+  const m = pageMeta('/work', 'Work', 'x'.repeat(100));
+  assert.equal(m.alternates.canonical, '/work');
+  assert.equal(m.title, 'Work', 'the root layout template adds "| RCAAS.tech"');
+  assert.equal(m.openGraph.title, 'Work | RCAAS.tech');
+  assert.equal(m.openGraph.images[0].url, '/og.jpg');
+  assert.deepEqual(pageMeta('/', 'Home', 'd', true).title, { absolute: 'Home' }, 'the home page keeps its own full title');
+  // the explainer's copy: a meta description fits a result, the answer fits a spoken reply, every question is answered
+  assert.ok(GUIDE.short.length <= 160, 'meta description under 160 characters');
+  assert.ok(GUIDE.answer.split(/\s+/).length <= 60, 'the definition stays answer-sized');
+  for (const f of GUIDE.faq) assert.ok(f.q.trim() && f.a.trim(), `answered: ${f.q}`);
 });

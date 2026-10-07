@@ -3,16 +3,16 @@ import { SitePage } from '../../../features/marketing/layout/SitePage';
 import { PageHead } from '../../../components/ui/PageHead';
 import { Section } from '../../../components/ui/Section';
 import { Icon } from '../../../components/ui/Icon';
-import { GUIDE } from '../../../features/marketing/siteContent';
+import { GUIDE } from '../../../features/marketing/guide';
 import { BreadcrumbJsonLd, FaqJsonLd, GuideJsonLd } from '../../../features/marketing/JsonLd';
 import { pageMeta } from '../../../lib/shareMeta';
 
-export const metadata = pageMeta(GUIDE.path, GUIDE.title, GUIDE.answer);
+export const metadata = pageMeta(GUIDE.path, GUIDE.title, GUIDE.short);
 
 /** The explainer (2026-10-06): the answer to "what is a 3D Gaussian splat
  *  tour?" in the first lines, how it differs from a 360° tour and a mesh, the
  *  words people meet, and the questions they ask. Written so a search result
- *  or an AI answer can quote it; its content lives in siteContent.ts GUIDE
+ *  or an AI answer can quote it; its content lives in guide.ts
  *  (also read by /llms.txt). Styles: inner.css .ip-compare, .ip-terms. */
 export default function GuidePage() {
   const { head, rows } = GUIDE.compare;

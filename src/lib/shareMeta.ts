@@ -12,7 +12,7 @@ export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL
 export const NOINDEX: Metadata['robots'] = { index: false, follow: false };
 
 /** The picture every marketing page shares when a link to it is pasted (public/og.jpg, 1200×630). */
-const OG = { url: '/og.jpg', width: 1200, height: 630, alt: 'RCAAS.tech: a pagoda scanned and drawn as Gaussian splats' };
+const OG = { url: '/og.jpg', width: 1200, height: 630, alt: 'RCAAS.tech: a stupa drawn as a point cloud' };
 
 /** A marketing page's title, description, canonical link and link-preview
  *  tags in one go, so every page says the same thing to a search engine, an
