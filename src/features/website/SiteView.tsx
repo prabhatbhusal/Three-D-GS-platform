@@ -2,9 +2,10 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Fragment } from 'react';
 import { API_BASE_URL, photoSize, whatsappHref, type PublicSite, type SiteBooking, type SiteMenu } from '../../lib/api';
-import type { BrandFont } from '../../@types/config.types';
+import { fontFamily } from '../../lib/brandFonts';
 import { inkOn } from '../../lib/brandColor';
-import { AskAbout, BookThisHall, BookThisRoom, SiteEnquire, SiteGallery, SiteMap, SiteMenuSheet, SiteReveal, SiteTour, ViewIn3D } from './SiteParts';
+import { AskAbout, BookThisHall, BookThisRoom, SiteEnquire, SiteGallery, SiteMap, SiteReveal, SiteTour, ViewIn3D } from './SiteParts';
+import { SiteNav } from './SiteNav';
 import { ChapterRail } from '../marketing/layout/ChapterRail';
 import { TableBooking } from '../booking/TableBooking';
 import { RoomBooking } from '../booking/RoomBooking';
@@ -12,11 +13,6 @@ import { EventBooking } from '../booking/EventBooking';
 import '../tour/viewer.css';
 import './website.css';
 
-const FACES: Record<BrandFont, string> = {
-  serif: "'Georgia', 'Times New Roman', serif",
-  sans: "system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif",
-  classic: "'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', serif"
-};
 
 const asset = (p: string) => `${API_BASE_URL}/api/assets/${p}`;
 /** A site photo for next/image: its own size when the name carries it, else a 3:2 guess. */
@@ -89,7 +85,7 @@ const WhatsAppIcon = () => (
  * facts along its foot, the live tour in a window, then the story, the
  * spaces, the plan, stay, eat, events, offers, photos, reviews, questions
  * and contact, each only when it has something in it. A rail down the left
- * (ChapterRail) and the phone's menu (SiteMenuSheet) list the same chapters.
+ * (ChapterRail) and the nav's menu card (SiteNav) list the same chapters.
  * Its look (`site.style`: heritage, modern, night) and the brand's accent,
  * font and logo make each client's site its own. Styles: website.css.
  */
@@ -99,29 +95,13 @@ export function SiteView({ data, preview = false, review = false }: {
   review?: boolean;
 }) {
   const { project, site, tour, plan } = data;
-  const info = project.info ?? {};
+  const { info, name, reach, logo, style, asks, cta, navReach } = siteBasics(data);
+  const spaces = data.spaces ?? [];
+  const home = `/s/${encodeURIComponent(project.id)}`;
   // The brand's own words fill in what the site leaves empty.
   const eyebrow = site.hero.eyebrow || info.tagline || '';
-  const name = project.theme.brand || project.title;
   const story = site.story.title || site.story.body ? site.story : info.about ? { title: `About ${name}`, body: info.about } : null;
-  const reach = [
-    info.phone && { label: 'Phone', text: info.phone, href: `tel:${info.phone.replace(/[^\d+]/g, '')}` },
-    info.whatsapp && { label: 'WhatsApp', text: `+${info.whatsapp}`, href: whatsappHref(info.whatsapp, 'Hi! I found you on your website.') },
-    info.email && { label: 'Email', text: info.email, href: `mailto:${info.email}` },
-    info.address && { label: 'Address', text: info.address, href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(info.address)}` },
-    info.website && { label: 'Website', text: info.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''), href: info.website },
-    info.instagram && { label: 'Instagram', text: 'Instagram', href: info.instagram },
-    info.facebook && { label: 'Facebook', text: 'Facebook', href: info.facebook }
-  ].filter(Boolean) as { label: string; text: string; href: string }[];
-  const social = reach.filter((r) => r.label === 'Instagram' || r.label === 'Facebook');
-  const logo = project.theme.logo ? asset(project.theme.logo) : null;
-  const accent = project.theme.accent || '#9a7b4f';
-  const style = {
-    '--ws-accent': accent,
-    '--ws-on-accent': inkOn(accent),
-    '--ws-serif': FACES[project.theme.font ?? 'serif']
-  } as React.CSSProperties;
-  const tourSrc = tour ? `/tour?space=${encodeURIComponent(tour.space)}&embed=1&key=${encodeURIComponent(tour.key)}` : null;
+  const tourSrc = tour ? `/tour?space=${encodeURIComponent(tour.space)}&embed=1&mono=1&key=${encodeURIComponent(tour.key)}` : null;
   const menu = site.menu.items.length ? site.menu : null;
   // More places to eat and drink, each with a menu or a table booking to show
   const dining = (site.dining ?? []).filter((o) => o.menu.items.length || o.booking);
@@ -129,11 +109,15 @@ export function SiteView({ data, preview = false, review = false }: {
   const bookable = (space: string) => (space ? site.stays?.rooms.find((r) => r.space === space) : undefined);
   const hallIn = (space: string) => (space ? site.events?.halls.find((h) => h.space === space) : undefined);
   const { offers, reviews, faq } = site;
-  // A project that takes no enquiries (its features) has no form: its contact details instead.
-  const asks = project.features?.enquiries !== false;
-  const cta: [string, string] = site.stays ? ['#stay', 'Book a room'] : site.events ? ['#events', 'Plan an event'] : site.booking ? ['#reserve', 'Book a table'] : ['#contact', asks ? 'Enquire' : 'Contact'];
   const hero = site.hero.image ? pic(site.hero.image) : null;
   const dineName = site.booking?.name || menu?.title || 'Eat and drink';
+  // Highlights: what the place sells, each a picture and a jump to its chapter
+  const photoOf = (...c: (string | undefined)[]) => c.find(Boolean) || '';
+  const highlights = ([
+    (site.stays || site.rooms.length) && ['#' + (site.stays ? 'stay' : 'spaces'), 'Rooms', photoOf(site.stays?.rooms.find((r) => r.image)?.image, site.rooms[0]?.image, site.gallery[0])],
+    site.events && ['#events', 'Events', photoOf(site.events.halls.find((h) => h.image)?.image, site.rooms[1]?.image, site.gallery[1])],
+    (menu || site.booking || dining.length) && ['#menu', 'Dining', photoOf(site.gallery[2], site.rooms[2]?.image, site.gallery[0])]
+  ].filter(Boolean) as [string, string, string][]);
 
   // The chapters, in page order: numbered here, listed by the rail and the phone's menu.
   const chapters = ([
@@ -146,21 +130,18 @@ export function SiteView({ data, preview = false, review = false }: {
     ...dining.map((o) => [`menu-${o.id}`, o.name]),
     site.events && ['events', 'Events'],
     offers.length && ['offers', 'Offers'],
-    site.gallery.length && ['gallery', 'Photos'],
     reviews.items.length && ['reviews', 'Guests say'],
     faq.length && ['faq', 'Good to know'],
+    site.gallery.length && ['gallery', 'Photos'],
     ['contact', 'Contact']
   ].filter(Boolean) as [string, string][]);
   const num = (id: string) => chapters.findIndex(([c]) => c === id) + 1;
-  // The top bar keeps five at most: the tour, then what the place sells, then contact.
+  // The top bar: the spaces, the photos, contact (and Book now beside them)
   const top = ([
-    tour && ['#tour', '3D tour'],
-    site.stays ? ['#stay', 'Stay'] : site.rooms.length ? ['#spaces', 'Spaces'] : null,
-    (menu || site.booking) && ['#menu', 'Eat'],
-    site.events && ['#events', 'Events'],
-    site.gallery.length && ['#gallery', 'Photos'],
+    tour && ['#tour', 'Spaces'],
+    site.gallery.length && ['#gallery', 'Gallery'],
     ['#contact', 'Contact']
-  ].filter(Boolean) as [string, string][]).slice(0, 5);
+  ].filter(Boolean) as [string, string][]);
 
   // What search engines read: the place, and the FAQ as questions and answers.
   // The reviews stay out: Google ignores a business's own reviews of itself.
@@ -180,7 +161,6 @@ export function SiteView({ data, preview = false, review = false }: {
       }] : [])
     ]
   };
-
   return (
     <div className="ws" data-style={site.style ?? 'heritage'} style={style}>
       {!preview && (
@@ -194,17 +174,7 @@ export function SiteView({ data, preview = false, review = false }: {
           <a href={`/studio/${encodeURIComponent(project.id)}/site`}>Back to the editor</a>
         </p>
       )}
-      <header className="ws-top">
-        <a className="ws-brand" href="#top">
-          {logo && <Image src={logo} alt="" width={200} height={72} sizes="140px" className="ws-logo" />}
-          <span>{name}</span>
-        </a>
-        <nav className="ws-nav" aria-label="Sections">
-          {top.map(([href, label]) => <a key={href} href={href}>{label}</a>)}
-        </nav>
-        <a className="ws-btn ws-top-cta" href={cta[0]}>{cta[1]}</a>
-        <SiteMenuSheet chapters={chapters} name={name} cta={cta} />
-      </header>
+      <SiteNav name={name} logo={logo} top={top} chapters={chapters} cta={cta} reach={navReach} />
 
       <section id="top" className={`ws-hero${hero ? ' has-photo' : ''}`}>
         {hero && <Image {...hero} alt="" sizes="100vw" preload className="ws-hero-img" />}
@@ -215,8 +185,8 @@ export function SiteView({ data, preview = false, review = false }: {
           <h1>{site.hero.title || name}</h1>
           {site.hero.lede && <p className="ws-lede">{site.hero.lede}</p>}
           <div className="ws-hero-ctas">
-            <a className="ws-btn" href={cta[0]}>{cta[1]}</a>
-            {tour && <a className="ws-btn ws-btn-ghost" href="#tour">Walk through in 3D</a>}
+            {tour && <a className="ws-btn" href="#tour">Start 3D tour</a>}
+            <a className={`ws-btn${tour ? ' ws-btn-ghost' : ''}`} href={cta[0]}>{cta[1]}</a>
           </div>
         </div>
         {site.facts.length > 0 && (
@@ -234,8 +204,31 @@ export function SiteView({ data, preview = false, review = false }: {
             {/* a plain <a>: the tour wants a full page load */}
             <a href={`/t/${encodeURIComponent(project.id)}/${encodeURIComponent(tour.space)}`}>Open full screen ↗</a>
           </div>
-          <SiteTour src={tourSrc} title={tour.title} />
+          <div className={`ws-window-grid${spaces.length > 1 ? ' has-list' : ''}`}>
+            <SiteTour src={tourSrc} title={tour.title} />
+            {spaces.length > 1 && (
+              <nav className="ws-space-list" aria-label="Spaces">
+                <ol>
+                  {spaces.slice(0, 6).map((sp) => (
+                    <li key={sp.id}><a href={`${home}/${encodeURIComponent(sp.id)}`}><span aria-hidden>›</span>{sp.title}</a></li>
+                  ))}
+                </ol>
+                {site.rooms.length > 0 && <a className="ws-space-all" href="#spaces">View all →</a>}
+              </nav>
+            )}
+          </div>
           <p className="ws-window-hint">Drag to look around. Keys 1 to 4 change how you move.</p>
+        </section>
+      )}
+
+      {highlights.length > 0 && (
+        <section className="ws-highlights ws-reveal" aria-label="Highlights">
+          {highlights.map(([href, label, img]) => (
+            <a key={label} href={href} className="ws-hl">
+              {img ? <Image {...pic(img)} alt="" sizes="(max-width: 760px) 100vw, 33vw" /> : <span className="ws-hl-ph" aria-hidden />}
+              <b>{label}</b>
+            </a>
+          ))}
         </section>
       )}
 
@@ -327,13 +320,6 @@ export function SiteView({ data, preview = false, review = false }: {
         </section>
       )}
 
-      {site.gallery.length > 0 && (
-        <section id="gallery" className="ws-chap ws-gallery-wrap ws-reveal" data-chapter="Photos">
-          <Head n={num('gallery')} kicker="Photos" title={`Around ${name}`} />
-          <SiteGallery photos={site.gallery.map(pic)} name={name} />
-        </section>
-      )}
-
       {reviews.items.length > 0 && (
         <section id="reviews" className="ws-chap ws-reviews ws-reveal" data-chapter="Guests say">
           <Head n={num('reviews')} kicker="Guests say" title="In their words" />
@@ -365,6 +351,20 @@ export function SiteView({ data, preview = false, review = false }: {
         </section>
       )}
 
+      {site.gallery.length > 0 && (
+        <section id="gallery" className="ws-chap ws-gallery-wrap ws-reveal" data-chapter="Photos">
+          <Head n={num('gallery')} kicker="Photos" title={`Around ${name}`} />
+          <SiteGallery photos={site.gallery.map(pic)} name={name} />
+        </section>
+      )}
+
+      {asks && (
+        <section className="ws-strip ws-reveal" aria-label="Enquire">
+          <p>{site.stays || site.events ? 'Planning a stay or event?' : `Questions for ${name}?`}</p>
+          <a className="ws-btn" href="#contact">Send enquiry</a>
+        </section>
+      )}
+
       <section id="contact" className={`ws-contact ws-reveal${info.address ? ' has-map' : ''}`} data-chapter="Contact">
         <div className="ws-contact-txt">
           <p className="ws-head-k"><span className="ws-head-n">{two(num('contact'))}</span>Get in touch</p>
@@ -385,24 +385,7 @@ export function SiteView({ data, preview = false, review = false }: {
         {info.address && <SiteMap address={info.address} />}
       </section>
 
-      <footer className="ws-foot">
-        <div className="ws-foot-row">
-          <div className="ws-foot-brand">
-            {info.tagline && <span>{info.tagline}</span>}
-            {info.address && <span>{info.address}</span>}
-          </div>
-          {social.length > 0 && (
-            <nav aria-label="Social">
-              {social.map((s) => <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer">{s.text}</a>)}
-            </nav>
-          )}
-        </div>
-        <p className="ws-foot-mark" aria-hidden>{name}</p>
-        <div className="ws-foot-small">
-          <span>© {new Date().getFullYear()} {name}</span>
-          <span>Walk it in 3D: tour by <Link href="/">RCAAS.tech</Link></span>
-        </div>
-      </footer>
+      <SiteFooter data={data} />
 
       {info.whatsapp && !preview && (
         <a className="ws-wa" href={whatsappHref(info.whatsapp, 'Hi! I found you on your website.')}
@@ -413,5 +396,70 @@ export function SiteView({ data, preview = false, review = false }: {
       <ChapterRail root=".ws" />
       <SiteReveal />
     </div>
+  );
+}
+
+/** What every page of a client's site shares: its brand, how to reach it, its look, and the main button. */
+export function siteBasics(data: PublicSite) {
+  const { project, site } = data;
+  const info = project.info ?? {};
+  const name = project.theme.brand || project.title;
+  const hello = 'Hi! I found you on your website.';
+  const reach = [
+    info.phone && { label: 'Phone', text: info.phone, href: `tel:${info.phone.replace(/[^\d+]/g, '')}` },
+    info.whatsapp && { label: 'WhatsApp', text: `+${info.whatsapp}`, href: whatsappHref(info.whatsapp, hello) },
+    info.email && { label: 'Email', text: info.email, href: `mailto:${info.email}` },
+    info.address && { label: 'Address', text: info.address, href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(info.address)}` },
+    info.website && { label: 'Website', text: info.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''), href: info.website },
+    info.instagram && { label: 'Instagram', text: 'Instagram', href: info.instagram },
+    info.facebook && { label: 'Facebook', text: 'Facebook', href: info.facebook }
+  ].filter(Boolean) as { label: string; text: string; href: string }[];
+  const social = reach.filter((r) => r.label === 'Instagram' || r.label === 'Facebook');
+  const logo = project.theme.logo ? asset(project.theme.logo) : null;
+  const accent = project.theme.accent || '#9a7b4f';
+  const style = {
+    '--ws-accent': accent,
+    '--ws-on-accent': inkOn(accent),
+    '--ws-serif': fontFamily(project.theme.font)
+  } as React.CSSProperties;
+  // A project that takes no enquiries (its features) has no form: its contact details instead.
+  const asks = project.features?.enquiries !== false;
+  // The main button: booking when the place takes it online, else the enquiry
+  const books = site.stays ? 'stay' : site.events ? 'events' : site.booking ? 'reserve' : '';
+  const cta: [string, string] = books ? [`#${books}`, 'Book now'] : ['#contact', asks ? 'Enquire' : 'Contact'];
+  const navReach = {
+    call: info.phone ? `tel:${info.phone.replace(/[^\d+]/g, '')}` : undefined,
+    whatsapp: info.whatsapp ? whatsappHref(info.whatsapp, hello) : undefined
+  };
+  return { info, name, reach, social, logo, style, asks, cta, navReach };
+}
+
+/** Every page's foot: the map, phone, WhatsApp and social links, the name across the width, who made the tour. */
+export function SiteFooter({ data }: { data: PublicSite }) {
+  const { info, name, reach } = siteBasics(data);
+  const links = reach.filter((r) => ['Address', 'Phone', 'WhatsApp', 'Instagram', 'Facebook'].includes(r.label));
+  return (
+    <footer className="ws-foot">
+      <div className="ws-foot-row">
+        <div className="ws-foot-brand">
+          {info.tagline && <span>{info.tagline}</span>}
+          {info.address && <span>{info.address}</span>}
+        </div>
+        {links.length > 0 && (
+          <nav aria-label="Reach us">
+            {links.map((r) => (
+              <a key={r.label} href={r.href} {...(/^https?:/.test(r.href) ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
+                {r.label === 'Address' ? 'Map' : r.label}
+              </a>
+            ))}
+          </nav>
+        )}
+      </div>
+      <p className="ws-foot-mark" aria-hidden style={{ '--len': name.length } as React.CSSProperties}>{name}</p>
+      <div className="ws-foot-small">
+        <span>© {new Date().getFullYear()} {name}</span>
+        <span>Powered by <Link href="/">RCAAS.tech</Link></span>
+      </div>
+    </footer>
   );
 }

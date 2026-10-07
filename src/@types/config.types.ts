@@ -44,7 +44,9 @@ export interface UiConfig {
 /** The parts of the platform a project uses (server/src/store.js FEATURES). Each is on unless switched off. */
 export interface ProjectFeatures { enquiries: boolean; reservations: boolean; website: boolean; report: boolean; activity: boolean }
 
-export type BrandFont = 'serif' | 'sans' | 'classic';
+/** A heading font (src/lib/brandFonts.ts): the ten, then older projects' system faces. */
+export type BrandFont = 'inter' | 'roboto' | 'open-sans' | 'poppins' | 'montserrat' | 'lato' | 'nunito' | 'playfair' | 'merriweather' | 'dm-sans'
+  | 'serif' | 'sans' | 'classic';
 /** A project's branding, as stored on it (server/src/store.js setPropertyTheme). */
 export interface ProjectTheme { brand?: string; accent?: string; font?: BrandFont; logo?: string }
 /** What a project says about its brand (server/src/store.js setPropertyInfo); its website shows it. */

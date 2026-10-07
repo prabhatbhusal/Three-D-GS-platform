@@ -1,7 +1,8 @@
 import { useSyncExternalStore } from 'react';
-import type { BrandFont, ProjectTheme, UiConfig } from '../@types/config.types';
+import type { ProjectTheme, UiConfig } from '../@types/config.types';
 import { API_BASE_URL } from './api';
 import { inkOn } from './brandColor';
+import { fontFamily } from './brandFonts';
 
 /**
  * Visitor-facing presentation settings, driven by the editor's Customize tab.
@@ -43,16 +44,10 @@ export function setUiConfig(patch: Partial<UiConfig>) {
     root.setProperty('--gold-on-light', pale ? ink : patch.accent);
     root.setProperty('--gold-on-light-ink', pale ? '#ffffff' : ink);
   }
-  if (patch.font) document.documentElement.style.setProperty('--serif', FONTS[patch.font]);
+  if (patch.font) document.documentElement.style.setProperty('--serif', fontFamily(patch.font));
   listeners.forEach((fn) => fn());
 }
 
-/** Heading faces: system fonts only, so a brand never costs a download. */
-const FONTS: Record<BrandFont, string> = {
-  serif: "'Georgia', 'Times New Roman', serif",
-  sans: "system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif",
-  classic: "'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', serif"
-};
 
 /** A project's branding (its theme, else its title and the defaults) onto
  *  the tour. Called by /tour for the project it opens, and by the studio for

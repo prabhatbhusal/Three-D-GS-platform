@@ -60,6 +60,17 @@ export const removeSite = async (pid) => {
   await storage.remove(`site_${pid}`);
 };
 
+/** A scan's floor plan files (assets.js, floorplan.js), best first: the studio's upload, then the drawn ones. */
+const PLAN_FILES = ['uploaded.png', 'uploaded.jpg', 'uploaded.webp', 'plan.svg', 'plan-print.svg'];
+const PLAN_FILE = /^[\w-]{1,80}\/floorplan\/(uploaded\.(png|jpg|webp)|plan(-print)?\.svg)$/;
+
+/** The floor plan files a space's scan has, as asset paths ("<asset>/floorplan/plan.svg"). */
+async function spacePlans(assetId) {
+  if (!assetId || assetId.startsWith('local:')) return [];
+  const have = await Promise.all(PLAN_FILES.map((f) => storage.stat(assetId, `floorplan/${f}`).then(() => true, () => false)));
+  return PLAN_FILES.filter((_, i) => have[i]).map((f) => `${assetId}/floorplan/${f}`);
+}
+
 /** The website's looks (website.css [data-style]); the first is the default. */
 const STYLES = ['heritage', 'modern', 'night'];
 
@@ -69,6 +80,9 @@ export function cleanSite(d, pid) {
   const list = (a, n, f) => (Array.isArray(a) ? a : []).slice(0, n).map(f);
   const img = (v) => (typeof v === 'string' && new RegExp(`^site_${pid}/img-\\d+(-\\d+x\\d+)?\\.(png|jpg|webp)$`).test(v) ? v : '');
   const id = (v) => (typeof v === 'string' && /^[\w-]{1,80}$/.test(v) ? v : '');
+  // A booking plan: an uploaded photo, or a space's floor plan (spacePlans).
+  // Scan files are public anyway (the tour reads them), so the format is the check.
+  const plan = (v) => img(v) || (typeof v === 'string' && PLAN_FILE.test(v) ? v : '');
   const menu = (m) => ({
     title: s(m?.title, 80), note: s(m?.note, 300),
     items: list(m?.items, 40, (x) => ({ name: s(x?.name, 80), desc: s(x?.desc, 200), price: s(x?.price, 30), tag: s(x?.tag, 30) }))
@@ -92,7 +106,7 @@ export function cleanSite(d, pid) {
     // is still menu and booking above, unchanged.
     dining: list(d.dining, 5, (o) => ({
       id: typeof o?.id === 'string' && /^[a-z0-9-]{1,24}$/i.test(o.id) ? o.id : '',
-      name: s(o?.name, 60), menu: menu(o?.menu), booking: cleanBooking(o?.booking, { s, img, id })
+      name: s(o?.name, 60), menu: menu(o?.menu), booking: cleanBooking(o?.booking, { s, img, id, plan })
     })).filter((o, i, all) => o.id && o.name && all.findIndex((x) => x.id === o.id) === i),
     // What sells a stay besides the rooms (2026-09-30): what guests said (and
     // where to read more of it), packages and offers, and the questions every
@@ -105,8 +119,8 @@ export function cleanSite(d, pid) {
       .filter((o) => o.title),
     faq: list(d.faq, 12, (f) => ({ q: s(f?.q, 160), a: s(f?.a, 800) })).filter((f) => f.q && f.a),
     contact: { title: s(d.contact?.title, 120), body: s(d.contact?.body, 400) },
-    booking: cleanBooking(d.booking, { s, img, id }),
-    stays: cleanStays(d.stays, { s, img, id }),
+    booking: cleanBooking(d.booking, { s, img, id, plan }),
+    stays: cleanStays(d.stays, { s, img, id, plan }),
     events: cleanEvents(d.events, { s, img, id })
   };
 }
@@ -116,7 +130,7 @@ const validTimezone = (tz) => { try { new Intl.DateTimeFormat('en', { timeZone: 
 
 /** Table booking (reservations.js): the floor plan the restaurant gave, its
  *  tables placed on it (x, y as fractions of the plan), and its hours. */
-function cleanBooking(b, { s, img, id }) {
+function cleanBooking(b, { s, id, plan }) {
   b = b && typeof b === 'object' ? b : {};
   const int = (v, lo, hi, dflt) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt; };
   const oneOf = (v, ok, dflt) => (ok.includes(v) ? v : dflt);
@@ -130,7 +144,7 @@ function cleanBooking(b, { s, img, id }) {
     shape: oneOf(t?.shape, ['round', 'square', 'long'], 'round'), area: s(t?.area, 40), view: id(t?.view)
   })).filter((t) => t.id && !seen.has(t.id) && seen.add(t.id));
   return {
-    on: b.on === true, plan: img(b.plan), tables, first, last, name: s(b.name, 60),
+    on: b.on === true, plan: plan(b.plan), tables, first, last, name: s(b.name, 60),
     slot: oneOf(Number(b.slot), [15, 30, 60], 30), stay: oneOf(Number(b.stay), [60, 90, 120, 150, 180], 90),
     days: int(b.days, 1, 90, 30), maxParty: int(b.maxParty, 1, 30, 8),
     closed: [...new Set((Array.isArray(b.closed) ? b.closed : []).map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6))].sort(),
@@ -151,7 +165,7 @@ export const liveBooking = (site, outlet = '') => {
 /** Room booking (stays.js): the hotel's room types, how many of each and
  *  how many each sleeps, check-in and check-out times, how long a stay may
  *  be. A site plan is optional; a room with `pin` sits on it at x, y. */
-function cleanStays(b, { s, img, id }) {
+function cleanStays(b, { s, img, id, plan }) {
   b = b && typeof b === 'object' ? b : {};
   const int = (v, lo, hi, dflt) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt; };
   const frac = (v) => { const n = Number(v); return Number.isFinite(n) ? Math.min(1, Math.max(0, Math.round(n * 10000) / 10000)) : 0.5; };
@@ -164,7 +178,7 @@ function cleanStays(b, { s, img, id }) {
   })).filter((r) => r.id && r.label && !seen.has(r.id) && seen.add(r.id));
   const minNights = int(b.minNights, 1, 30, 1);
   return {
-    on: b.on === true, plan: img(b.plan), rooms,
+    on: b.on === true, plan: plan(b.plan), rooms,
     checkin: TIME.test(b.checkin) ? b.checkin : '14:00', checkout: TIME.test(b.checkout) ? b.checkout : '12:00',
     days: int(b.days, 1, 365, 180), minNights, maxNights: int(b.maxNights, minNights, 60, Math.max(14, minNights)),
     maxGuests: int(b.maxGuests, 1, 40, 10),
@@ -215,6 +229,18 @@ export async function publicEvents(pid, site) {
 }
 
 /** A space the public page may show: published, and in this project. */
+/** This project's published spaces (newest first), each with the key its embedded tour needs. */
+async function projectSpaces(pid) {
+  const out = [];
+  const mine = (await listPublished()).filter((x) => x.propertyId === pid);
+  // a space's night version is reached by its day/night switch, not listed on its own
+  for (const g of mine.filter((s) => !mine.some((d) => d.id !== s.id && d.night === s.id))) {
+    const embed = await getEmbed(g.id);
+    if (embed) out.push({ id: g.id, title: g.title, tagline: g.tagline, thumb: g.thumb, key: embedKey(g.id, embed.version) });
+  }
+  return out;
+}
+
 async function ownPublished(pid, space) {
   if (!space) return null;
   const snap = await getPublishedScene(space).catch(() => null);
@@ -280,13 +306,7 @@ async function renderSite(p, site, publishedAt) {
   for (const r of site.rooms) rooms.push((await ownPublished(p.id, r.space)) ? r : { ...r, space: '', view: '' });
 
   // The floor plan of the tour's space: the one the studio uploaded, else the drawn one.
-  let plan = null;
-  const assetId = tour?.splat?.variants?.high?.assetId;
-  if (site.plan && assetId) {
-    for (const rel of ['floorplan/uploaded.png', 'floorplan/uploaded.jpg', 'floorplan/uploaded.webp', 'floorplan/plan.svg']) {
-      if (await storage.stat(assetId, rel).then(() => true, () => false)) { plan = `${assetId}/${rel}`; break; }
-    }
-  }
+  const plan = site.plan ? (await spacePlans(tour?.splat?.variants?.high?.assetId)).find((f) => !f.endsWith('-print.svg')) ?? null : null;
 
   // With reservations off (store.js FEATURES) the page offers no booking, whatever the draft says.
   const books = p.features.reservations;
@@ -297,6 +317,8 @@ async function renderSite(p, site, publishedAt) {
       booking: books ? liveBooking(site) : null, stays: books ? await publicStays(p.id, site) : null, events: books ? await publicEvents(p.id, site) : null,
       dining: (site.dining ?? []).map((o) => ({ ...o, booking: books ? liveBooking(site, o.id) : null }))
     },
+    // Every published space of this project, for the hub's list and the space pages (/s/<project>/<space>)
+    spaces: await projectSpaces(p.id),
     tour: tour && embed ? {
       space: tour.id, title: tour.title, key: embedKey(tour.id, embed.version),
       // its picture for link previews, when it has one (scenes.js galleryRouter)
@@ -319,7 +341,10 @@ sitesRouter.get('/:id/draft', requireEditorSession, wrap(async (req, res) => {
   const spaces = [];
   for (const s of (await listScenes()).filter((x) => x.propertyId === p.id)) {
     const snap = await getPublishedScene(s.id).catch(() => null);
-    spaces.push({ id: s.id, title: s.title ?? s.id, published: !!snap, views: (snap?.tracks ?? []).map((t) => ({ id: t.id, label: t.label })) });
+    spaces.push({
+      id: s.id, title: s.title ?? s.id, published: !!snap, views: (snap?.tracks ?? []).map((t) => ({ id: t.id, label: t.label })),
+      plans: await spacePlans(s.assetId) // to put tables or rooms on (PlanPick)
+    });
   }
   // cleanSite fills in anything added to the site since this draft was saved
   res.json({ draft: cleanSite(saved?.draft, p.id), publishedAt: saved?.publishedAt ?? null, scheduledAt: saved?.scheduled?.at ?? null, spaces });

@@ -476,7 +476,8 @@ export async function addPropertyMember(id, userId, as = 'member') {
  *  place, one accent colour, a heading font, and a logo (an asset path, see
  *  routes/properties.js). Live, not per publish: a new logo shows on every
  *  published tour of the project at once. */
-export const BRAND_FONTS = ['serif', 'sans', 'classic'];
+// src/lib/brandFonts.ts: the ten (2026-10-07), then older projects' system faces
+export const BRAND_FONTS = ['inter', 'roboto', 'open-sans', 'poppins', 'montserrat', 'lato', 'nunito', 'playfair', 'merriweather', 'dm-sans', 'serif', 'sans', 'classic'];
 
 export async function setPropertyTheme(id, patch) {
   const p = await getProperty(id);

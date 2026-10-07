@@ -4,8 +4,9 @@ import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import { API_BASE_URL, apiUrl, withoutNightVersions, type GalleryItem } from '../../../lib/api';
 import { EnquiryPanel } from '../../../features/enquiry/EnquiryPanel';
-import type { BrandFont, ProjectTheme } from '../../../@types/config.types';
+import type { ProjectTheme } from '../../../@types/config.types';
 import { inkOn } from '../../../lib/brandColor';
+import { fontFamily } from '../../../lib/brandFonts';
 import { shareMeta } from '../../../lib/shareMeta';
 import '../../../features/tour/viewer.css';
 import './hub.css';
@@ -18,12 +19,6 @@ import './hub.css';
  * loads when a visitor picks a space). Rendered per request so a publish or
  * a branding change shows at once.
  */
-
-const FACES: Record<BrandFont, string> = {
-  serif: "'Georgia', 'Times New Roman', serif",
-  sans: "system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif",
-  classic: "'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', serif"
-};
 
 type Hub = { title: string; theme: ProjectTheme; whatsapp: string | null; enquiries: boolean; spaces: GalleryItem[] };
 
@@ -69,7 +64,7 @@ export default async function HubPage({ params }: { params: Promise<{ property: 
   const walk = (id: string) => `/t/${encodeURIComponent(property)}/${encodeURIComponent(id)}`;
 
   return (
-    <div className="hub" style={{ '--gold': accent, '--gold-ink': inkOn(accent), '--serif': FACES[hub.theme.font || 'serif'] } as React.CSSProperties}>
+    <div className="hub" style={{ '--gold': accent, '--gold-ink': inkOn(accent), '--serif': fontFamily(hub.theme.font) } as React.CSSProperties}>
       <header className="hub-top">
         <span className="hub-brand">
           {/* eslint-disable-next-line @next/next/no-img-element */}

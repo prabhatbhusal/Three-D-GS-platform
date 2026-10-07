@@ -10,6 +10,7 @@ import {
 } from '../../lib/api';
 import { BrandInfoFields, infoProblem } from './BrandInfoFields';
 import { inkOn, paletteFromImage } from '../../lib/brandColor';
+import { BRAND_FONTS, fontChoices, fontFamily } from '../../lib/brandFonts';
 import type { Property } from '../../@types/scene.types';
 import type { BrandFont, ProjectInfo, ProjectTheme } from '../../@types/config.types';
 
@@ -108,11 +109,6 @@ export function ShareDialog({ project, onClose }: { project: Property; onClose: 
   );
 }
 
-const FONT_FACES: Record<BrandFont, [string, string]> = {
-  serif: ['Serif', "Georgia, 'Times New Roman', serif"],
-  sans: ['Modern sans', "system-ui, 'Segoe UI', Roboto, sans-serif"],
-  classic: ['Classic', "'Palatino Linotype', 'Book Antiqua', Palatino, serif"]
-};
 
 /** The project's name, colour, font and logo on its tours. Saves as you go:
  *  published tours pick it up at once (it isn't part of a publish). */
@@ -173,7 +169,7 @@ export function BrandingDialog({ project, onClose }: { project: Property; onClos
         <div className="pl-dialog-body">
           <p className="pl-sub">How “{project.title}” looks on its tours. Changes go live on every published tour at once.</p>
 
-          <div className="pl-brand-preview" style={{ '--acc': accent, '--acc-ink': inkOn(accent), '--face': FONT_FACES[font][1] } as React.CSSProperties}>
+          <div className="pl-brand-preview" style={{ '--acc': accent, '--acc-ink': inkOn(accent), '--face': fontFamily(font) } as React.CSSProperties}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {logoUrl && <img src={logoUrl} alt="" />}
             <span className="pl-brand-name">{brand || project.title}</span>
@@ -200,7 +196,7 @@ export function BrandingDialog({ project, onClose }: { project: Property; onClos
             <label className="pl-field">
               <span>Heading font</span>
               <select className="pl-select" value={font} disabled={busy} onChange={(e) => run(() => setProjectTheme(project.id, { font: e.target.value as BrandFont }))}>
-                {(Object.keys(FONT_FACES) as BrandFont[]).map((f) => <option key={f} value={f}>{FONT_FACES[f][0]}</option>)}
+                {fontChoices(font).map((f) => <option key={f} value={f} style={{ fontFamily: BRAND_FONTS[f][1] }}>{BRAND_FONTS[f][0]}</option>)}
               </select>
             </label>
           </div>

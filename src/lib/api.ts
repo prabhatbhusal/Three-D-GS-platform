@@ -189,8 +189,14 @@ export interface SiteStays {
   on: boolean; plan: string; rooms: StayRoom[]; checkin: string; checkout: string;
   days: number; minNights: number; maxNights: number; maxGuests: number; timezone: string; note: string;
 }
-export interface SiteSpace { id: string; title: string; published: boolean; views: { id: string; label: string }[] }
+export interface SiteSpace {
+  id: string; title: string; published: boolean; views: { id: string; label: string }[];
+  /** Its floor plan files ("<asset>/floorplan/plan.svg"…), usable as a booking plan. */
+  plans?: string[];
+}
 export interface SiteDraft { draft: SiteDoc; publishedAt: string | null; scheduledAt: string | null; spaces: SiteSpace[] }
+/** A published space as the client website shows it (sites.js projectSpaces). */
+export interface SiteSpaceCard { id: string; title: string; tagline: string | null; thumb: string | null; key: string }
 export interface PublicSite {
   project: { id: string; title: string; theme: ProjectTheme; info?: ProjectInfo; features?: { enquiries: boolean; reservations: boolean } };
   site: Omit<SiteDoc, 'booking' | 'stays' | 'events' | 'dining'> & {
@@ -199,6 +205,8 @@ export interface PublicSite {
     dining?: (Omit<DiningPlace, 'booking'> & { booking: SiteBooking | null })[];
   };
   tour: { space: string; title: string; key: string; thumb?: string | null } | null;
+  /** Every published space of the project, with its tour key: the hub's list and the space pages. */
+  spaces?: SiteSpaceCard[];
   plan: string | null;
   /** The place's schema.org type, for the page's structured data. */
   kind?: 'Hotel' | 'Restaurant' | 'EventVenue' | 'LocalBusiness';

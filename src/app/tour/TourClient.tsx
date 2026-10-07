@@ -78,7 +78,9 @@ export default function TourClient() {
       // the project's own name, colour, font, logo and WhatsApp (per-project branding)
       if (project) {
         const t = await getProjectTheme(project).catch(() => null);
-        if (t) applyTheme(t.theme, t.title, t.whatsapp ?? null, t.features);
+        // inside a client's website (?mono=1) the tour is black and white like the site's buttons
+        const mono = new URLSearchParams(location.search).has('mono');
+        if (t) applyTheme(mono ? { ...t.theme, accent: undefined } : t.theme, t.title, t.whatsapp ?? null, t.features);
       }
       hydrateScenes(same.map(toApiScene));
       limitTour(same.map((d) => d.id), start);

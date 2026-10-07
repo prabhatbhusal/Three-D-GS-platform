@@ -424,7 +424,7 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
         {books && <Card title="Table booking" hint="Guests choose a day, a time and a table on your floor plan, and send a request; you confirm it in Reservations. Publish to put changes live.">
           <Text label="This place's name, when you have more than one" value={doc.booking.name ?? ''} max={60} placeholder="The Restaurant"
             onChange={(name) => change({ booking: { ...doc.booking, name } })} />
-          <TableSetup project={id} booking={doc.booking} views={views} onError={setError} onChange={(booking) => change({ booking })} />
+          <TableSetup project={id} booking={doc.booking} views={views} spaces={spaces} onError={setError} onChange={(booking) => change({ booking })} />
         </Card>}
 
         <Card title="More dining places" hint="A café beside the restaurant, a rooftop bar: each has its own menu, floor plan, tables and hours, booked apart. Guests see them on the website and choose between them in the tour.">
@@ -439,7 +439,7 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
                 </div>
                 <Text label="Name" value={o.name} max={60} placeholder="Courtyard Café" onChange={(name) => set({ name })} />
                 <MenuEditor menu={o.menu} onChange={(menu) => set({ menu })} />
-                <TableSetup project={id} booking={o.booking} views={views} onError={setError} onChange={(booking) => set({ booking })} />
+                <TableSetup project={id} booking={o.booking} views={views} spaces={spaces} onError={setError} onChange={(booking) => set({ booking })} />
               </div>
             );
           })}
@@ -457,7 +457,7 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
             Take room bookings on the website
           </label>
           <RoomsEditor project={id} stays={doc.stays} spaces={published} onError={setError} onChange={(stays) => change({ stays })} />
-          <SitePlan project={id} stays={doc.stays} onError={setError} onChange={(stays) => change({ stays })} />
+          <SitePlan project={id} stays={doc.stays} spaces={spaces} onError={setError} onChange={(stays) => change({ stays })} />
           <StayRules stays={doc.stays} onChange={(stays) => change({ stays })} />
           <Text label="A note under the booking form" value={doc.stays.note} max={300} placeholder="Breakfast included. Children under 6 stay free."
             onChange={(note) => change({ stays: { ...doc.stays, note } })} />
@@ -522,12 +522,14 @@ const secId = (title: string) => `se-${title.toLowerCase().replace(/[^a-z]+/g, '
  * area and the 3D view from it. Positions are fractions of the plan, so they
  * hold at any size.
  */
-function PlanEditor({ project, booking, views, onChange, onError }: {
-  project: string; booking: SiteBooking; views: { id: string; label: string }[];
+function PlanEditor({ project, booking, views, spaces, onChange, onError }: {
+  project: string; booking: SiteBooking; views: { id: string; label: string }[]; spaces: SiteSpace[];
   onChange: (b: SiteBooking) => void; onError: (m: string) => void;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const [sel, setSel] = useState('');
+  // what the next click on the plan puts down
+  const [next, setNext] = useState<{ seats: number; shape: SiteTable['shape'] }>({ seats: 4, shape: 'square' });
   const drag = useRef<{ id: string; moved: boolean } | null>(null);
   const at = (e: React.PointerEvent) => {
     const r = box.current!.getBoundingClientRect();
@@ -543,18 +545,23 @@ function PlanEditor({ project, booking, views, onChange, onError }: {
       <div className="se-field">
         <span>The restaurant’s floor plan (PNG, JPEG or WebP)</span>
         <Photo project={project} value="" label="Upload the floor plan…" onChange={(plan) => onChange({ ...booking, plan })} onError={onError} />
+        <PlanPick spaces={spaces} value="" onPick={(plan) => onChange({ ...booking, plan })} />
       </div>
     );
   }
   return (
     <div className="se-field">
-      <span>Click the plan to add a table; drag a table to move it. {booking.tables.length} table{booking.tables.length === 1 ? '' : 's'}.</span>
+      <span>Choose the next table’s size, then click the plan to add it; drag a table to move it. {booking.tables.length} table{booking.tables.length === 1 ? '' : 's'}.</span>
+      <div className="se-field">
+        <span>Next table</span>
+        <TableSize seats={next.seats} onPick={(seats, shape) => setNext({ seats, shape: shape ?? next.shape })} />
+      </div>
       <div className="se-plan" ref={box}
         onPointerDown={(e) => {
           if (e.target !== e.currentTarget && !(e.target as HTMLElement).matches('img')) return;
           if (booking.tables.length >= 60) return onError('A plan holds 60 tables at most.');
           const n = booking.tables.length + 1;
-          const t: SiteTable = { id: `t${Date.now().toString(36)}`, label: `T${n}`, seats: 4, shape: 'round', area: '', view: '', ...at(e) };
+          const t: SiteTable = { id: `t${Date.now().toString(36)}`, label: `T${n}`, ...next, area: '', view: '', ...at(e) };
           setTables([...booking.tables, t]);
           setSel(t.id);
         }}
@@ -583,8 +590,8 @@ function PlanEditor({ project, booking, views, onChange, onError }: {
         <div className="se-row se-table-fields">
           <label className="se-field"><span>Name</span>
             <input value={current.label} maxLength={24} onChange={(e) => edit(current.id, { label: e.target.value })} /></label>
-          <label className="se-field"><span>Seats</span>
-            <input type="number" min={1} max={30} value={current.seats} onChange={(e) => edit(current.id, { seats: Math.max(1, Math.min(30, Number(e.target.value) || 1)) })} /></label>
+          <div className="se-field" style={{ flexBasis: '100%' }}><span>Seats</span>
+            <TableSize seats={current.seats} onPick={(seats, shape) => edit(current.id, shape ? { seats, shape } : { seats })} /></div>
           <label className="se-field"><span>Shape</span>
             <select value={current.shape} onChange={(e) => edit(current.id, { shape: e.target.value as SiteTable['shape'] })}>
               <option value="round">Round</option><option value="square">Square</option><option value="long">Long</option>
@@ -602,7 +609,49 @@ function PlanEditor({ project, booking, views, onChange, onError }: {
       <div className="se-row">
         <Photo project={project} value="" label="Replace the floor plan…" onChange={(plan) => onChange({ ...booking, plan })} onError={onError} />
       </div>
+      <PlanPick spaces={spaces} value={booking.plan} onPick={(plan) => onChange({ ...booking, plan })} />
     </div>
+  );
+}
+
+/** The usual table sizes, each with the shape it usually is (the sample café's: two round, four square, six and eight long). */
+const TABLE_SIZES: [number, SiteTable['shape']][] = [[2, 'round'], [4, 'square'], [6, 'long'], [8, 'long']];
+
+/** A table's seats: one of the usual sizes (which sets its shape too), or any number from 1 to 30. */
+function TableSize({ seats, onPick }: { seats: number; onPick: (seats: number, shape?: SiteTable['shape']) => void }) {
+  return (
+    <div className="se-row" style={{ alignItems: 'center', marginBottom: 0 }}>
+      <div className="ed2-seg" style={{ marginTop: 0, flex: 1 }}>
+        {TABLE_SIZES.map(([n, shape]) => (
+          <button key={n} type="button" className={seats === n ? 'on' : ''} aria-pressed={seats === n} onClick={() => onPick(n, shape)}>{n} seats</button>
+        ))}
+      </div>
+      <input type="number" min={1} max={30} value={seats} aria-label="Seats" style={{ width: 64, flex: 'none' }}
+        onChange={(e) => onPick(Math.max(1, Math.min(30, Math.round(Number(e.target.value)) || 1)))} />
+    </div>
+  );
+}
+
+/** What each of a scan's plan files is (sites.js PLAN_FILES). */
+const planName = (p: string) => p.endsWith('/plan.svg') ? 'drawn from the scan'
+  : p.endsWith('/plan-print.svg') ? 'drawn from the scan, ink on white' : 'your uploaded plan';
+
+/**
+ * A 3D space's floor plan as the booking plan: the one the studio drew from
+ * its scan, or the one uploaded in its Floor plan section. Tables and rooms
+ * keep their places (fractions of the picture), so check them after a switch.
+ */
+function PlanPick({ spaces, value, onPick }: { spaces: SiteSpace[]; value: string; onPick: (plan: string) => void }) {
+  const opts = spaces.flatMap((s) => (s.plans ?? []).map((p) => [p, `${s.title} · ${planName(p)}`] as const));
+  if (!opts.length) return <p className="se-hint">No 3D space has a floor plan yet. Draw one from the scan, or upload one, in the studio’s Floor plan section, and it can be used here.</p>;
+  return (
+    <label className="se-field">
+      <span>{value ? 'Or switch to' : 'Or use'} a 3D space’s floor plan</span>
+      <select value={opts.some(([p]) => p === value) ? value : ''} onChange={(e) => e.target.value && onPick(e.target.value)}>
+        <option value="">Choose a plan…</option>
+        {opts.map(([p, label]) => <option key={p} value={p}>{label}</option>)}
+      </select>
+    </label>
   );
 }
 
@@ -809,8 +858,8 @@ function HallsEditor({ project, events, spaces, onChange, onError }: {
 }
 
 /** An optional site plan (a resort layout, or a floor's plan) with the rooms placed on it, to pick them by sight. */
-function SitePlan({ project, stays, onChange, onError }: {
-  project: string; stays: SiteStays; onChange: (s: SiteStays) => void; onError: (m: string) => void;
+function SitePlan({ project, stays, spaces, onChange, onError }: {
+  project: string; stays: SiteStays; spaces: SiteSpace[]; onChange: (s: SiteStays) => void; onError: (m: string) => void;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const [sel, setSel] = useState('');
@@ -828,6 +877,7 @@ function SitePlan({ project, stays, onChange, onError }: {
       <div className="se-field">
         <span>A site plan, optional: your resort’s layout or a floor plan, so guests can pick a room on it (PNG, JPEG or WebP)</span>
         <Photo project={project} value="" label="Upload a site plan…" onChange={(plan) => onChange({ ...stays, plan })} onError={onError} />
+        <PlanPick spaces={spaces} value="" onPick={(plan) => onChange({ ...stays, plan })} />
       </div>
     );
   }
@@ -871,6 +921,7 @@ function SitePlan({ project, stays, onChange, onError }: {
         <Photo project={project} value="" label="Replace the site plan…" onChange={(plan) => onChange({ ...stays, plan })} onError={onError} />
         <button className="se-remove" onClick={() => onChange({ ...stays, plan: '' })}>Remove the site plan</button>
       </div>
+      <PlanPick spaces={spaces} value={stays.plan} onPick={(plan) => onChange({ ...stays, plan })} />
     </div>
   );
 }
@@ -973,8 +1024,8 @@ function MenuEditor({ menu, onChange }: { menu: SiteMenu; onChange: (m: SiteMenu
 }
 
 /** A place's table booking: on or off, its floor plan and tables, its hours, a note. */
-function TableSetup({ project, booking, views, onChange, onError }: {
-  project: string; booking: SiteBooking; views: { id: string; label: string }[];
+function TableSetup({ project, booking, views, spaces, onChange, onError }: {
+  project: string; booking: SiteBooking; views: { id: string; label: string }[]; spaces: SiteSpace[];
   onChange: (b: SiteBooking) => void; onError: (m: string) => void;
 }) {
   return (
@@ -983,7 +1034,7 @@ function TableSetup({ project, booking, views, onChange, onError }: {
         <input type="checkbox" checked={booking.on} onChange={(e) => onChange({ ...booking, on: e.target.checked })} />
         Take table bookings on the website
       </label>
-      <PlanEditor project={project} booking={booking} onError={onError} views={views} onChange={onChange} />
+      <PlanEditor project={project} booking={booking} onError={onError} views={views} spaces={spaces} onChange={onChange} />
       <Hours booking={booking} onChange={onChange} />
       <Text label="A note under the booking form" value={booking.note} max={300} placeholder="Tables are held for 15 minutes. For groups over 8, call us."
         onChange={(note) => onChange({ ...booking, note })} />

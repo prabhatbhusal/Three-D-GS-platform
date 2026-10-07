@@ -6,6 +6,7 @@ import { createProperty, getScenes, saveScene, saveSiteDraft, setProjectFeatures
 import { TEMPLATES, templateFor, type PlaceKind } from './siteTemplates';
 import { BrandInfoFields, infoProblem } from './BrandInfoFields';
 import { inkOn, paletteFromImage } from '../../lib/brandColor';
+import { BRAND_FONTS, fontChoices, fontFamily } from '../../lib/brandFonts';
 import type { BrandFont, ProjectInfo } from '../../@types/config.types';
 import { blankSceneDoc } from '../scene/sceneDoc';
 import { hydrateScenes } from '../scene/scenes';
@@ -16,11 +17,6 @@ import type { StagedFile, UploadProgress, UploadResult } from '../../@types/uplo
 const TITLE_MAX = 80;
 const DEFAULT_ACCENT = '#b08d57';
 const LOGO_MAX = 2 * 1024 * 1024;
-const FONTS: [BrandFont, string, string][] = [
-  ['serif', 'Serif', "Georgia, 'Times New Roman', serif"],
-  ['sans', 'Modern sans', "system-ui, 'Segoe UI', Roboto, sans-serif"],
-  ['classic', 'Classic', "'Palatino Linotype', 'Book Antiqua', Palatino, serif"]
-];
 type Source = 'lcc2' | 'model' | 'video360';
 
 /** "Bar_Restro" (a folder), "Bar_Restro.zip", "…/Bar_Restro.lcc2" or "Lobby.fbx" -> "Bar Restro". */
@@ -67,7 +63,7 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
   const [logoColours, setLogoColours] = useState<string[]>([]);
   const [logoNote, setLogoNote] = useState('');
   const [byHand, setByHand] = useState(false);
-  const [font, setFont] = useState<BrandFont>('serif');
+  const [font, setFont] = useState<BrandFont>('playfair');
   const [logo, setLogo] = useState<File | null>(null);
   const [logoUrl, setLogoUrl] = useState('');
   const [info, setInfo] = useState<ProjectInfo>({});
@@ -364,7 +360,7 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
             </label>
 
             <h3>Brand</h3>
-            <div className="np-brand-preview" style={{ '--acc': accent, '--acc-ink': inkOn(accent), '--face': FONTS.find(([f]) => f === font)![2] } as React.CSSProperties}>
+            <div className="np-brand-preview" style={{ '--acc': accent, '--acc-ink': inkOn(accent), '--face': fontFamily(font) } as React.CSSProperties}>
               {/* eslint-disable-next-line @next/next/no-img-element -- a local preview of the chosen file */}
               {logoUrl ? <img src={logoUrl} alt="" /> : <span className="np-brand-mark">{(brand || title || 'B').trim()[0]}</span>}
               <span className="np-brand-name">{brand || title || 'Your brand'}</span>
@@ -391,7 +387,7 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
               <label className="np-field">
                 <span>Heading font</span>
                 <select className="np-select" value={font} onChange={(e) => setFont(e.target.value as BrandFont)}>
-                  {FONTS.map(([f, label]) => <option key={f} value={f}>{label}</option>)}
+                  {fontChoices().map((f) => <option key={f} value={f} style={{ fontFamily: BRAND_FONTS[f][1] }}>{BRAND_FONTS[f][0]}</option>)}
                 </select>
               </label>
             </div>

@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { EnquiryPanel } from '../enquiry/EnquiryPanel';
+import { submitLead } from '../../lib/api';
 
 gsap.registerPlugin(useGSAP);
 
@@ -184,43 +184,56 @@ export function SiteReveal() {
 }
 
 /**
- * The website's menu on a phone or tablet (2026-10-06): a Menu button in the
- * top bar opens the whole page as numbered chapters in the brand's face, with
- * the main call to action at its foot. A chapter, Esc or the button closes
- * it; the page holds still under it. Styles: website.css .ws-sheet.
+ * The space page's enquiry, open on the page (2026-10-07, the owner's plan):
+ * name, phone or email, what it's about (this space chosen), the date and how
+ * many guests, Send. The same lead as every other form (POST /api/leads):
+ * the hidden "website" field and the fill time keep bots out.
  */
-export function SiteMenuSheet({ chapters, name, cta }: { chapters: [string, string][]; name: string; cta: [string, string] }) {
-  const [open, setOpen] = useState(false);
-  useEffect(() => {
-    const ws = document.querySelector<HTMLElement>('.ws');
-    if (!open) return;
-    ws?.setAttribute('data-sheet', '');
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    document.addEventListener('keydown', onKey);
-    return () => { ws?.removeAttribute('data-sheet'); document.removeEventListener('keydown', onKey); };
-  }, [open]);
+export function SpaceEnquiry({ project, space, title, preview = false }: { project: string; space: string; title: string; preview?: boolean }) {
+  const REQ = [`This space: ${title}`, 'Room booking', 'Meeting or event space', 'General enquiry'];
+  const [v, setV] = useState({ name: '', reach: '', requirement: REQ[0], date: '', guests: '', website: '' });
+  const [status, setStatus] = useState<'idle' | 'sending' | 'done' | 'error'>('idle');
+  const [error, setError] = useState('');
+  const [renderedAt] = useState(() => Date.now());
+  const set = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setV({ ...v, [k]: e.target.value });
+
+  const send = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!v.name.trim() || !v.reach.trim()) return setError('Add your name and a phone number or email so we can reach you.');
+    setStatus('sending');
+    setError('');
+    const email = v.reach.includes('@') ? v.reach.trim() : '';
+    try {
+      await submitLead({
+        name: v.name, phone: v.reach.trim(), email, requirement: v.requirement,
+        dates: [v.date, v.guests && `${v.guests} guests`].filter(Boolean).join(' · '),
+        sceneId: space, sceneName: title, propertyId: project, website: v.website, formRenderedAt: renderedAt
+      });
+      setStatus('done');
+    } catch (err) {
+      setStatus('error');
+      setError(err instanceof Error ? err.message : 'That didn’t go through. Check your connection and try again.');
+    }
+  };
+
+  if (status === 'done') return <p className="ws-ask-done" role="status">Thank you. We’ll be in touch within a working day.</p>;
   return (
-    <>
-      <button type="button" className="ws-menu-btn" aria-expanded={open} aria-controls="ws-sheet" onClick={() => setOpen(!open)}>
-        <span>{open ? 'Close' : 'Menu'}</span>
-        <span className="ws-menu-ic" aria-hidden><i /><i /></span>
+    <form className="ws-ask-form" onSubmit={send} noValidate>
+      <input aria-label="Name" placeholder="Name" maxLength={100} value={v.name} onChange={set('name')} autoComplete="name" />
+      <input aria-label="Phone or email" placeholder="Phone or email" maxLength={30} value={v.reach} onChange={set('reach')} autoComplete="tel" />
+      <select aria-label="What it’s about" value={v.requirement} onChange={set('requirement')}>
+        {REQ.map((r) => <option key={r}>{r}</option>)}
+      </select>
+      <div className="ws-ask-row">
+        <input type="date" aria-label="Date" value={v.date} onChange={set('date')} />
+        <input type="number" min={1} max={2000} aria-label="Guests" placeholder="Guests" value={v.guests} onChange={set('guests')} />
+      </div>
+      {/* a person never sees or fills this; a bot does */}
+      <input className="ws-hp" tabIndex={-1} autoComplete="off" aria-hidden name="website" value={v.website} onChange={set('website')} />
+      {error && <p className="ws-ask-err" role="alert">{error}</p>}
+      <button className="ws-btn" type="submit" disabled={preview || status === 'sending'} title={preview ? 'Works once the website is published' : undefined}>
+        {status === 'sending' ? 'Sending…' : 'Send'}
       </button>
-      {/* into the page, not the top bar: the bar's backdrop blur would make "fixed" mean fixed to it */}
-      {open && createPortal(
-        <div id="ws-sheet" className="ws-sheet" role="dialog" aria-modal="true" aria-label={`${name}: sections`}>
-          <ol>
-            {chapters.map(([id, label], i) => (
-              <li key={id} style={{ animationDelay: `${0.04 * i + 0.08}s` }}>
-                <a href={`#${id}`} onClick={() => setOpen(false)}>
-                  <span>{String(i + 1).padStart(2, '0')}</span>{label}
-                </a>
-              </li>
-            ))}
-          </ol>
-          <a className="ws-btn ws-sheet-cta" href={cta[0]} onClick={() => setOpen(false)}>{cta[1]}</a>
-        </div>,
-        document.querySelector('.ws') ?? document.body
-      )}
-    </>
+    </form>
   );
 }

@@ -125,7 +125,7 @@ export function EditorShell({ state, property, onPreview }: {
 
       <SceneTree
         state={state} tracks={tracks} hotspots={hotspots} colliders={colliders} sel={sel}
-        onSelect={setSel} onAddTrack={addTrack} onAddHotspot={addHotspot}
+        onSelect={(s) => { setSel(s); if (!s) setPane('scene'); }} onAddTrack={addTrack} onAddHotspot={addHotspot}
         onAddCollider={() => setSel({ type: 'collider', id: ed.addCollider().id })}
         onNewSpace={() => setUploaderOpen(true)} onRename={doRename}
         onCopy={hotspots.length || tracks.length ? () => setCopying(true) : undefined}
@@ -148,7 +148,14 @@ export function EditorShell({ state, property, onPreview }: {
         )}
         {selHotspot ? (
           <HotspotInspector
-            ed={ed} hs={selHotspot} activeId={state.activeId} onAddTable={() => addHotspot('table')}
+            ed={ed} hs={selHotspot} activeId={state.activeId} onAddTable={() => {
+              // the next table starts with this one's seats: a room's tables are mostly one size
+              const h = ed.addHotspot('table');
+              if (!h?.id) return;
+              const seats = selHotspot.payload?.capacity;
+              if (seats) ed.updateHotspot(h.id, { payload: { ...h.payload, capacity: seats } });
+              setSel({ type: 'hotspot', id: h.id });
+            }}
             onDelete={() => { ed.removeHotspot(selHotspot.id); setSel(null); }}
           />
         ) : selCollider ? (
@@ -742,7 +749,8 @@ interface SceneTreeProps {
   hotspots: Hotspot[];
   colliders: Collider[];
   sel: Selection | null;
-  onSelect: (sel: Selection) => void;
+  /** null = the space itself (its Scene pane). */
+  onSelect: (sel: Selection | null) => void;
   onAddTrack: () => void;
   onAddHotspot: (type: HotspotType) => void;
   onAddCollider: () => void;
@@ -765,7 +773,7 @@ function SceneTree({ state, tracks, hotspots, colliders, sel, onSelect, onAddTra
           key={s.id}
           scene={s}
           active={s.id === state.activeId}
-          onSelect={() => state.select(s.id)}
+          onSelect={() => { onSelect(null); state.select(s.id); }}
           onRename={onRename}
         />
       ))}
@@ -1281,6 +1289,13 @@ function BookablePicker({ kind, sceneId, payload, onChange, onAddTable }: {
             onChange={(e) => onChange({ standing: num(e.target.value) })} />
         )}
       </div>
+      {kind === 'table' && (
+        <div className="ed2-seg-mini" role="group" aria-label="Usual table sizes">
+          {[2, 4, 6, 8].map((n) => (
+            <button key={n} className={pl.capacity === n ? 'on' : ''} aria-pressed={pl.capacity === n} onClick={() => onChange({ capacity: n })}>{n} seats</button>
+          ))}
+        </div>
+      )}
       {kind !== 'table' && (
         <>
           <input className="ed2-name" style={{ marginTop: 6 }} value={pl.price ?? ''} maxLength={40} aria-label="Price"
