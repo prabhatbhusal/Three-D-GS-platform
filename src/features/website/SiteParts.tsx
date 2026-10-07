@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import gsap from 'gsap';
+import { motion } from 'framer-motion';
 import { useGSAP } from '@gsap/react';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { SplitText } from 'gsap/SplitText';
@@ -149,17 +150,17 @@ export function SiteEnquire({ project, name, preview = false, whatsapp, enquirie
 }
 
 /**
- * How a client's website moves (2026-10-07, replaced the fade-up on every
- * section). One orchestrated opening, then motion only where it says
- * something, all on GSAP (ScrollTrigger, SplitText) with .ws as the scroller:
- *   - opening, once per visit: a curtain in the ink colour with the name,
- *     which lifts; the headline's lines rise out of masks, then the words
- *     under it, the buttons and the figures; the photo settles from 1.12;
- *   - headings rise line by line out of masks as they arrive;
- *   - photos open from the bottom (clip-path) while the picture inside
- *     settles from a slight zoom;
- *   - the live tour's window grows to full size as it scrolls in, and the
- *     opening photo drifts slower than the page (parallax).
+ * How a client's website moves (2026-10-07, second pass after the owner's
+ * references), all on GSAP (ScrollTrigger, SplitText) with .ws as the scroller:
+ *   - once per visit, a curtain with the name, which lifts;
+ *   - the headline's lines rise out of masks; the handwritten lines write
+ *     themselves left to right; the opening photo rises into its arch, and
+ *     the arch opens to the whole screen as the page scrolls (pinned) while
+ *     the words drift off; with no photo, small pictures float and drift;
+ *   - headings rise line by line; the story's first paragraph lights up
+ *     word by word; photos open from the bottom; staggered ones drift;
+ *   - the spaces scroll sideways, pinned, turning in 3D; the name band
+ *     slides; the enquiry band's slices slide together; the footer rises.
  * With reduced motion nothing moves: everything is simply there.
  * Styles: website.css .wsm-.
  */
@@ -185,36 +186,106 @@ export function SiteReveal() {
         delay: el.closest('.ws-hero') ? (first ? 1.35 : 0.15) : 0 }) });
 
     document.fonts.ready.then(() => {
-      // the opening
-      const hero = ws.querySelector('.ws-hero');
+      const wide = matchMedia('(min-width: 901px)').matches;
+      const hero = ws.querySelector<HTMLElement>('.ws-hero');
+      const at = (d: number) => (first ? d + 1.2 : d); // after the curtain on a first visit
+
+      // the opening: the headline's lines rise, then the rest
       if (hero) {
         const h1 = hero.querySelector('h1');
         if (h1) lines(h1);
-        const after = hero.querySelectorAll('.ws-eyebrow, .ws-lede, .ws-hero-ctas, .ws-facts > div');
-        gsap.from(after, { opacity: 0, y: 24, duration: 0.9, ease: 'power3.out', stagger: 0.07, delay: first ? 1.6 : 0.35 });
-        const img = hero.querySelector('.ws-hero-img');
-        if (img) {
-          gsap.fromTo(img, { scale: 1.12 }, { scale: 1, duration: 2.2, ease: 'expo.out', delay: first ? 0.9 : 0 });
-          gsap.to(img, { yPercent: 12, ease: 'none', scrollTrigger: { trigger: hero, start: 'top top', end: 'bottom top', scrub: true } });
+        const rest = hero.querySelectorAll('.ws-lede, .ws-hero-ctas');
+        if (rest.length) gsap.from(rest, { opacity: 0, y: 24, duration: 0.9, ease: 'power3.out', stagger: 0.08, delay: at(0.45) });
+        const arch = hero.querySelector<HTMLElement>('.ws-arch');
+        if (arch) {
+          // the photo rises into its arch, then the arch opens to the whole screen as the page scrolls, the words drifting off first
+          gsap.from(arch.querySelectorAll('img'), { scale: 1.25, yPercent: 18, duration: 2, ease: 'expo.out', delay: at(0.2) });
+          const side = matchMedia('(max-width: 760px)').matches ? 8 : 26;
+          const r = getComputedStyle(arch).getPropertyValue('--arch-r').trim() || '999px'; // square in some designs
+          gsap.timeline({ scrollTrigger: { trigger: hero, start: 'top top', end: '+=110%', pin: true, scrub: 0.6, invalidateOnRefresh: true } })
+            .to(hero.querySelector('.ws-hero-in'), { yPercent: -45, opacity: 0, ease: 'none', duration: 0.45 }, 0)
+            .fromTo(arch, { scale: 1, clipPath: `inset(0% ${side}% 0% ${side}% round ${r} ${r} 0px 0px)` },
+              { scale: () => (hero.clientHeight / arch.clientHeight) * 1.02, clipPath: 'inset(0% 0% 0% 0% round 0px 0px 0px 0px)', ease: 'power1.inOut', duration: 1 }, 0);
         }
+        // no photo: the small pictures float in, then drift at their own speeds
+        const floats = hero.querySelectorAll<HTMLElement>('.ws-float');
+        if (floats.length) gsap.from(floats, { opacity: 0, y: 60, duration: 1.4, ease: 'expo.out', stagger: 0.12, delay: at(0.5) });
+        floats.forEach((el, i) => gsap.to(el, { yPercent: -60 - i * 35, ease: 'none',
+          scrollTrigger: { trigger: hero, start: 'top top', end: 'bottom top', scrub: true } }));
       }
 
-      // headings, line by line
-      ws.querySelectorAll('.ws-head h2, .ws-space-txt h1, .ws-strip p, .ws-others h2, .ws-contact h2, .ws-room-txt h3').forEach(lines);
+      // the handwriting: written left to right as it arrives
+      ws.querySelectorAll('.ws-script').forEach((el) => {
+        const inHero = !!el.closest('.ws-hero');
+        gsap.fromTo(el, { clipPath: 'inset(-40% 100% -40% -10%)' }, { clipPath: 'inset(-40% -10% -40% -10%)', duration: 1.6, ease: 'power2.inOut',
+          delay: inHero ? at(0.6) : 0.15, scrollTrigger: inHero ? undefined : { trigger: el, start: 'top 85%', once: true } });
+      });
 
-      // photos open from the bottom
-      ws.querySelectorAll('.ws-room-img, .ws-offer-img, .ws-hl, .ws-other, .ws-space-photos img, .ws-gallery button').forEach((el) => {
+      // headings, line by line
+      ws.querySelectorAll('.ws-head h2, .ws-space-txt h1, .ws-slices h2, .ws-others h2, .ws-contact h2').forEach(lines);
+
+      // the story's first paragraph lights up word by word with the scroll
+      const statement = ws.querySelector('.ws-statement');
+      if (statement) SplitText.create(statement, { type: 'words', autoSplit: true,
+        onSplit: (self) => gsap.fromTo(self.words, { opacity: 0.14 }, { opacity: 1, stagger: 0.1, ease: 'none',
+          scrollTrigger: { trigger: statement, start: 'top 82%', end: 'bottom 42%', scrub: true } }) });
+
+      // photos open from the bottom while the picture inside settles
+      ws.querySelectorAll('.ws-offer-img, .ws-hl-img, .ws-other img, .ws-space-photos img, .ws-gallery button').forEach((el) => {
         const pic = el.matches('img') ? null : el.querySelector('img');
         const tl = gsap.timeline({ scrollTrigger: { trigger: el, start: 'top 90%', once: true } });
-        tl.fromTo(el, { clipPath: 'inset(100% 0% 0% 0%)' }, { clipPath: 'inset(0% 0% 0% 0%)', duration: 1.3, ease: 'expo.inOut' });
+        tl.fromTo(el, { clipPath: 'inset(100% 0% 0% 0%)' }, { clipPath: 'inset(0% 0% 0% 0%)', duration: 1.3, ease: 'expo.inOut', clearProps: 'clipPath' });
         if (pic) tl.fromTo(pic, { scale: 1.25 }, { scale: 1, duration: 1.6, ease: 'expo.out' }, 0.1);
+      });
+
+      // staggered pictures drift at their own speeds (wide screens)
+      if (wide) ws.querySelectorAll('.ws-hl:nth-child(2), .ws-gallery button:nth-child(3n + 2)').forEach((el) => {
+        gsap.fromTo(el, { yPercent: 10 }, { yPercent: -14, ease: 'none', scrollTrigger: { trigger: el, start: 'top bottom', end: 'bottom top', scrub: true } });
+      });
+
+      // the spaces: pinned while the page scrolls them sideways, each card turning by its distance from the middle
+      if (wide) ws.querySelectorAll<HTMLElement>('.ws-hscroll').forEach((sec) => {
+        const track = sec.querySelector<HTMLElement>('.ws-htrack');
+        if (!track) return;
+        const cards = [...track.children] as HTMLElement[];
+        const dist = () => Math.max(0, track.scrollWidth - ws.clientWidth);
+        if (dist() < 40) return;
+        const tilt = () => {
+          const mid = ws.clientWidth / 2;
+          for (const c of cards) {
+            const r = c.getBoundingClientRect();
+            const d = Math.max(-1.3, Math.min(1.3, (r.left + r.width / 2 - mid) / mid));
+            gsap.set(c, { rotateY: d * -24, z: -Math.abs(d) * 150, opacity: 1 - Math.min(0.45, Math.abs(d) * 0.3) });
+          }
+        };
+        gsap.to(track, { x: () => -dist(), ease: 'none', scrollTrigger: {
+          trigger: sec, start: 'top top', end: () => `+=${dist()}`, pin: true, scrub: 0.8,
+          invalidateOnRefresh: true, onUpdate: tilt, onRefresh: tilt
+        } });
+        tilt();
+      });
+
+      // the name band slides sideways with the scroll
+      ws.querySelectorAll<HTMLElement>('.ws-band-row').forEach((row, i) => {
+        gsap.fromTo(row, { xPercent: i % 2 ? -25 : 0 }, { xPercent: i % 2 ? 0 : -25, ease: 'none',
+          scrollTrigger: { trigger: row, start: 'top bottom', end: 'bottom top', scrub: 0.5 } });
+      });
+
+      // the enquiry band: its photo's slices slide together, alternately from below and above
+      ws.querySelectorAll('.ws-slices.has-photo').forEach((sec) => {
+        gsap.fromTo(sec.querySelectorAll('.ws-slice-in'), { yPercent: (i: number) => (i % 2 ? -100 : 100) }, { yPercent: 0, ease: 'none',
+          scrollTrigger: { trigger: sec, start: 'top bottom', end: 'top 10%', scrub: 0.6 } });
       });
 
       // the live tour's window grows into place
       ws.querySelectorAll('.ws-window').forEach((el) => {
-        gsap.fromTo(el, { scale: 0.88, borderRadius: 40 }, { scale: 1, borderRadius: 22, ease: 'none',
-          scrollTrigger: { trigger: el, start: 'top bottom', end: 'top 35%', scrub: 0.6 } });
+        gsap.fromTo(el, { scale: 0.9 }, { scale: 1, ease: 'none', scrollTrigger: { trigger: el, start: 'top bottom', end: 'top 35%', scrub: 0.6 } });
       });
+
+      // the footer rises from under the page
+      const foot = ws.querySelector('.ws-foot');
+      if (foot) gsap.from(foot.children, { yPercent: 40, opacity: 0, ease: 'none', stagger: 0.05,
+        scrollTrigger: { trigger: foot, start: 'top bottom', end: 'top 45%', scrub: 0.6 } });
       ScrollTrigger.refresh();
     });
     return () => { ws.classList.remove('wsm-on'); ScrollTrigger.defaults({ scroller: window }); };
@@ -295,5 +366,52 @@ export function SpaceEnquiry({ project, space, title, preview = false }: { proje
         {status === 'sending' ? 'Sending…' : 'Send'}
       </button>
     </form>
+  );
+}
+
+/**
+ * The booking desk (2026-10-07): a room, a table at each place, a hall for an
+ * event, as tabs in one chapter instead of three long ones. A sliding marker
+ * shows the open tab. Any link to something inside a closed tab (#stay,
+ * #reserve-<place>, Book now, Book this room) opens that tab, then scrolls to it.
+ */
+export function BookingDesk({ tabs }: { tabs: { id: string; label: string; node: React.ReactNode }[] }) {
+  const [on, setOn] = useState(tabs[0]?.id ?? '');
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const open = () => {
+      const id = decodeURIComponent(location.hash.slice(1));
+      const el = id ? document.getElementById(id) : null;
+      const panel = el?.closest<HTMLElement>('[data-desk-tab]');
+      if (!el || !panel || !ref.current?.contains(panel)) return;
+      setOn(panel.dataset.deskTab!);
+      requestAnimationFrame(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    };
+    // the same link twice fires no hashchange: read the hash after any in-page link click too
+    const onClick = (e: MouseEvent) => {
+      if ((e.target as Element).closest?.('a[href^="#"]')) setTimeout(open, 0);
+    };
+    open();
+    addEventListener('hashchange', open);
+    document.addEventListener('click', onClick);
+    return () => { removeEventListener('hashchange', open); document.removeEventListener('click', onClick); };
+  }, []);
+  return (
+    <div className="ws-desk-in" ref={ref}>
+      <div className="ws-desk-tabs" role="tablist" aria-label="What to book">
+        {tabs.map((t) => (
+          <button key={t.id} type="button" role="tab" aria-selected={t.id === on} aria-controls={`desk-${t.id}`}
+            className={t.id === on ? 'is-on' : ''} onClick={() => setOn(t.id)}>
+            {t.id === on && <motion.span layoutId="ws-desk-pill" className="ws-desk-pill" transition={{ type: 'spring', stiffness: 380, damping: 34 }} />}
+            <span>{t.label}</span>
+          </button>
+        ))}
+      </div>
+      {tabs.map((t) => (
+        <div key={t.id} id={`desk-${t.id}`} role="tabpanel" data-desk-tab={t.id} hidden={t.id !== on} className="ws-desk-panel">
+          {t.node}
+        </div>
+      ))}
+    </div>
   );
 }

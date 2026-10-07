@@ -46,14 +46,13 @@ export function SpaceView({ data, space }: { data: PublicSite; space: string }) 
   const book: [string, string] | null = hall && site.events ? [`${home}#events`, 'Book now']
     : stay && site.stays ? [`${home}#stay`, 'Book now']
     : cta[1] === 'Book now' ? [`${home}${cta[0]}`, 'Book now'] : null;
-  const top: [string, string][] = [[`${home}#tour`, 'Spaces'], ...(site.gallery.length ? [[`${home}#gallery`, 'Gallery'] as [string, string]] : []), [`${home}#contact`, 'Contact']];
   const chapters: [string, string][] = [['tour', 'Spaces'], ...(site.gallery.length ? [['gallery', 'Gallery'] as [string, string]] : []), ['contact', 'Contact']];
   const others = spaces.filter((s) => s.id !== space);
   const src = `/tour?space=${encodeURIComponent(sp.id)}&embed=1&mono=1&key=${encodeURIComponent(sp.key)}`;
 
   return (
     <div className="ws ws-space-page" data-style={site.style ?? 'heritage'} style={style}>
-      <SiteNav name={name} logo={logo} base={home} top={top} chapters={chapters} cta={book ?? [`${home}${cta[0]}`, cta[1]]} reach={navReach} />
+      <SiteNav name={name} logo={logo} base={home} chapters={chapters} cta={book ?? [`${home}${cta[0]}`, cta[1]]} reach={navReach} />
 
       <nav className="ws-crumb" aria-label="Breadcrumb">
         <a href={`${home}#tour`}>← Back to all spaces</a>

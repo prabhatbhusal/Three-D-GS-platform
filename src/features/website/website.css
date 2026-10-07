@@ -1,41 +1,37 @@
-/* A project's website (/s/<project>), redrawn 2026-10-06 as numbered
- * chapters, after lightweight.info and linear.app: a photo opening with the
- * place's figures along its foot, the live tour in a window, then each part
- * of the page as a chapter (its number and label in the margin, its title
- * large beside them, on a hairline). Three looks, chosen in the studio
- * ([data-style]), each wearing the project's own accent (--ws-accent) and
- * heading face (--ws-serif):
- *   heritage  warm paper, deep brown ink
- *   modern    white, crisp, small corners
- *   night     warm dark, the accent glowing
- * The look is the brand's choice, not the visitor's OS theme: a hotel's site
- * looks the same to everyone. Its own scroll container: globals.css locks
- * body for the 3D app. The booking panels inside are table-booking.css. */
+/* A project's website (/s/<project>). Redrawn 2026-10-07 after the owner's
+ * references (clubcharlestown.com.au, faithibiza.com, white-desert.com,
+ * vanderhotel.com), in our own code: headings in tall capitals of the brand's
+ * face with a handwritten line written over them (--ws-script), the opening
+ * photo in an arch that opens to the whole screen, the live tour in a dark
+ * band, the story as one large paragraph lighting up word by word over faint
+ * column lines, photos staggered with one large rounded corner, an enquiry
+ * band whose photo slides together in slices, and a dark footer. Buttons are
+ * black on white and white on black. Three looks ([data-style]) and a
+ * light/dark switch ([data-mode]); the project's accent (--ws-accent) colours
+ * the handwriting. Its own scroll container: globals.css locks body for the
+ * 3D app. Motion: SiteParts SiteReveal. Booking panels: table-booking.css. */
 
 .ws {
-  --ink: #2a1f17;
-  --dim: #6f6255;
-  --paper: #ffffff; /* plain white (2026-10-07; was warm paper #f4eee4) */
+  --ink: #111111;
+  --dim: #5e5e5e;
+  --paper: #ffffff; /* black and white only (the owner's choice, 2026-10-07): no warm tones, no brand colour */
   --card: #ffffff;
-  --band: #f5f5f3;
-  --line: rgba(42, 31, 23, 0.14);
+  --band: #f4f4f4; /* the booking desk and contact */
+  --deep: #0f0f0f; /* the dark bands: the tour, the enquiry, the footer */
+  --line: rgba(17, 17, 17, 0.12);
+  --grid: rgba(17, 17, 17, 0.05);
+  --arch-r: 999px; /* the opening photo's arch; square in the modern and minimal designs */
   --radius: 14px;
-  /* the accent as text: pulled toward the ink so a pale gold still reads on paper */
-  --ws-accent-ink: color-mix(in oklab, var(--ws-accent) 55%, var(--ink));
+  --corner: clamp(56px, 9vw, 168px); /* a photo's one large rounded corner */
+  /* what was the brand's accent is the ink now: the booking panels (table-booking.css) read these */
+  --ws-accent: var(--ink);
+  --ws-on-accent: var(--paper);
+  --ws-accent-ink: var(--ink);
   --wide: min(1240px, calc(100% - 40px));
-  --narrow: min(820px, calc(100% - 40px));
-  /* a chapter's margin column, where its number and label sit; text under the title lines up past it */
-  --margin: max(150px, 23%);
   --gap: clamp(24px, 5vw, 72px);
-  --indent: calc(var(--margin) + var(--gap));
-  --bar: 66px; /* the nav's pill and the gap above it */
+  --bar: 80px; /* the nav's pills and the space above them */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
-  /* what the chapter rail (marketing/layout/rail.css) reads */
-  --text: var(--ink);
-  --bg: var(--paper);
-  --rail-font: system-ui, 'Segoe UI', Roboto, sans-serif;
-  /* the enquiry pill and sheet are the tour's (viewer.css): here they wear the brand's accent, not the tour's gold */
-  /* buttons are black and white (2026-10-07): the ink on the paper, flipping with the mode */
+  /* the enquiry pill and sheet are the tour's (viewer.css): black and white here */
   --gold: var(--ink);
   --gold-ink: var(--paper);
   --gold-on-light: #111111;
@@ -43,322 +39,394 @@
   position: fixed;
   inset: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   scroll-behavior: smooth;
   scroll-padding-top: calc(var(--bar) + 16px);
   color: var(--ink);
-  background: var(--paper);
   font: 400 17px/1.7 system-ui, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
+  /* six faint columns down the page, a surveyor's grid (white-desert.com); bands cover them */
+  background:
+    linear-gradient(to left, var(--grid) 1px, transparent 1px) center top / var(--wide) 100% no-repeat local,
+    repeating-linear-gradient(to right, var(--grid) 0 1px, transparent 1px 16.6667%) center top / var(--wide) 100% no-repeat local,
+    var(--paper);
 }
-.ws[data-style='modern'] {
-  --ink: #111111; --dim: #5c5c5c; --paper: #ffffff; --card: #ffffff; --band: #f5f5f3;
-  --line: rgba(17, 17, 17, 0.1); --radius: 6px;
-}
-.ws[data-style='night'] {
-  --ink: #f2ece2; --dim: #aba092; --paper: #0f0e0c; --card: #191714; --band: #15130f;
-  --line: rgba(242, 236, 226, 0.12);
-  --ws-accent-ink: color-mix(in oklab, var(--ws-accent) 70%, var(--ink));
-}
-.ws[data-mode='dark'] {
-  --ink: #f2f2f2; --dim: #a3a3a3; --paper: #0d0d0d; --card: #171717; --band: #131313;
-  --line: rgba(255, 255, 255, 0.12);
-  --ws-accent-ink: color-mix(in oklab, var(--ws-accent) 70%, var(--ink));
+.ws[data-style='night'], .ws[data-mode='dark'] {
+  --ink: #f2f2f2; --dim: #a3a3a3; --paper: #0d0d0d; --card: #171717; --band: #151515; --deep: #1a1a1a;
+  --line: rgba(242, 242, 242, 0.13); --grid: rgba(242, 242, 242, 0.05);
 }
 .ws[data-style='night'][data-mode='light'] {
-  --ink: #111111; --dim: #5c5c5c; --paper: #ffffff; --card: #ffffff; --band: #f5f5f3;
-  --line: rgba(17, 17, 17, 0.1);
-  --ws-accent-ink: color-mix(in oklab, var(--ws-accent) 55%, var(--ink));
+  --ink: #111111; --dim: #5e5e5e; --paper: #ffffff; --card: #ffffff; --band: #f4f4f4; --deep: #0f0f0f;
+  --line: rgba(17, 17, 17, 0.12); --grid: rgba(17, 17, 17, 0.05);
 }
 .ws[data-sheet] { overflow: hidden; }
 .ws :where(a:not(.ws-btn)) { color: inherit; }
-.ws h1, .ws h2, .ws h3 { font-family: var(--ws-serif); font-weight: 400; letter-spacing: -0.015em; text-wrap: balance; }
-.ws[data-style='modern'] :is(h1, h2, h3) { letter-spacing: -0.03em; }
+.ws h1, .ws h2, .ws h3 { font-family: var(--ws-serif); font-weight: 400; letter-spacing: -0.01em; text-wrap: balance; }
 .ws-dim { color: var(--dim); }
+
+/* the display voice: tall capitals, tight lines */
+.ws-hero h1, .ws-head h2, .ws-room h3, .ws-hl b, .ws-offer h3, .ws-contact h2, .ws-slices h2,
+.ws-space-txt h1, .ws-others h2, .ws-band-row, .ws-foot-mark {
+  text-transform: uppercase; line-height: 0.94;
+}
+/* the handwriting: written over the top of the capitals under it */
+.ws-script {
+  position: relative; z-index: 1; margin: 0 0 -0.26em; padding: 0 0.2em;
+  font: 400 clamp(46px, 6.2vw, 104px)/1 var(--ws-script); letter-spacing: 0; text-transform: none;
+  color: var(--ws-accent-ink); rotate: -4deg; translate: -8% 0; pointer-events: none;
+}
+
+/* ---- the five designs (the studio's Look, site.style), all black and white:
+ *   heritage  Editorial: tall capitals, handwriting over them, the photo in an arch (the default)
+ *   classic   serif headings in sentence case, an italic line above them, soft corners
+ *   modern    bold tight headings set left, square corners, no handwriting
+ *   minimal   small spaced capitals, no grid, no handwriting, no name band
+ *   night     the editorial design, dark (visitors can still switch to light) */
+.ws[data-style='classic'] { --corner: 8px; }
+.ws[data-style='classic'] :is(.ws-hero h1, .ws-head h2, .ws-room h3, .ws-hl b, .ws-offer h3, .ws-contact h2, .ws-slices h2,
+  .ws-space-txt h1, .ws-others h2, .ws-band-row, .ws-foot-mark, .wsn-t, .wsn-brand, .wsn-pill-btn, .ws-facts dd, .ws-desk-tabs button) {
+  text-transform: none; line-height: 1.04; letter-spacing: -0.02em;
+}
+.ws[data-style='classic'] .ws-script { margin: 0 0 16px; rotate: none; translate: none; font: italic 400 clamp(20px, 1.8vw, 26px)/1.3 var(--ws-serif); }
+.ws[data-style='modern'] { --corner: 0px; --radius: 4px; --arch-r: 0px; }
+.ws[data-style='modern'] :is(.ws-hero h1, .ws-head h2, .ws-room h3, .ws-hl b, .ws-offer h3, .ws-contact h2, .ws-slices h2,
+  .ws-space-txt h1, .ws-others h2, .ws-band-row, .ws-foot-mark, .wsn-t, .ws-facts dd) {
+  text-transform: none; font-weight: 700; letter-spacing: -0.045em; line-height: 0.98;
+}
+.ws[data-style='modern'] .ws-head { align-items: flex-start; text-align: left; }
+.ws[data-style='modern'] :is(.ws-btn, .wsn-pill-btn, .wsn-brand, .wsn-ic, .ws-features li, .ws-actbar, .ws-act) { border-radius: 4px; }
+.ws[data-style='minimal'] { --corner: 0px; --arch-r: 0px; background: var(--paper); }
+.ws[data-style='minimal'] :is(.ws-hero h1, .ws-head h2, .ws-contact h2, .ws-slices h2, .ws-space-txt h1, .ws-others h2) {
+  font-size: clamp(24px, 2.8vw, 44px); letter-spacing: 0.18em; line-height: 1.3;
+}
+.ws[data-style='minimal'] :is(.ws-room h3, .ws-hl b, .ws-offer h3) { font-size: clamp(18px, 1.6vw, 24px); letter-spacing: 0.16em; line-height: 1.3; }
+.ws[data-style='minimal'] .ws-band { display: none; }
+.ws[data-style='modern'] .ws-script, .ws[data-style='minimal'] .ws-script { display: none; }
 
 /* ---- buttons and links */
 .ws-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  margin-top: 18px; min-height: 50px; padding: 0 28px; border: 0; border-radius: 999px; cursor: pointer;
-  font: inherit; font-size: 15px; font-weight: 600; line-height: 1; letter-spacing: 0.02em; text-decoration: none;
+  margin-top: 18px; min-height: 52px; padding: 0 30px; border: 0; border-radius: 999px; cursor: pointer;
+  font: inherit; font-size: 13.5px; font-weight: 600; line-height: 1; letter-spacing: 0.14em; text-transform: uppercase; text-decoration: none;
   color: var(--paper); background: var(--ink);
   transition: filter 0.2s, translate 0.25s var(--ease);
 }
-/* on the opening photo: white, with black words */
-.ws-hero.has-photo .ws-btn:not(.ws-btn-ghost) { color: #111111; background: #ffffff; }
-.ws-btn:hover { filter: brightness(1.07); translate: 0 -2px; }
+.ws-btn:hover { filter: brightness(1.12); translate: 0 -2px; }
 .ws-btn-ghost { color: var(--ink); background: transparent; box-shadow: inset 0 0 0 1px currentColor; }
-.ws[data-style='modern'] .ws-btn { border-radius: var(--radius); }
 .ws-link {
   margin-top: 22px; padding: 0 0 4px; border: 0; border-bottom: 1px solid currentColor; background: none;
-  color: var(--ws-accent-ink); font: inherit; font-size: 15px; font-weight: 600; letter-spacing: 0.02em; text-decoration: none; cursor: pointer;
+  color: var(--ink); font: inherit; font-size: 13.5px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; text-decoration: none; cursor: pointer;
 }
 .ws-link span { display: inline-block; transition: translate 0.25s var(--ease); }
 .ws-link:hover span { translate: 4px 0; }
 .ws-links { display: flex; flex-wrap: wrap; gap: 0 24px; }
 .ws-caption { margin: 18px 0 0; font-size: 14px; color: var(--dim); }
-.ws-caption a { color: var(--ws-accent-ink); text-decoration: none; }
+.ws-caption a { color: var(--ink); }
 
-/* ---- a chapter, and its head: number and label in the margin, the title beside them */
-.ws-chap { width: var(--wide); margin: clamp(104px, 15vh, 176px) auto 0; }
-.ws-head {
-  display: grid; grid-template-columns: var(--margin) minmax(0, 1fr); gap: 14px var(--gap);
-  margin: 0 0 clamp(40px, 6vw, 76px); padding-top: 22px; border-top: 1px solid var(--line);
-}
-.ws-head-k {
-  display: flex; align-items: baseline; gap: 12px; margin: 0;
-  font-size: 12.5px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim);
-}
-.ws-head-n { font-variant-numeric: tabular-nums; letter-spacing: 0.04em; color: var(--ws-accent-ink); }
-.ws-head h2 { margin: 0; font-size: clamp(38px, 5.2vw, 72px); line-height: 1.02; }
-.ws-head-lead { max-width: 46ch; margin: 18px 0 0; font-size: 18px; color: var(--dim); text-wrap: pretty; }
+/* ---- a chapter and its head: centred capitals under a handwritten line */
+.ws-chap { width: var(--wide); margin: clamp(120px, 18vh, 220px) auto 0; }
+.ws-head { display: flex; flex-direction: column; align-items: center; margin: 0 0 clamp(44px, 6vw, 84px); text-align: center; }
+.ws-head h2 { max-width: 15ch; margin: 0; font-size: clamp(42px, 6.4vw, 112px); }
+.ws-head-lead { max-width: 46ch; margin: 26px 0 0; font-size: 18px; color: var(--dim); text-wrap: pretty; }
 .ws-sub { margin: 0 0 6px; font-size: clamp(26px, 2.6vw, 34px); line-height: 1.1; }
 
-/* ---- the nav (SiteNav.tsx, 2026-10-07): the marketing site's floating pill
- * (marketing/site.css .site-nav, .mnav) in the client's colour and face. It
- * floats over the opening (the negative margin), dark over its photo
- * (plain white, dark ink, in every look), folds to its links on the way down (data-collapsed),
- * and a scan line along its foot is drawn by the page's scroll. */
+/* ---- the note above everything: why book here rather than elsewhere */
+.ws-note { margin: 0; padding: 9px 16px; text-align: center; font-size: 13px; letter-spacing: 0.02em; color: #f2f2f2; background: var(--deep); }
+
+/* ---- the nav (SiteNav.tsx): three things floating, Menu, the name, the main button */
 .wsn {
   --nav-ease: cubic-bezier(0.32, 0.72, 0, 1);
-  /* plain white in every look (2026-10-07), with dark ink, over the photo too */
-  --nav-bg: var(--paper); --nav-bg-folded: var(--paper);
-  position: sticky; top: 10px; z-index: 8; box-sizing: border-box;
-  width: min(1240px, calc(100% - 32px)); height: 56px; margin: 10px auto -66px;
-  display: flex; align-items: center; gap: 18px; padding: 0 8px 0 14px;
-  border-radius: 100px; color: var(--ink); background: var(--nav-bg);
-  box-shadow: inset 0 0 0 1px var(--line), 0 10px 40px rgba(0, 0, 0, 0.12);
-  transition: width 0.55s var(--nav-ease), padding 0.55s var(--nav-ease), gap 0.55s var(--nav-ease),
-    background-color 0.34s ease, box-shadow 0.34s ease;
+  position: sticky; top: 14px; z-index: 8; box-sizing: border-box;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 12px;
+  width: calc(100% - 28px); height: 52px; margin: 14px auto -66px; pointer-events: none;
 }
-.ws[data-style='modern'] .wsn { border-radius: 16px; }
+.wsn > * { pointer-events: auto; }
+.wsn-pill-btn {
+  display: inline-flex; align-items: center; gap: 12px; height: 52px; padding: 0 26px; border: 0; border-radius: 999px; cursor: pointer;
+  font: 400 17px/1 var(--ws-serif); letter-spacing: 0.08em; text-transform: uppercase; text-decoration: none; white-space: nowrap;
+  color: var(--paper); background: var(--ink);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--paper) 18%, transparent), 0 14px 34px -14px rgba(0, 0, 0, 0.45);
+  transition: translate 0.25s var(--ease), filter 0.2s;
+}
+.wsn-pill-btn:hover { translate: 0 -2px; filter: brightness(1.15); }
+.wsn-pill-btn:focus-visible, .wsn-ic:focus-visible, .wsn-brand:focus-visible { outline: 2px solid var(--ws-accent); outline-offset: 3px; }
+.wsn-menu-btn { justify-self: start; padding-left: 22px; }
 .wsn-brand {
-  display: inline-flex; align-items: center; gap: 10px; flex: none; min-width: 0;
-  color: var(--ink); text-decoration: none; white-space: nowrap; font: 400 19px/1.1 var(--ws-serif);
-  max-width: 460px; transition: max-width 0.55s var(--nav-ease), opacity 0.3s ease 0.12s;
+  display: inline-flex; align-items: center; gap: 10px; min-width: 0; max-width: 46vw; padding: 8px 18px; border-radius: 999px;
+  color: var(--ink); text-decoration: none; white-space: nowrap;
+  font: 400 20px/1.1 var(--ws-serif); letter-spacing: 0.16em; text-transform: uppercase;
+  background: color-mix(in srgb, var(--paper) 84%, transparent);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
 }
 .wsn-logo { height: 32px; width: auto; max-width: 120px; object-fit: contain; border-radius: 6px; }
 .wsn-word { overflow: hidden; text-overflow: ellipsis; }
-.wsn-links { display: flex; gap: 2px; margin-left: auto; }
-.wsn-links a {
-  position: relative; isolation: isolate; padding: 9px 14px; border-radius: 999px;
-  font: 500 12px/1 var(--ws-serif); letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--dim); text-decoration: none; white-space: nowrap; transition: color 0.2s;
-}
-/* hover: a faint pill grows in from the middle */
-.wsn-links a::before {
-  content: ''; position: absolute; inset: 0; z-index: -2; border-radius: inherit;
-  background: color-mix(in srgb, var(--ink) 9%, transparent); opacity: 0; transform: scale(0.7);
-  transition: opacity 0.2s, transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-.wsn-links a:hover, .wsn-links a[aria-current] { color: var(--ink); }
-.wsn-links a:hover::before { opacity: 1; transform: none; }
-/* the section in view: a viewfinder's four corners, in the brand's colour */
-.wsn-pill {
-  --c: var(--ink);
-  position: absolute; inset: 1px -1px; z-index: -1; border-radius: 4px;
-  background:
-    linear-gradient(var(--c), var(--c)) left top / 9px 2px, linear-gradient(var(--c), var(--c)) left top / 2px 9px,
-    linear-gradient(var(--c), var(--c)) right top / 9px 2px, linear-gradient(var(--c), var(--c)) right top / 2px 9px,
-    linear-gradient(var(--c), var(--c)) left bottom / 9px 2px, linear-gradient(var(--c), var(--c)) left bottom / 2px 9px,
-    linear-gradient(var(--c), var(--c)) right bottom / 9px 2px, linear-gradient(var(--c), var(--c)) right bottom / 2px 9px,
-    color-mix(in srgb, var(--ink) 7%, transparent);
-  background-repeat: no-repeat;
-  animation: wsn-focus 0.35s var(--ease) both;
-}
-@keyframes wsn-focus { from { opacity: 0; transform: scale(1.18); } }
-.wsn-actions {
-  display: flex; align-items: center; gap: 6px; flex: none;
-  max-width: 560px; transition: max-width 0.55s var(--nav-ease), opacity 0.3s ease 0.12s;
-}
+.wsn-actions { justify-self: end; display: flex; align-items: center; gap: 8px; }
 .wsn-ic {
-  display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; font-size: 18px;
-  color: var(--ink); box-shadow: inset 0 0 0 1px var(--line);
+  display: grid; place-items: center; width: 52px; height: 52px; border: 0; border-radius: 50%; font-size: 19px; cursor: pointer;
+  color: var(--ink); background: var(--paper); box-shadow: inset 0 0 0 1px var(--line), 0 14px 34px -16px rgba(0, 0, 0, 0.35);
   transition: background 0.2s, color 0.2s, transform 0.2s;
 }
-.wsn-ic:hover, .wsn-ic:focus-visible { color: var(--paper); background: var(--ink); transform: translateY(-2px); }
-.wsn-mode { flex: none; border: 0; background: none; cursor: pointer; }
-.wsn-mode svg { width: 18px; height: 18px; }
-.wsn-links + .wsn-mode { margin-left: 4px; }
-.wsn-cta { margin: 0 0 0 4px; min-height: 40px; padding: 0 18px; font-size: 14px; white-space: nowrap; }
-.ws:not([data-style='modern']) .wsn-cta { border-radius: 999px; }
-/* folded: just the links */
-.wsn[data-collapsed] { width: min(var(--merged-w, 640px), calc(100% - 32px)); padding: 0 10px; gap: 0; background: var(--nav-bg-folded); }
-.wsn[data-collapsed] .wsn-brand,
-.wsn[data-collapsed] .wsn-actions { max-width: 0; opacity: 0; overflow: hidden; pointer-events: none; transition: max-width 0.55s var(--nav-ease), opacity 0.2s ease; }
-.wsn[data-collapsed] .wsn-links { margin: 0 auto; }
-.wsn[data-collapsed] .wsn-mode { display: none; }
-/* the scan line: drawn left to right by the page's own scroll */
-@supports (animation-timeline: scroll()) {
-  .wsn::after {
-    content: ''; position: absolute; left: 26px; right: 26px; bottom: 0; height: 2px; border-radius: 2px;
-    background: linear-gradient(90deg, transparent, var(--ws-accent));
-    transform: scaleX(0); transform-origin: left;
-    animation: wsn-scan linear both; animation-timeline: scroll(nearest block);
-  }
-}
-@keyframes wsn-scan { to { transform: scaleX(1); } }
-.wsn-menu-btn { display: none; }
+.wsn-ic:hover { color: var(--paper); background: var(--ink); transform: translateY(-2px); }
+.wsn-mode svg { width: 19px; height: 19px; }
+.wsn-cta { padding: 0 28px; }
 
-/* the menu card (phones and tablets): the bar's own shape, grown to the screen less a margin */
+/* the menu card: the Menu pill grown to the screen less a margin */
 .wsn-scrim {
   position: fixed; inset: 0; z-index: 39;
   background: color-mix(in srgb, var(--paper) 55%, transparent);
   -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
 }
 .wsn-card {
-  position: fixed; top: 10px; left: 12px; right: 12px; bottom: 10px; z-index: 40; overflow: hidden;
-  border-radius: 22px; background: var(--card);
-  box-shadow: inset 0 0 0 1px var(--line), 0 30px 80px rgba(0, 0, 0, 0.25);
+  position: fixed; top: 14px; left: 14px; right: 14px; bottom: 14px; z-index: 40; overflow: hidden;
+  border-radius: 28px; background: var(--ink); color: var(--paper);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.3);
 }
-/* the scan line: down the card once as it opens */
 .wsn-scan {
-  position: absolute; left: 0; right: 0; top: 56px; height: 1px; z-index: 2; pointer-events: none;
+  position: absolute; left: 0; right: 0; top: 66px; height: 1px; z-index: 2; pointer-events: none;
   background: linear-gradient(90deg, transparent, var(--ws-accent) 50%, transparent);
   animation: wsn-drop 0.9s var(--ease) both;
 }
-@keyframes wsn-drop { from { top: 56px; opacity: 0.9; } to { top: 100%; opacity: 0; } }
+@keyframes wsn-drop { from { top: 66px; opacity: 0.9; } to { top: 100%; opacity: 0; } }
 .wsn-body {
-  position: absolute; inset: 56px 0 0; overflow-y: auto; overscroll-behavior: contain;
-  display: flex; flex-direction: column; padding: 10px 20px 24px;
+  position: absolute; inset: 66px 0 0; overflow-y: auto; overscroll-behavior: contain;
+  display: flex; flex-direction: column; padding: 12px clamp(20px, 5vw, 64px) 28px;
 }
-.wsn-chapters { list-style: none; margin: 0; padding: 0; }
-.wsn-chapters li { border-bottom: 1px solid var(--line); }
-.wsn-chapters a { display: flex; align-items: baseline; gap: 14px; padding: 15px 0 13px; color: var(--ink); text-decoration: none; }
-.wsn-n { font: 600 11px/1 system-ui, sans-serif; letter-spacing: 0.08em; color: var(--ws-accent-ink); font-variant-numeric: tabular-nums; transform: translateY(-0.45em); }
-.wsn-t { font: 400 clamp(26px, 7.4vw, 40px)/1.05 var(--ws-serif); letter-spacing: -0.02em; }
+.wsn-chapters { list-style: none; margin: 0; padding: 0; columns: 2 380px; column-gap: clamp(24px, 5vw, 80px); }
+.wsn-chapters li { break-inside: avoid; border-bottom: 1px solid color-mix(in srgb, var(--paper) 16%, transparent); }
+.wsn-chapters a { display: flex; align-items: baseline; padding: 14px 0 12px; color: var(--paper); text-decoration: none; }
+.wsn-t { font: 400 clamp(28px, 4.2vw, 56px)/1 var(--ws-serif); letter-spacing: -0.01em; text-transform: uppercase; transition: translate 0.3s var(--ease); }
+.wsn-chapters a:hover .wsn-t { translate: 10px 0; }
 .wsn-chapters li.is-here .wsn-t::after {
-  content: ''; display: inline-block; width: 8px; height: 8px; margin-left: 12px; vertical-align: 0.35em;
+  content: ''; display: inline-block; width: 9px; height: 9px; margin-left: 14px; vertical-align: 0.3em;
   border-radius: 50%; background: var(--ws-accent);
 }
-.wsn-foot { margin-top: auto; padding-top: 28px; display: grid; gap: 12px; }
-.wsn-card-cta { width: 100%; margin: 0; min-height: 50px; }
-.wsn-foot-icons { display: flex; justify-content: center; gap: 10px; }
+.wsn-foot { margin-top: auto; padding-top: 28px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.wsn-card-cta { margin: 0; min-width: 220px; color: var(--ink); background: var(--paper); }
+.wsn-foot-icons { display: flex; gap: 10px; }
 .wsn-foot-icons:empty { display: none; }
+.wsn-card .wsn-ic { box-shadow: none; }
+/* open, the bar's Menu pill stays above the card as its close button */
+.wsn[data-menu] { z-index: 41; }
+.wsn[data-menu] .wsn-brand, .wsn[data-menu] .wsn-actions { visibility: hidden; }
+.wsn[data-menu] .wsn-menu-btn { color: var(--ink); background: var(--paper); }
 
-/* ---- opening: the photo, the words at its foot, the figures along the bottom */
-.ws-hero { position: relative; isolation: isolate; }
-.ws-hero-in { width: var(--wide); margin: 0 auto; padding: calc(var(--bar) + clamp(40px, 10vh, 120px)) 0 56px; }
-.ws-hero-in > * { animation: ws-rise 1s var(--ease) both; }
-.ws-hero-in > :nth-child(2) { animation-delay: 0.08s; }
-.ws-hero-in > :nth-child(3) { animation-delay: 0.16s; }
-.ws-hero-in > :nth-child(4) { animation-delay: 0.24s; }
-@keyframes ws-rise { from { opacity: 0; translate: 0 26px; } }
-@keyframes ws-drift { from { scale: 1.08; } }
-.ws-eyebrow { margin: 0 0 20px; font-size: 13px; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ws-accent-ink); }
-.ws-hero h1 { max-width: 14ch; margin: 0; font-size: clamp(48px, 8.4vw, 136px); line-height: 0.98; }
-.ws-lede { max-width: 40ch; margin: 28px 0 0; font-size: clamp(18px, 1.5vw, 21px); color: var(--dim); text-wrap: pretty; }
-.ws-hero-ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
+/* ---- the Menu button's two bars, crossing into an X */
+.ws-menu-ic { position: relative; width: 18px; height: 10px; }
+.ws-menu-ic i { position: absolute; left: 0; right: 0; height: 1.5px; border-radius: 2px; background: currentColor; transition: top 0.4s var(--ease), transform 0.4s var(--ease); }
+.ws-menu-ic i:first-child { top: 0; }
+.ws-menu-ic i:last-child { top: 8.5px; }
+.wsn-menu-btn[aria-expanded='true'] .ws-menu-ic i { top: 4.25px; }
+.wsn-menu-btn[aria-expanded='true'] .ws-menu-ic i:first-child { transform: rotate(45deg); }
+.wsn-menu-btn[aria-expanded='true'] .ws-menu-ic i:last-child { transform: rotate(-45deg); }
+
+/* ---- the opening: capitals, the handwriting, and the photo in an arch below */
+.ws-hero { position: relative; isolation: isolate; overflow: hidden; text-align: center; }
+.ws-hero-in {
+  position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center;
+  width: var(--wide); margin: 0 auto; padding: calc(var(--bar) + clamp(48px, 9vh, 120px)) 0 0;
+}
+.ws-hero-script { font-size: clamp(50px, 6.8vw, 116px); }
+.ws-hero h1 { max-width: 17ch; margin: 0; font-size: clamp(44px, 7.4vw, 132px); }
+.ws-lede { max-width: 44ch; margin: 28px 0 0; font-size: clamp(17px, 1.4vw, 20px); color: var(--dim); text-wrap: pretty; }
+.ws-hero-ctas { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 32px; }
 .ws-hero-ctas .ws-btn { margin: 0; }
-/* words only: the paper with a faint dot ground */
-.ws-hero:not(.has-photo) { background-image: radial-gradient(var(--line) 1px, transparent 1.3px); background-size: 22px 22px; }
-
-.ws-hero.has-photo { display: flex; flex-direction: column; justify-content: flex-end; min-height: min(100svh, 1040px); overflow: hidden; color: #fff; }
-.ws-hero-img { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; animation: ws-drift 24s ease-out both; }
-.ws-hero.has-photo::after {
-  content: ''; position: absolute; inset: 0; z-index: -1;
-  background: linear-gradient(to top, rgba(10, 8, 6, 0.86) 0%, rgba(10, 8, 6, 0.42) 42%, rgba(10, 8, 6, 0.06) 70%, rgba(10, 8, 6, 0.3) 100%);
+/* with a photo: the hero is one screen, the arch takes what the words leave */
+.ws-hero.has-photo { display: flex; flex-direction: column; height: 100svh; min-height: 680px; }
+.ws-hero.has-photo .ws-hero-in { padding-top: calc(var(--bar) + clamp(28px, 6vh, 72px)); }
+.ws-hero.has-photo h1 { font-size: clamp(40px, 5.8vw, 104px); }
+.ws-arch {
+  position: relative; z-index: 1; flex: 1; min-height: 30svh; margin-top: clamp(28px, 4.5vh, 56px);
+  overflow: hidden; clip-path: inset(0% 26% 0% 26% round var(--arch-r) var(--arch-r) 0px 0px); transform-origin: 50% 100%;
 }
-.ws-hero.has-photo .ws-hero-in { padding-top: 22vh; }
-.ws-hero.has-photo h1 { text-shadow: 0 2px 30px rgba(0, 0, 0, 0.35); }
-.ws-hero.has-photo .ws-eyebrow { color: rgba(255, 255, 255, 0.86); }
-.ws-hero.has-photo .ws-lede { color: rgba(255, 255, 255, 0.86); }
-.ws-hero.has-photo .ws-btn-ghost { color: #fff; }
-/* the corners' crosshairs: the place was measured */
-.ws-cross {
-  position: absolute; z-index: 1; width: 15px; height: 15px; pointer-events: none; opacity: 0.75;
-  background:
-    linear-gradient(currentColor, currentColor) center / 100% 1px no-repeat,
-    linear-gradient(currentColor, currentColor) center / 1px 100% no-repeat;
-  color: var(--dim);
-}
-.ws-hero.has-photo .ws-cross { color: rgba(255, 255, 255, 0.8); }
-.ws-cross-tl { top: 24px; left: 24px; }
-.ws-cross-tr { top: 24px; right: 24px; }
-.ws-cross-bl { bottom: 24px; left: 24px; }
-.ws-cross-br { bottom: 24px; right: 24px; }
-/* the figures: a strip of frosted glass along the photo's foot, or hairlines on paper */
+.ws-hero-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* no photo: the words in the middle, small pictures floating round them */
+.ws-hero:not(.has-photo) { min-height: min(100svh, 980px); display: flex; flex-direction: column; justify-content: center; padding-bottom: clamp(48px, 9vh, 110px); }
+.ws-float { position: absolute; z-index: 1; overflow: hidden; width: clamp(96px, 10vw, 180px); aspect-ratio: 3 / 4; background: var(--band); }
+.ws-float img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.ws-float-0 { top: 20%; left: 7%; }
+.ws-float-1 { top: 15%; right: 9%; width: clamp(84px, 8vw, 150px); aspect-ratio: 1; }
+.ws-float-2 { bottom: 12%; left: 14%; width: clamp(84px, 8vw, 150px); }
+.ws-float-3 { bottom: 7%; right: 17%; aspect-ratio: 4 / 3; }
+/* the figures, on hairlines under the opening */
 .ws-facts {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  width: var(--wide); margin: 0 auto; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  width: var(--wide); margin: clamp(40px, 7vh, 80px) auto 0; padding: 0;
   border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
 }
-.ws-facts > div { padding: 22px 18px 20px; }
+.ws-facts > div { padding: 26px 18px 22px; text-align: center; }
 .ws-facts > div + div { border-left: 1px solid var(--line); }
-.ws-facts dd { margin: 0; font: 400 clamp(28px, 3.2vw, 42px)/1.05 var(--ws-serif); font-variant-numeric: tabular-nums; }
-.ws-facts dt { margin-top: 6px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); }
-.ws-hero.has-photo .ws-facts {
-  margin-bottom: clamp(96px, 16vh, 168px); border: 1px solid rgba(255, 255, 255, 0.18); border-radius: var(--radius);
-  background: rgba(14, 12, 10, 0.32); -webkit-backdrop-filter: blur(16px) saturate(1.2); backdrop-filter: blur(16px) saturate(1.2);
-}
-.ws-hero.has-photo .ws-facts > div + div { border-left-color: rgba(255, 255, 255, 0.14); }
-.ws-hero.has-photo .ws-facts dt { color: rgba(255, 255, 255, 0.72); }
-.ws-hero:not(.has-photo) .ws-facts { margin-bottom: 48px; }
+.ws-facts dd { margin: 0; font: 400 clamp(30px, 3.4vw, 50px)/1 var(--ws-serif); font-variant-numeric: tabular-nums; text-transform: uppercase; }
+.ws-facts dt { margin-top: 10px; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
 
-/* ---- the tour, in a window: pulled up over the opening photo */
+/* ---- the tour, in a window; on the hub inside the dark band */
 .ws-window {
-  position: relative; z-index: 2; width: var(--wide); margin: 0 auto; padding: 8px;
+  position: relative; z-index: 2; width: var(--wide); margin: 0 auto; padding: 8px; box-sizing: border-box;
   border-radius: calc(var(--radius) + 8px); background: var(--card);
   box-shadow: 0 0 0 1px var(--line), 0 60px 120px -50px rgba(0, 0, 0, 0.55);
-  animation: ws-rise 1.2s var(--ease) 0.3s both;
 }
-.ws-hero.has-photo + .ws-window { margin-top: clamp(-150px, -13vh, -72px); }
 .ws-window-bar { display: flex; align-items: center; gap: 14px; padding: 6px 10px 12px; font-size: 14px; }
-.ws-window-bar b { font: 400 18px/1.2 var(--ws-serif); }
-.ws-window-bar a { margin-left: auto; color: var(--ws-accent-ink); text-decoration: none; white-space: nowrap; }
+.ws-window-bar b { font: 400 18px/1.2 var(--ws-serif); text-transform: uppercase; letter-spacing: 0.06em; }
+.ws-window-bar a { margin-left: auto; text-decoration: none; white-space: nowrap; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; }
 .ws-live {
   display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 999px;
   font-size: 11.5px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
-  color: var(--ws-accent-ink); background: color-mix(in srgb, var(--ws-accent) 12%, transparent);
+  box-shadow: inset 0 0 0 1px var(--line);
 }
-.ws-live::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--ws-accent); animation: ws-ping 2s infinite; }
-@keyframes ws-ping {
-  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ws-accent) 55%, transparent); }
-  70%, 100% { box-shadow: 0 0 0 8px transparent; }
-}
-.ws-tour {
-  display: block; width: 100%; aspect-ratio: 16 / 9; max-height: 80vh;
-  border: 0; border-radius: var(--radius); background: #0d0c0b;
-}
+.ws-live::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: ws-ping 2s infinite; }
+@keyframes ws-ping { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 55%, transparent); } 70%, 100% { box-shadow: 0 0 0 8px transparent; } }
+.ws-tour { display: block; width: 100%; aspect-ratio: 16 / 9; max-height: 80vh; border: 0; border-radius: var(--radius); background: #0d0c0b; }
 .ws-window-hint { margin: 10px 10px 2px; font-size: 13px; color: var(--dim); }
+.ws-tourband {
+  --ink: #f2f2f2; --dim: rgba(242, 242, 242, 0.62); --line: rgba(242, 242, 242, 0.16); --paper: var(--deep); --card: transparent;
+  margin-top: clamp(96px, 14vh, 170px); padding: clamp(96px, 14vh, 170px) 0 clamp(72px, 10vh, 120px);
+  color: var(--ink); background: var(--deep);
+}
+.ws-tourband .ws-window { padding: 0; box-shadow: none; }
+.ws-tourband .ws-window-bar { padding: 0 0 14px; }
+.ws-window-grid.has-list { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: clamp(16px, 2.4vw, 32px); align-items: stretch; }
+.ws-space-list { display: flex; flex-direction: column; }
+.ws-space-list ol { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+.ws-space-list li { border-bottom: 1px solid var(--line); }
+.ws-space-list li a { display: flex; justify-content: space-between; gap: 10px; padding: 16px 2px; text-decoration: none; font: 400 19px/1.2 var(--ws-serif); text-transform: uppercase; letter-spacing: 0.02em; transition: padding 0.25s var(--ease); }
+.ws-space-list li a span { color: var(--dim); }
+.ws-space-list li a:hover { padding-left: 10px; }
+.ws-space-all { margin-top: auto; padding: 16px 2px 4px; font-size: 13px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; text-decoration: none; }
 
-/* ---- story: the title in the margin's grid, the words under it, the first as the lead */
-.ws-story-body { margin-left: var(--indent); max-width: 62ch; }
-.ws-story-body p { margin: 0 0 1.1em; color: var(--dim); }
-.ws-story-body p:first-child { font: 400 clamp(22px, 2.3vw, 30px)/1.45 var(--ws-serif); color: var(--ink); }
+/* ---- story: the first paragraph large, lit word by word; the rest in two columns */
+.ws-statement {
+  max-width: 1000px; margin: 0 auto; text-indent: min(16%, 160px);
+  font: 400 clamp(26px, 3.2vw, 48px)/1.2 var(--ws-serif); letter-spacing: -0.01em; text-wrap: pretty;
+}
+.ws-story-body { max-width: 860px; margin: clamp(48px, 7vw, 88px) auto 0; columns: 2 320px; column-gap: 56px; }
+.ws-story-body p { margin: 0 0 1.1em; color: var(--dim); break-inside: avoid; }
 
-/* ---- spaces, as chapters of their own */
-.ws-rooms { display: grid; gap: clamp(72px, 12vh, 140px); }
-.ws-rooms > .ws-head { margin-bottom: 0; }
-.ws-room { display: grid; grid-template-columns: 1.3fr 1fr; gap: var(--gap); align-items: center; }
-.ws-room:nth-of-type(even) .ws-room-img { order: 2; }
-.ws-room-img { overflow: hidden; aspect-ratio: 16 / 11; border-radius: var(--radius); background: var(--card); }
+/* ---- highlights: staggered, each its picture with a large rounded corner and its name under it */
+.ws-highlights {
+  width: var(--wide); margin: clamp(120px, 18vh, 220px) auto 0;
+  display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: clamp(16px, 2.4vw, 32px); align-items: start;
+}
+.ws-hl { display: block; text-decoration: none; color: var(--ink); grid-column: 1 / span 6; }
+.ws-hl:nth-child(2) { grid-column: 8 / span 5; margin-top: clamp(120px, 26vh, 320px); }
+.ws-hl:nth-child(3) { grid-column: 2 / span 5; margin-top: clamp(48px, 8vh, 110px); }
+.ws-hl-img { display: block; overflow: hidden; aspect-ratio: 4 / 5; border-radius: 0 var(--corner) 0 0; background: var(--band); }
+.ws-hl:nth-child(2) .ws-hl-img { aspect-ratio: 1; border-radius: var(--corner) 0 0 0; }
+.ws-hl:nth-child(3) .ws-hl-img { aspect-ratio: 4 / 3; border-radius: 0 0 var(--corner) 0; }
+.ws-hl img { display: block; width: 100%; height: 100%; object-fit: cover; transition: scale 1.2s var(--ease); }
+.ws-hl:hover img { scale: 1.05; }
+.ws-hl b { display: block; margin-top: 18px; font: 400 clamp(36px, 4.4vw, 76px)/0.94 var(--ws-serif); }
+.ws-hl:only-child { grid-column: 3 / span 8; }
+
+/* ---- the name band: two rows of capitals, solid and outlined, sliding opposite ways */
+.ws-band { margin: clamp(110px, 16vh, 200px) 0 0; overflow: hidden; white-space: nowrap; pointer-events: none; user-select: none; }
+.ws-band-row { margin: 0; width: max-content; font: 400 clamp(60px, 10vw, 170px)/0.98 var(--ws-serif); letter-spacing: -0.01em; color: var(--ink); }
+.ws-band-row.is-out { color: transparent; -webkit-text-stroke: 1px color-mix(in srgb, var(--ink) 45%, transparent); }
+
+/* ---- the spaces: a sideways track, pinned and scrolled by the page on wide screens, each
+ * card turning in 3D by its distance from the middle (SiteReveal); a swipe row on phones */
+.ws-rooms.ws-hscroll { display: block; perspective: 1600px; perspective-origin: 50% 55%; }
+.ws-rooms.ws-hscroll > .ws-head { margin-bottom: clamp(24px, 4vh, 48px); }
+.ws-htrack {
+  display: flex; align-items: flex-start; gap: clamp(28px, 3vw, 48px); width: max-content;
+  padding: 8px max(20px, calc((100vw - 1240px) / 2)) 24px;
+  margin: 0 calc(50% - 50vw); /* full width, past the chapter's column */
+}
+.ws-room { display: flex; flex-direction: column; flex: none; width: clamp(300px, 32vw, 500px); transform-origin: 50% 50%; will-change: transform; }
+.ws-room-img { overflow: hidden; aspect-ratio: 4 / 3; max-height: 40vh; border-radius: var(--corner) 0 0 0; background: var(--band); }
+.ws-room:nth-child(even) .ws-room-img { border-radius: 0 var(--corner) 0 0; }
 .ws-room-img img { display: block; width: 100%; height: 100%; object-fit: cover; transition: scale 1.4s var(--ease); }
 .ws-room:hover .ws-room-img img { scale: 1.04; }
-/* heritage: a fine accent frame, like a mounted print */
-.ws[data-style='heritage'] .ws-room-img { outline: 1px solid color-mix(in srgb, var(--ws-accent) 40%, transparent); outline-offset: 10px; }
-.ws-num { margin: 0; font: 400 15px/1 var(--ws-serif); letter-spacing: 0.16em; color: var(--ws-accent-ink); font-variant-numeric: tabular-nums; }
-.ws-room h3 { margin: 14px 0 18px; font-size: clamp(32px, 3.6vw, 50px); line-height: 1.06; }
-.ws-room p { margin: 0 0 1em; color: var(--dim); }
-/* no photo: the words alone, past the margin, the number large beside them */
-.ws-room.is-plain { grid-template-columns: var(--margin) minmax(0, 1fr); }
-.ws-room.is-plain .ws-room-txt { grid-column: 2; max-width: 60ch; }
-.ws-features { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 0; padding: 0; list-style: none; }
+.ws-room-txt { padding: 22px 2px 0; }
+.ws-room h3 { margin: 0 0 12px; font-size: clamp(30px, 2.6vw, 44px); }
+.ws-room p { margin: 0 0 1em; color: var(--dim); font-size: 16px; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+/* no photo: the words on a stone card with the same large corner */
+.ws-room.is-plain { min-height: min(52vh, 520px); padding: clamp(28px, 3vw, 44px); box-sizing: border-box; border-radius: 0 var(--corner) 0 0; background: var(--band); }
+.ws-room.is-plain:nth-child(even) { border-radius: var(--corner) 0 0 0; }
+.ws-room.is-plain h3 { font-size: clamp(34px, 3vw, 52px); margin-top: auto; }
+.ws-room.is-plain .ws-room-txt { display: flex; flex-direction: column; flex: 1; padding: 0; }
+.ws-features { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; padding: 0; list-style: none; }
 .ws-features li { padding: 5px 12px; border: 1px solid var(--line); border-radius: 999px; font-size: 13px; }
-.ws[data-style='modern'] .ws-features li { border-radius: var(--radius); }
 
-/* ---- floor plan: on a sheet of its own; the plan drawn from the scan (dark) turned to ink on paper */
-.ws-plan-sheet { margin: 0 0 0 var(--indent); padding: clamp(16px, 3vw, 40px); border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); text-align: center; }
+/* ---- floor plan: drawn from the scan (dark), turned to ink on paper */
+.ws-plan-sheet { max-width: 980px; margin: 0 auto; padding: clamp(16px, 3vw, 40px); text-align: center; }
 .ws-plan-sheet img { display: block; max-width: 100%; max-height: 78vh; margin: 0 auto; }
-.ws:not([data-style='night']) .ws-plan-sheet img.is-drawn { filter: invert(1) hue-rotate(180deg) saturate(0.55) contrast(0.95); mix-blend-mode: multiply; }
+.ws:not([data-style='night']):not([data-mode='dark']) .ws-plan-sheet img.is-drawn { filter: invert(1) hue-rotate(180deg) saturate(0.55) contrast(0.95); mix-blend-mode: multiply; }
 
-/* ---- photos: one large, the rest around it; each opens full size */
-/* three columns, the first photo two by two: six photos fill three rows exactly */
-.ws-gallery { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: clamp(160px, 19vw, 300px); gap: 10px; }
-.ws-gallery button {
-  display: block; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; overflow: hidden; cursor: zoom-in;
-  border-radius: max(0px, calc(var(--radius) - 4px)); background: var(--card);
+/* ---- the booking desk (SiteParts BookingDesk): a stone band, a tab per thing to book,
+ * the open one ringed by a drawn oval (vanderhotel.com) */
+.ws-desk { margin-top: clamp(120px, 18vh, 220px); padding: clamp(96px, 13vh, 160px) 0; background: var(--band); }
+.ws-desk-in { width: var(--wide); margin: 0 auto; }
+.ws-desk-tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 22px; }
+.ws-desk-tabs button {
+  position: relative; isolation: isolate; min-height: 52px; padding: 0 22px; border: 0; cursor: pointer;
+  font: 400 clamp(18px, 1.6vw, 22px)/1 var(--ws-serif); letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--dim); background: none; transition: color 0.25s;
 }
-.ws-gallery button:first-child { grid-column: span 2; grid-row: span 2; }
+.ws-desk-tabs button.is-on, .ws-desk-tabs button:hover { color: var(--ink); }
+.ws-desk-tabs button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.ws-desk-pill { position: absolute; inset: 2px -4px; z-index: -1; border: 1.5px solid var(--ink); border-radius: 50%; rotate: -3deg; }
+.ws-desk-panel:not([hidden]) { animation: ws-desk-in 0.6s var(--ease) both; }
+@keyframes ws-desk-in { from { opacity: 0; transform: translateY(18px); } }
+/* inside the desk a booking needs no chapter head of its own: the tab names it */
+.ws-desk .ws-chap { width: auto; margin-top: clamp(28px, 4vw, 48px); }
+.ws-desk .ws-chap > .ws-head { display: none; }
+.ws-book .ws-head { margin-bottom: clamp(32px, 5vw, 56px); }
+
+/* ---- eat and drink: the menu with a leader to each price, then the table booking */
+.ws-menu-list { max-width: 980px; margin: 0 auto; padding: 0; list-style: none; }
+.ws-menu-list.is-long { columns: 2 320px; column-gap: 56px; }
+.ws-menu-list li { padding: 16px 0; border-bottom: 1px solid var(--line); break-inside: avoid; }
+.ws-menu-row { display: flex; align-items: baseline; gap: 12px; }
+.ws-menu-row b { font: 400 21px/1.3 var(--ws-serif); }
+.ws-menu-row span { flex: 1; border-bottom: 1px dotted color-mix(in srgb, var(--ink) 30%, transparent); translate: 0 -5px; }
+.ws-menu-row em { font-style: normal; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ws-menu-list li p { margin: 4px 0 0; font-size: 15px; color: var(--dim); }
+.ws-tag { margin-left: 10px; padding: 1px 8px; border-radius: 999px; font-size: 12px; white-space: nowrap; border: 1px solid var(--line); }
+.ws-dine-book { max-width: 980px; margin: clamp(64px, 9vh, 104px) auto 0; }
+.ws-dine-book > .ws-dim { margin-top: 0; margin-bottom: 32px; max-width: 46ch; }
+
+/* ---- offers: rows on hairlines, the picture with its large corner beside the words */
+.ws-offer-grid { border-top: 1px solid var(--line); }
+.ws-offer { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--gap); align-items: center; padding: clamp(32px, 5vw, 56px) 0; border-bottom: 1px solid var(--line); }
+.ws-offer-img { aspect-ratio: 4 / 3; overflow: hidden; border-radius: 0 var(--corner) 0 0; }
+.ws-offer:nth-child(even) .ws-offer-img { order: 2; border-radius: var(--corner) 0 0 0; }
+.ws-offer-img img { display: block; width: 100%; height: 100%; object-fit: cover; transition: scale 1.2s var(--ease); }
+.ws-offer:hover .ws-offer-img img { scale: 1.04; }
+.ws-offer-txt { display: flex; flex-direction: column; align-items: flex-start; }
+.ws-offer h3 { margin: 0 0 16px; font-size: clamp(34px, 4vw, 68px); }
+.ws-offer p { max-width: 48ch; margin: 0 0 8px; color: var(--dim); }
+.ws-offer .ws-offer-price { margin: 0 0 14px; font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink); }
+/* no photo: the words alone, in the right-hand column */
+.ws-offer.is-plain .ws-offer-txt { grid-column: 2; }
+
+/* ---- what guests said: large italic quotes, one under another */
+.ws-quotes { display: grid; gap: clamp(64px, 9vw, 110px); max-width: 920px; margin: 0 auto; text-align: center; }
+.ws-quotes figure { margin: 0; }
+.ws-quotes blockquote { margin: 0 0 22px; font: italic 400 clamp(24px, 2.8vw, 40px)/1.35 var(--ws-serif); text-wrap: balance; }
+.ws-quotes blockquote::before { content: '“'; display: block; height: 0.55em; font-size: 2em; line-height: 1; color: var(--dim); }
+.ws-quotes figcaption { display: grid; gap: 2px; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; }
+.ws-quotes figcaption span { color: var(--dim); }
+.ws-reviews .ws-caption { text-align: center; }
+
+/* ---- questions guests ask: the browser's own disclosure */
+.ws-faq-list { max-width: 860px; margin: 0 auto; border-top: 1px solid var(--line); }
+.ws-faq details { border-bottom: 1px solid var(--line); }
+.ws-faq summary { display: flex; justify-content: space-between; gap: 16px; padding: 24px 0; list-style: none; cursor: pointer; font: 400 clamp(20px, 1.8vw, 25px)/1.35 var(--ws-serif); }
+.ws-faq summary::-webkit-details-marker { display: none; }
+.ws-faq summary::after { content: '+'; flex: none; font: 300 30px/1 system-ui, sans-serif; transition: rotate 0.3s var(--ease); }
+.ws-faq details[open] summary::after { rotate: 45deg; }
+.ws-faq summary:focus-visible { outline: 2px solid var(--ws-accent); outline-offset: 4px; }
+.ws-faq details p { max-width: 62ch; margin: 0 0 1em; color: var(--dim); }
+.ws-faq details p:last-child { margin-bottom: 26px; }
+
+/* ---- photos: three staggered columns, the middle one drifting (SiteReveal); each opens full size */
+.ws-gallery { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(16px, 2.4vw, 36px); align-items: start; }
+.ws-gallery button {
+  display: block; width: 100%; aspect-ratio: 4 / 5; margin: 0; padding: 0; border: 0; overflow: hidden; cursor: zoom-in; background: var(--band);
+}
+.ws-gallery button:nth-child(3n + 2) { margin-top: clamp(60px, 12vh, 160px); aspect-ratio: 3 / 4; }
+.ws-gallery button:nth-child(3n) { margin-top: clamp(24px, 5vh, 64px); aspect-ratio: 1; }
+.ws-gallery button:first-child { border-radius: var(--corner) 0 0 0; }
+.ws-gallery button:last-child { border-radius: 0 0 var(--corner) 0; }
 .ws-gallery img { display: block; width: 100%; height: 100%; object-fit: cover; transition: scale 1s var(--ease); }
 .ws-gallery button:hover img { scale: 1.04; }
 .ws-gallery button:focus-visible { outline: 2px solid var(--ws-accent); outline-offset: 3px; }
@@ -367,291 +435,129 @@
 .ws-lightbox[open] { display: grid; place-items: center; }
 .ws-lightbox::backdrop { background: transparent; }
 .ws-lightbox img { width: auto; height: auto; max-width: min(92vw, 1800px); max-height: 86dvh; object-fit: contain; border-radius: 6px; }
-.ws-lightbox button {
-  position: absolute; width: 48px; height: 48px; border: 0; border-radius: 50%; cursor: pointer;
-  font-size: 26px; line-height: 1; color: #fff; background: rgba(255, 255, 255, 0.12);
-}
+.ws-lightbox button { position: absolute; width: 48px; height: 48px; border: 0; border-radius: 50%; cursor: pointer; font-size: 26px; line-height: 1; color: #fff; background: rgba(255, 255, 255, 0.12); }
 .ws-lightbox button:hover { background: rgba(255, 255, 255, 0.24); }
 .ws-lb-prev { left: 16px; top: 50%; translate: 0 -50%; }
 .ws-lb-next { right: 16px; top: 50%; translate: 0 -50%; }
 .ws-lightbox .ws-lb-x { top: 16px; right: 16px; font-size: 18px; }
 .ws-lb-count { position: absolute; left: 0; right: 0; bottom: 14px; margin: 0; text-align: center; font-size: 13px; letter-spacing: 0.1em; color: rgba(255, 255, 255, 0.7); }
 
-/* ---- eat and drink: the menu with a leader to each price, then the table booking */
-.ws-menu-list { margin: 0 0 0 var(--indent); padding: 0; list-style: none; }
-.ws-menu-list.is-long { columns: 2 320px; column-gap: 56px; }
-.ws-menu-list li { padding: 16px 0; border-bottom: 1px solid var(--line); break-inside: avoid; }
-.ws-menu-row { display: flex; align-items: baseline; gap: 12px; }
-.ws-menu-row b { font: 400 21px/1.3 var(--ws-serif); }
-.ws-menu-row span { flex: 1; border-bottom: 1px dotted color-mix(in srgb, var(--ink) 30%, transparent); translate: 0 -5px; }
-.ws-menu-row em { font-style: normal; font-variant-numeric: tabular-nums; color: var(--ws-accent-ink); white-space: nowrap; }
-.ws-menu-list li p { margin: 4px 0 0; font-size: 15px; color: var(--dim); }
-.ws-tag {
-  margin-left: 10px; padding: 1px 8px; border-radius: 999px; font-size: 12px; white-space: nowrap;
-  color: var(--ws-accent-ink); border: 1px solid color-mix(in srgb, var(--ws-accent) 45%, transparent);
+/* ---- the enquiry band: a photo in five slices that slide together (white-desert.com), the words on it */
+.ws-slices {
+  position: relative; isolation: isolate; display: grid; place-items: center; overflow: hidden;
+  min-height: min(92svh, 900px); margin-top: clamp(120px, 18vh, 220px); padding: 80px 20px; box-sizing: border-box;
+  text-align: center; color: #fff; background: var(--deep);
 }
-.ws-dine-book { margin-top: clamp(64px, 9vh, 104px); }
-.ws-dine-book > .ws-sub,
-.ws-dine-book > .ws-dim { margin-left: var(--indent); }
-.ws-dine-book > .ws-dim { margin-top: 0; margin-bottom: 32px; max-width: 46ch; }
+.ws-slice-set { position: absolute; inset: 0; z-index: -1; display: flex; }
+.ws-slice-set::after { content: ''; position: absolute; inset: 0; background: rgba(0, 0, 0, 0.45); }
+.ws-slice { position: relative; flex: 1; overflow: hidden; }
+.ws-slice-in { position: absolute; top: 0; bottom: 0; width: 500%; left: calc(var(--i) * -100%); }
+.ws-slice-in img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.ws-slices-words { display: flex; flex-direction: column; align-items: center; }
+.ws-slices .ws-script { color: #fff; }
+.ws-slices h2 { max-width: 16ch; margin: 0; font-size: clamp(42px, 6.4vw, 112px); }
+.ws-slices .ws-btn { margin-top: 36px; color: #111; background: #fff; }
 
-/* ---- room and event booking: the panels are features/booking/table-booking.css */
-.ws-book .ws-head { margin-bottom: clamp(32px, 5vw, 56px); }
-
-/* ---- offers: the price first, large; a photo when there is one */
-.ws-offer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 24px; }
-.ws-offer { display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
-.ws-offer-img { aspect-ratio: 16 / 10; overflow: hidden; }
-.ws-offer-img img { display: block; width: 100%; height: 100%; object-fit: cover; transition: scale 1.2s var(--ease); }
-.ws-offer:hover .ws-offer-img img { scale: 1.04; }
-.ws-offer-txt { display: flex; flex: 1; flex-direction: column; align-items: flex-start; padding: 24px 24px 26px; }
-.ws-offer h3 { margin: 0 0 10px; font-size: clamp(24px, 2.2vw, 30px); line-height: 1.12; }
-.ws-offer p { margin: 0 0 14px; color: var(--dim); font-size: 16px; }
-.ws-offer .ws-offer-price { margin: 0 0 12px; font: 400 15px/1.2 system-ui, sans-serif; font-weight: 600; letter-spacing: 0.06em; color: var(--ws-accent-ink); }
-.ws-offer .ws-btn { margin-top: auto; }
-/* no photo: the accent as a band across its top, the words larger */
-.ws-offer.is-plain { border-top: 4px solid var(--ws-accent); }
-.ws-offer.is-plain .ws-offer-txt { padding-top: 34px; }
-.ws-offer.is-plain h3 { font-size: clamp(28px, 2.6vw, 36px); }
-
-/* ---- what guests said: quotes on hairlines */
-.ws-quotes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 40px 32px; margin-left: var(--indent); }
-.ws-quotes figure { display: flex; flex-direction: column; margin: 0; padding-top: 22px; border-top: 1px solid var(--line); }
-.ws-quotes blockquote { margin: 0 0 20px; font: 400 clamp(19px, 1.6vw, 23px)/1.5 var(--ws-serif); }
-.ws-quotes blockquote::before { content: '“'; display: block; height: 0.5em; color: var(--ws-accent-ink); font-size: 2.6em; line-height: 1; }
-.ws-quotes figcaption { display: grid; font-size: 14px; }
-.ws-quotes figcaption span { color: var(--dim); }
-.ws-reviews .ws-caption { margin-left: var(--indent); }
-
-/* ---- questions guests ask: the browser's own disclosure, past the margin */
-.ws-faq-list { margin-left: var(--indent); max-width: 760px; border-top: 1px solid var(--line); }
-.ws-faq details { border-bottom: 1px solid var(--line); }
-.ws-faq summary {
-  display: flex; justify-content: space-between; gap: 16px; padding: 22px 0; list-style: none; cursor: pointer;
-  font: 400 21px/1.4 var(--ws-serif);
-}
-.ws-faq summary::-webkit-details-marker { display: none; }
-.ws-faq summary::after { content: '+'; flex: none; color: var(--ws-accent-ink); font: 300 28px/1 system-ui, sans-serif; transition: rotate 0.3s var(--ease); }
-.ws-faq details[open] summary::after { rotate: 45deg; }
-.ws-faq summary:focus-visible { outline: 2px solid var(--ws-accent); outline-offset: 4px; }
-.ws-faq details p { max-width: 62ch; margin: 0 0 1em; color: var(--dim); }
-.ws-faq details p:last-child { margin-bottom: 24px; }
-
-/* ---- contact: a band of its own, the words large, a map beside them when there's an address */
-.ws-contact {
-  margin-top: clamp(104px, 15vh, 176px); padding: clamp(72px, 11vh, 128px) max(20px, calc((100% - 1240px) / 2));
-  background: var(--band);
-}
+/* ---- contact: a stone band, the words large, a map beside them when there's an address */
+.ws-contact { padding: clamp(96px, 13vh, 150px) max(20px, calc((100% - 1240px) / 2)); background: var(--band); }
+.ws-slices + .ws-contact { margin-top: 0; }
 .ws-contact.has-map { display: grid; grid-template-columns: 1.1fr 1fr; gap: var(--gap); align-items: stretch; }
-.ws-contact h2 { margin: 18px 0 0; font-size: clamp(44px, 6.4vw, 96px); line-height: 1; }
-.ws-contact-lead { max-width: 40ch; margin: 22px 0 0; font-size: 19px; color: var(--dim); }
-.ws-map { width: 100%; height: 100%; min-height: 420px; border: 0; border-radius: var(--radius); background: var(--card); }
-.ws[data-style='night'] .ws-map:not(.ws-map-off) { filter: invert(0.9) hue-rotate(180deg) saturate(0.7); }
+.ws-contact-txt .ws-script { translate: 0 0; }
+.ws-contact h2 { margin: 0; font-size: clamp(44px, 6vw, 100px); }
+.ws-contact-lead { max-width: 40ch; margin: 24px 0 0; font-size: 19px; color: var(--dim); }
+.ws-map { width: 100%; height: 100%; min-height: 420px; border: 0; border-radius: 0 var(--corner) 0 0; background: var(--card); }
+.ws[data-style='night'] .ws-map:not(.ws-map-off), .ws[data-mode='dark'] .ws-map:not(.ws-map-off) { filter: invert(0.9) hue-rotate(180deg) saturate(0.7); }
 /* Before "Show map" (SiteParts SiteMap): nothing loaded from Google yet. */
 .ws-map-off { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px;
   border: 1px solid var(--line); color: var(--ink); font: inherit; text-align: center; cursor: pointer;
   background-image: radial-gradient(var(--line) 1px, transparent 1.3px); background-size: 18px 18px; }
-.ws-map-off b { font: 600 20px/1.2 var(--ws-serif); color: var(--ws-accent-ink); }
+.ws-map-off b { font: 400 22px/1.2 var(--ws-serif); text-transform: uppercase; letter-spacing: 0.04em; }
 .ws-map-off span { max-width: 28ch; color: var(--ink); }
 .ws-map-off small { color: var(--dim); font-size: 13px; }
 .ws-map-off:hover b { text-decoration: underline; }
-.ws-reach {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px 28px;
-  margin: 44px 0 0; padding: 26px 0 0; list-style: none; border-top: 1px solid var(--line);
-}
+.ws-reach { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px 28px; margin: 44px 0 0; padding: 26px 0 0; list-style: none; border-top: 1px solid var(--line); }
 .ws-reach li { display: grid; gap: 2px; }
-.ws-reach span { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); }
+.ws-reach span { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
 .ws-reach a { color: var(--ink); text-decoration: none; overflow-wrap: anywhere; }
-.ws-reach a:hover { color: var(--ws-accent-ink); }
+.ws-reach a:hover { text-decoration: underline; }
 
-/* ---- the chapter rail (marketing/layout/ChapterRail): the margin already names each chapter,
- * so here the rail shows numbers only, and every name while it's pointed at */
-.ws .rail li.is-here .rail-t { max-width: 0; opacity: 0; }
-.ws .rail:hover li .rail-t { max-width: 160px; opacity: 1; }
-
-/* ---- footer: the name across the page */
-.ws-foot { padding: 48px max(20px, calc((100% - 1240px) / 2)) 26px; font-size: 14px; color: var(--dim); background: var(--paper); overflow: hidden; }
+/* ---- footer: dark, the name across the page */
+.ws-foot {
+  container-type: inline-size; overflow: hidden;
+  padding: clamp(56px, 8vw, 96px) max(20px, calc((100% - 1240px) / 2)) 26px;
+  font-size: 14px; color: rgba(242, 242, 242, 0.66); background: var(--deep);
+}
 .ws-foot-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 18px 40px; }
 .ws-foot-brand { display: grid; gap: 4px; }
-.ws-foot nav { display: flex; gap: 18px; }
-.ws-foot nav a { text-decoration: none; color: var(--ink); }
+.ws-foot nav { display: flex; flex-wrap: wrap; gap: 22px; }
+.ws-foot nav a { text-decoration: none; color: #f2f2f2; letter-spacing: 0.12em; text-transform: uppercase; font-size: 13px; }
+.ws-foot nav a:hover { text-decoration: underline; }
 .ws-foot-mark {
-  margin: clamp(28px, 5vw, 56px) 0 0; font: 400 clamp(56px, 12.5vw, 210px)/0.9 var(--ws-serif); letter-spacing: -0.035em;
-  white-space: nowrap; color: var(--ink);
-  /* a long name shrinks to fit the width (--len: its letters, set by SiteFooter; a letter is about half an em) */
-  font-size: min(210px, 12.5vw, calc(100cqw / (var(--len, 10) * 0.5)));
+  margin: clamp(40px, 6vw, 72px) 0 0; white-space: nowrap; color: #f2f2f2; letter-spacing: -0.01em;
+  /* a long name shrinks to fit the width (--len: its letters, set by SiteFooter; a capital is about 0.66 em) */
+  font: 400 min(220px, 13vw, calc(100cqw / (var(--len, 10) * 0.66)))/0.9 var(--ws-serif);
 }
-.ws-foot { container-type: inline-size; }
-.ws-foot-small { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 13px; }
+.ws-foot-small { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 26px; padding-top: 18px; border-top: 1px solid rgba(242, 242, 242, 0.14); font-size: 13px; }
+.ws-foot-small a { color: #f2f2f2; }
 
-/* ---- Chat on WhatsApp, always to hand, above the enquiry pill (viewer.css .vw-cta-btn)
- * (#1da851: the icon keeps 3:1 against it) */
+/* ---- Chat on WhatsApp, always to hand, above the enquiry pill (viewer.css .vw-cta-btn); black and white like the rest */
 .ws-wa {
   position: fixed; right: 18px; bottom: 84px; z-index: 11;
   display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%;
-  color: #fff; background: #1da851; box-shadow: 0 12px 30px -8px rgba(0, 0, 0, 0.4);
+  color: var(--paper); background: var(--ink); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--paper) 18%, transparent), 0 12px 30px -8px rgba(0, 0, 0, 0.4);
   transition: scale 0.2s;
 }
 .ws-wa svg { width: 30px; height: 30px; }
 .ws-wa:hover { scale: 1.07; }
 
-/* ---- the Menu button's two bars, crossing into an X */
-.ws-menu-ic { position: relative; width: 16px; height: 10px; }
-.ws-menu-ic i { position: absolute; left: 0; right: 0; height: 1.5px; border-radius: 2px; background: currentColor; transition: top 0.4s var(--ease), transform 0.4s var(--ease); }
-.ws-menu-ic i:first-child { top: 0; }
-.ws-menu-ic i:last-child { top: 8.5px; }
-.wsn-menu-btn[aria-expanded='true'] .ws-menu-ic i { top: 4.25px; }
-.wsn-menu-btn[aria-expanded='true'] .ws-menu-ic i:first-child { transform: rotate(45deg); }
-.wsn-menu-btn[aria-expanded='true'] .ws-menu-ic i:last-child { transform: rotate(-45deg); }
-
-/* ---- tablets and phones */
-@media (max-width: 960px) {
-  .wsn-links, .wsn-actions { display: none; }
-  .wsn, .wsn[data-collapsed] { width: calc(100% - 24px); gap: 8px; padding: 0 8px 0 14px; border-radius: 20px; background: var(--nav-bg-folded); }
-  /* no folding here: the bar is already its smallest */
-  .wsn[data-collapsed] .wsn-brand { max-width: 460px; opacity: 1; pointer-events: auto; }
-  /* a long name gives way (ellipsis) so the switch and Menu always fit */
-  .wsn-brand { flex: 1 1 auto; margin-right: auto; }
-  .wsn[data-collapsed] .wsn-mode { display: grid; }
-  .wsn-menu-btn {
-    display: inline-flex; align-items: center; gap: 10px; flex: none; height: 40px; padding: 0 14px 0 16px;
-    border: 1px solid var(--line); border-radius: 14px; color: var(--ink);
-    background: color-mix(in srgb, var(--ink) 6%, transparent);
-    font: 600 11.5px/1 system-ui, sans-serif; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;
-  }
-  .wsn-menu-word { min-width: 5ch; text-align: left; }
-  /* open, the card behind is the surface: the bar loses its own glass and its scan line */
-  .wsn[data-menu] { background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; z-index: 41; }
-  .wsn[data-menu]::after { display: none; }
-}
-@media (max-width: 380px) { .wsn-menu-word { display: none; } .wsn-menu-btn { padding: 0 12px; } }
-@media (max-width: 760px) {
-  .ws { --margin: 0px; --gap: 18px; --indent: 0px; font-size: 16px; }
-  .wsn-brand { font-size: 17px; }
-  .wsn-logo { height: 28px; }
-  .ws-head { grid-template-columns: 1fr; }
-  .ws-hero h1 { font-size: clamp(42px, 12vw, 64px); }
-  .ws-hero.has-photo .ws-hero-in { padding-top: 16vh; }
-  /* the words cover more of a phone's photo: a deeper shade behind them */
-  .ws-hero.has-photo::after { background: linear-gradient(to top, rgba(10, 8, 6, 0.9) 0%, rgba(10, 8, 6, 0.62) 50%, rgba(10, 8, 6, 0.38) 100%); }
-  .ws-hero.has-photo .ws-facts { margin-bottom: 88px; }
-  .ws-facts { grid-template-columns: 1fr 1fr; }
-  .ws-facts > div + div { border-left: 0; }
-  .ws-facts > div:nth-child(even) { border-left: 1px solid var(--line); }
-  .ws-hero.has-photo .ws-facts > div:nth-child(even) { border-left-color: rgba(255, 255, 255, 0.14); }
-  .ws-facts > div:nth-child(n + 3) { border-top: 1px solid var(--line); }
-  .ws-hero.has-photo .ws-facts > div:nth-child(n + 3) { border-top-color: rgba(255, 255, 255, 0.14); }
-  .ws-cross { display: none; }
-  .ws-hero.has-photo + .ws-window { margin-top: -56px; }
-  .ws-window { padding: 6px; }
-  .ws-window-bar { flex-wrap: wrap; gap: 8px 12px; }
-  .ws-tour { aspect-ratio: 3 / 4; max-height: 72vh; }
-  .ws-room, .ws-room.is-plain, .ws-contact.has-map { grid-template-columns: 1fr; }
-  .ws-room:nth-of-type(even) .ws-room-img { order: 0; }
-  .ws-room.is-plain .ws-room-txt { grid-column: 1; }
-  .ws-gallery { grid-template-columns: 1fr 1fr; grid-auto-rows: 42vw; }
-  .ws-gallery button:first-child { grid-row: span 1; }
-  /* a last photo that would stand alone takes the whole row */
-  .ws-gallery button:last-child:nth-child(even) { grid-column: span 2; }
-  .ws-map { min-height: 300px; }
-  .ws-lb-prev, .ws-lb-next { top: auto; bottom: 8px; translate: none; }
-  /* the enquiry pill is a full-width bar at the foot of a phone */
-  .ws-wa { bottom: calc(66px + env(safe-area-inset-bottom, 0px)); right: 14px; width: 52px; height: 52px; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ws { scroll-behavior: auto; }
-  .ws-hero-in > *, .ws-window, .ws-hero-img, .wsn-scan, .wsn-pill, .ws-live::before { animation: none; }
-  .ws-room-img img, .ws-gallery img, .ws-offer-img img, .ws-faq summary::after, .ws-menu-ic i { transition: none; }
-}
-
 /* The studio's Preview (studio/[property]/site/preview): a banner above everything. */
 .ws-preview {
   position: sticky; top: 0; z-index: 9; margin: 0; padding: 10px 16px;
   display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; font-size: 14px;
-  background: #1c1a17; color: #fff;
+  background: #111111; color: #fff;
 }
 .ws-preview a { color: #fff; text-decoration: underline; }
-.ws-preview + .wsn { top: 50px; }
-
-/* ---- the hub, after the owner's plan (2026-10-07): the live tour beside the list of spaces,
- * highlights, and an enquiry strip before contact. Each space has its own page (SpaceView). */
-.ws-window-grid.has-list { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 14px; align-items: stretch; }
-.ws-space-list { display: flex; flex-direction: column; padding: 6px 4px; }
-.ws-space-list ol { margin: 0; padding: 0; list-style: none; }
-.ws-space-list li { border-bottom: 1px solid var(--line); }
-.ws-space-list li a { display: flex; gap: 10px; padding: 14px 4px; text-decoration: none; font: 400 18px/1.25 var(--ws-serif); transition: padding 0.25s var(--ease); }
-.ws-space-list li a span { color: var(--dim); }
-.ws-space-list li a:hover { padding-left: 10px; }
-.ws-space-all { margin-top: auto; padding: 14px 4px 4px; font-size: 14px; font-weight: 600; text-decoration: none; color: var(--ink); }
-.ws-highlights { width: var(--wide); margin: clamp(48px, 7vw, 96px) auto 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
-.ws-hl { position: relative; display: block; aspect-ratio: 4 / 3; overflow: hidden; border-radius: var(--radius); background: var(--band); color: #fff; text-decoration: none; }
-.ws-hl img { width: 100%; height: 100%; object-fit: cover; transition: scale 0.6s var(--ease); }
-.ws-hl::after { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent 45%, rgba(0, 0, 0, 0.6)); }
-.ws-hl b { position: absolute; left: 18px; bottom: 16px; z-index: 1; font: 400 26px/1.1 var(--ws-serif); }
-.ws-hl:hover img { scale: 1.04; }
-.ws-hl-ph { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, var(--line) 0 1px, transparent 1px 8px); }
-.ws-hl:has(.ws-hl-ph) { color: var(--ink); }
-.ws-hl:has(.ws-hl-ph)::after { display: none; }
-.ws-strip {
-  width: var(--wide); margin: clamp(56px, 8vw, 110px) auto 0; box-sizing: border-box;
-  display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
-  padding: clamp(22px, 3vw, 34px) clamp(22px, 4vw, 44px); border-radius: var(--radius);
-  background: var(--ink); color: var(--paper);
-}
-.ws-strip p { margin: 0; font: 400 clamp(24px, 2.6vw, 34px)/1.15 var(--ws-serif); }
-.ws-strip .ws-btn { margin: 0; color: var(--ink); background: var(--paper); }
-@media (max-width: 760px) {
-  .ws-window-grid.has-list { grid-template-columns: 1fr; }
-}
+.ws-preview ~ .wsn { top: 54px; }
 
 /* ---- a space's own page (SpaceView) */
-.ws-crumb { width: var(--wide); margin: 0 auto; padding: calc(var(--bar) + 18px) 0 14px; display: flex; gap: 10px; flex-wrap: wrap; font-size: 14px; color: var(--dim); }
+.ws-crumb { width: var(--wide); margin: 0 auto; padding: calc(var(--bar) + 22px) 0 16px; display: flex; gap: 10px; flex-wrap: wrap; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }
 .ws-crumb a { text-decoration: none; color: var(--ink); font-weight: 600; }
-.ws-space-viewer { margin-top: 0; }
 .ws-space-viewer .ws-tour { height: min(78svh, 820px); }
-.ws-space-info { width: var(--wide); margin: clamp(40px, 6vw, 80px) auto 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 380px); gap: clamp(28px, 5vw, 72px); align-items: start; }
-.ws-space-txt h1 { margin: 0 0 12px; font-size: clamp(38px, 5vw, 64px); line-height: 1.05; }
-.ws-space-facts { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--dim); }
+.ws-space-info { width: var(--wide); margin: clamp(48px, 7vw, 96px) auto 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 380px); gap: clamp(28px, 5vw, 72px); align-items: start; }
+.ws-space-txt h1 { margin: 0 0 16px; font-size: clamp(44px, 6vw, 96px); }
+.ws-space-facts { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); }
 .ws-space-price { margin: 8px 0 0; font: 400 22px/1.2 var(--ws-serif); }
 .ws-space-about { max-width: 60ch; margin: 22px 0 0; font-size: 18px; color: var(--dim); }
 .ws-space-txt .ws-features { margin-top: 22px; }
-.ws-space-photos { margin-top: 28px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
-.ws-space-photos img { width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; border-radius: var(--radius); }
-.ws-space-ask { position: sticky; top: calc(var(--bar) + 16px); padding: 26px; border-radius: var(--radius); box-shadow: inset 0 0 0 1px var(--line); background: var(--card); }
-.ws-space-ask h2 { margin: 0; font-size: 28px; }
-.ws-space-ask p { margin: 10px 0 0; font-size: 15px; color: var(--dim); }
+.ws-space-photos { margin-top: 32px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+.ws-space-photos img { width: 100%; height: auto; aspect-ratio: 4 / 5; object-fit: cover; }
+.ws-space-photos img:first-child { border-radius: var(--corner) 0 0 0; }
+.ws-space-ask { position: sticky; top: calc(var(--bar) + 16px); padding: 28px; background: var(--band); }
+.ws-space-ask h2 { margin: 0; font-size: 32px; text-transform: uppercase; line-height: 1; }
+.ws-space-ask p { margin: 12px 0 0; font-size: 15px; color: var(--dim); }
 .ws-space-ask .ws-btn { width: 100%; }
-.ws-others { width: var(--wide); margin: clamp(56px, 8vw, 110px) auto 0; }
-.ws-others h2 { margin: 0 0 20px; font-size: clamp(28px, 3vw, 40px); }
-.ws-others-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
-.ws-other { position: relative; display: block; aspect-ratio: 4 / 3; overflow: hidden; border-radius: var(--radius); background: var(--band); color: #fff; text-decoration: none; }
-.ws-other img { width: 100%; height: 100%; object-fit: cover; transition: scale 0.6s var(--ease); }
-.ws-other::after { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent 45%, rgba(0, 0, 0, 0.6)); }
-.ws-other b { position: absolute; left: 16px; bottom: 14px; z-index: 1; font: 400 22px/1.15 var(--ws-serif); }
-.ws-other:hover img { scale: 1.04; }
-.ws-other:has(.ws-hl-ph) { color: var(--ink); }
-.ws-other:has(.ws-hl-ph)::after { display: none; }
+.ws-others { width: var(--wide); margin: clamp(80px, 12vw, 150px) auto 0; }
+.ws-others h2 { margin: 0 0 28px; font-size: clamp(36px, 4.4vw, 72px); }
+.ws-others-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: clamp(16px, 2.4vw, 32px); }
+.ws-other { display: block; text-decoration: none; color: var(--ink); }
+.ws-other img, .ws-other .ws-hl-ph { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 0 var(--corner) 0 0; background: var(--band); transition: scale 0.8s var(--ease); }
+.ws-other b { display: block; margin-top: 14px; font: 400 clamp(24px, 2.2vw, 34px)/1 var(--ws-serif); text-transform: uppercase; }
+.ws-hl-ph { background: repeating-linear-gradient(0deg, var(--line) 0 1px, transparent 1px 8px); }
 /* the bar fixed to the foot: Book now, WhatsApp, Call */
 .ws-actbar {
   position: fixed; left: 50%; bottom: 14px; z-index: 9; translate: -50% 0;
   display: flex; align-items: center; gap: 6px; padding: 6px; border-radius: 999px;
   background: var(--paper); box-shadow: inset 0 0 0 1px var(--line), 0 14px 40px rgba(0, 0, 0, 0.18);
 }
-.ws-actbar .ws-btn { margin: 0; min-height: 44px; padding: 0 22px; font-size: 14px; white-space: nowrap; }
+.ws-actbar .ws-btn { margin: 0; min-height: 44px; padding: 0 22px; white-space: nowrap; }
 .ws-actbar a { white-space: nowrap; }
-.ws-act { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 999px; font-size: 14px; font-weight: 600; text-decoration: none; color: var(--ink); }
+.ws-act { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 999px; font-size: 13px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; text-decoration: none; color: var(--ink); }
 .ws-act:hover { background: color-mix(in srgb, var(--ink) 8%, transparent); }
 .ws-space-page .ws-foot { padding-bottom: 96px; }
-@media (max-width: 860px) {
-  .ws-space-info { grid-template-columns: 1fr; }
-  .ws-space-ask { position: static; }
-  .ws-space-viewer .ws-tour { height: 62svh; }
-}
 /* the space page's enquiry, open on the page (SiteParts SpaceEnquiry) */
 .ws-ask-form { display: grid; gap: 10px; margin-top: 18px; }
 .ws-ask-form input, .ws-ask-form select {
-  width: 100%; box-sizing: border-box; min-height: 46px; padding: 0 14px; border: 1px solid var(--line); border-radius: 10px;
+  width: 100%; box-sizing: border-box; min-height: 48px; padding: 0 14px; border: 1px solid var(--line); border-radius: 0;
   font: inherit; font-size: 15px; color: var(--ink); background: var(--paper);
 }
 .ws-ask-form input:focus-visible, .ws-ask-form select:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
@@ -662,23 +568,20 @@
 .ws-ask-done { margin-top: 18px !important; font-size: 16px; color: var(--ink) !important; }
 .ws-hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
 
-/* ---- motion (SiteParts SiteReveal, 2026-10-07): the opening curtain, lines rising out of masks,
+/* ---- motion (SiteParts SiteReveal): the opening curtain, lines rising out of masks,
  * and pages that slide into each other (cross-document view transitions; the nav stays put) */
 .wsm-curtain {
   position: fixed; inset: 0; z-index: 60; display: grid; place-items: center;
-  background: var(--ink); color: var(--paper); clip-path: inset(0% 0% 0% 0%);
+  background: var(--deep); color: #f2f2f2; clip-path: inset(0% 0% 0% 0%);
 }
 .wsm-curtain p {
   display: flex; flex-wrap: wrap; justify-content: center; margin: 0; padding: 0 6vw; overflow: hidden; white-space: pre;
-  font: 400 clamp(36px, 7vw, 104px)/1.12 var(--ws-serif); letter-spacing: -0.02em;
+  font: 400 clamp(36px, 7vw, 112px)/1.1 var(--ws-serif); letter-spacing: 0.02em; text-transform: uppercase;
 }
 .wsm-ch { display: inline-block; }
 /* a line's mask keeps its descenders */
 .wsm-line-mask { padding-bottom: 0.12em; margin-bottom: -0.12em; }
-/* GSAP runs the opening: the CSS entrances step aside */
-.wsm-on .ws-hero-in > *, .wsm-on .ws-window { animation: none; }
-.ws-room-img, .ws-offer-img, .ws-hl, .ws-other { will-change: clip-path; }
-
+.ws-offer-img, .ws-hl-img, .ws-other img { will-change: clip-path; }
 @view-transition { navigation: auto; }
 .wsn { view-transition-name: wsn; }
 @media (prefers-reduced-motion: no-preference) {
@@ -689,7 +592,72 @@
 @keyframes wsvt-in { from { clip-path: inset(100% 0 0 0); } to { clip-path: inset(0 0 0 0); } }
 /* the page's cover until the curtain mounts (SiteView's first-paint script); gone by itself after 3 s */
 html[data-ws-intro] .ws::before {
-  content: ''; position: fixed; inset: 0; z-index: 59; background: var(--ink);
+  content: ''; position: fixed; inset: 0; z-index: 59; background: var(--deep);
   animation: wsm-uncover 0.3s 3s forwards;
 }
 @keyframes wsm-uncover { to { opacity: 0; visibility: hidden; } }
+
+/* ---- tablets and phones */
+@media (max-width: 900px) {
+  .ws-htrack { width: auto; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
+  .ws-htrack::-webkit-scrollbar { display: none; }
+  .ws-room { width: 80vw; scroll-snap-align: center; }
+  .ws-rooms.ws-hscroll { perspective: none; }
+  .ws-highlights { grid-template-columns: 1fr 1fr; gap: 28px 16px; }
+  .ws-hl, .ws-hl:nth-child(n) { grid-column: auto; margin-top: 0; }
+  .ws-hl:nth-child(2) { margin-top: 18vw; }
+  .ws-hl:nth-child(3), .ws-hl:only-child { grid-column: 1 / -1; }
+  .ws-window-grid.has-list { grid-template-columns: 1fr; }
+  .ws-space-info { grid-template-columns: 1fr; }
+  .ws-space-ask { position: static; }
+  .ws-space-viewer .ws-tour { height: 62svh; }
+}
+@media (max-width: 760px) {
+  .ws { --gap: 18px; --bar: 72px; font-size: 16px; }
+  .wsn { gap: 8px; width: calc(100% - 20px); height: 46px; margin-top: 10px; top: 10px; }
+  .wsn-pill-btn, .wsn-ic { height: 46px; }
+  .wsn-ic { width: 46px; }
+  .wsn-pill-btn { padding: 0 16px; font-size: 14px; }
+  .wsn-menu-btn { padding: 0 15px; }
+  .wsn-menu-word { display: none; }
+  .wsn { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .wsn-brand { justify-self: center; max-width: 100%; }
+  .wsn-actions .wsn-ic { display: none; } /* call, WhatsApp and light/dark are in the menu card */
+  .wsn-brand { padding: 6px 12px; font-size: 15px; letter-spacing: 0.1em; }
+  .wsn-logo { height: 26px; }
+  .wsn-logo + .wsn-word { display: none; }
+  .ws-script { font-size: clamp(38px, 11vw, 60px); }
+  .ws-hero h1, .ws-hero.has-photo h1 { font-size: clamp(36px, 10.4vw, 60px); }
+  .ws-arch { clip-path: inset(0% 8% 0% 8% round var(--arch-r) var(--arch-r) 0px 0px); }
+  .ws-float { width: 22vw; }
+  .ws-float-1 { width: 18vw; }
+  .ws-float-2, .ws-float-3 { display: none; }
+  .ws-float-0 { top: auto; bottom: 3%; left: 5%; }
+  .ws-float-1 { top: auto; bottom: 6%; right: 6%; }
+  .ws-facts { grid-template-columns: 1fr 1fr; }
+  .ws-facts > div + div { border-left: 0; }
+  .ws-facts > div:nth-child(even) { border-left: 1px solid var(--line); }
+  .ws-facts > div:nth-child(n + 3) { border-top: 1px solid var(--line); }
+  .ws-window { padding: 6px; }
+  .ws-window-bar { flex-wrap: wrap; gap: 8px 12px; }
+  .ws-tour { aspect-ratio: 3 / 4; max-height: 72vh; }
+  .ws-statement { text-indent: 0; }
+  .ws-offer, .ws-contact.has-map { grid-template-columns: 1fr; }
+  .ws-offer:nth-child(even) .ws-offer-img { order: 0; }
+  .ws-offer.is-plain .ws-offer-txt { grid-column: 1; }
+  .ws-gallery { grid-template-columns: 1fr 1fr; }
+  .ws-gallery button:nth-child(n) { margin-top: 0; aspect-ratio: 4 / 5; }
+  .ws-gallery button:nth-child(even) { margin-top: 12vw; }
+  .ws-map { min-height: 300px; }
+  .ws-lb-prev, .ws-lb-next { top: auto; bottom: 8px; translate: none; }
+  .ws-desk-tabs { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; scrollbar-width: none; }
+  .ws-desk-tabs button { flex: none; }
+  /* the enquiry pill is a full-width bar at the foot of a phone */
+  .ws-wa { bottom: calc(66px + env(safe-area-inset-bottom, 0px)); right: 14px; width: 52px; height: 52px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ws { scroll-behavior: auto; }
+  .wsn-scan, .ws-live::before, .ws-desk-panel:not([hidden]) { animation: none; }
+  .ws-room-img img, .ws-gallery img, .ws-offer-img img, .ws-hl img, .ws-faq summary::after, .ws-menu-ic i { transition: none; }
+}

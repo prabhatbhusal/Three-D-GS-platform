@@ -1,11 +1,9 @@
 'use client';
-/** A client website's nav (2026-10-07), the marketing site's (marketing/layout
- *  Navbar + MobileMenu) in the client's own colour, font and sections: a
- *  floating plain white pill with the brand, the top sections, call and WhatsApp
- *  icons and the main button; a viewfinder on the section in view; scrolling
- *  down folds it to the links, scrolling up opens it; a scan line along its
- *  foot drawn by the page's scroll. Up to 960 px wide a Menu button grows the
- *  bar into one card with every chapter numbered. Styles: website.css .wsn. */
+/** A client website's nav (2026-10-07, second look, after faithibiza.com and
+ *  white-desert.com): no bar, three things floating over the page. Menu on
+ *  the left (every chapter, in a card that grows out of it), the brand in the
+ *  middle, and call, WhatsApp, the light/dark switch and the main button on
+ *  the right. The chapter in view is marked in the card. Styles: website.css .wsn. */
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, type Variants } from 'framer-motion';
@@ -21,12 +19,10 @@ const line: Variants = {
   open: { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.55, ease: EASE } }
 };
 
-export function SiteNav({ name, logo, base = '', top, chapters, cta, reach }: {
+export function SiteNav({ name, logo, base = '', chapters, cta, reach }: {
   name: string; logo: string | null;
   /** On a space page, the hub's address: the brand and the menu card's chapters link back to it. */
   base?: string;
-  /** The bar's links, five at most ('#stay', 'Stay'). */
-  top: [string, string][];
   /** Every chapter, in page order ('stay', 'Stay'): the menu card's list. */
   chapters: [string, string][];
   cta: [string, string];
@@ -54,23 +50,13 @@ export function SiteNav({ name, logo, base = '', top, chapters, cta, reach }: {
     try { localStorage.setItem('ws-mode', next ? 'dark' : 'light'); } catch { /* not remembered */ }
   };
 
-  // Fold on the way down, open on the way up; and which chapter is in view.
-  // Attributes for the fold (every scrolled frame), state only when the chapter changes.
+  // Which chapter is in view: the last whose top has passed under the bar.
   useEffect(() => {
-    const nav = navRef.current!;
-    const scroller = nav.closest<HTMLElement>('.ws');
+    const scroller = navRef.current?.closest<HTMLElement>('.ws');
     if (!scroller) return;
-    const links = nav.querySelector<HTMLElement>('.wsn-links');
-    let last = scroller.scrollTop;
     let raf = 0;
-    const measure = () => { if (links) nav.style.setProperty('--merged-w', `${links.scrollWidth + 28}px`); };
     const update = () => {
       raf = 0;
-      const y = scroller.scrollTop;
-      if (y <= 200) nav.removeAttribute('data-collapsed');
-      else if (Math.abs(y - last) > 4) nav.toggleAttribute('data-collapsed', y > last);
-      last = y;
-      // the last chapter whose top has passed under the bar
       let at = '';
       for (const [id] of chapters) {
         const el = document.getElementById(id);
@@ -79,11 +65,9 @@ export function SiteNav({ name, logo, base = '', top, chapters, cta, reach }: {
       setHere(at);
     };
     const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
-    measure();
     update();
     scroller.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', measure);
-    return () => { cancelAnimationFrame(raf); scroller.removeEventListener('scroll', onScroll); window.removeEventListener('resize', measure); };
+    return () => { cancelAnimationFrame(raf); scroller.removeEventListener('scroll', onScroll); };
   }, [chapters]);
 
   // The open card holds the page still under it; Esc closes it, focus back on its button.
@@ -109,60 +93,54 @@ export function SiteNav({ name, logo, base = '', top, chapters, cta, reach }: {
     </>
   );
 
+  // light or dark: in the bar, and in the menu card (on phones the bar has no room for it)
+  const modeBtn = (
+    <button type="button" className="wsn-ic wsn-mode" onClick={flip} aria-label={dark ? 'Switch to light' : 'Switch to dark'} title={dark ? 'Light' : 'Dark'}>
+      {dark ? (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+          <circle cx="12" cy="12" r="4.2" />
+          <path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6" />
+        </svg>
+      ) : (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden>
+          <path d="M20 14.2A8.4 8.4 0 0 1 9.8 4a8.4 8.4 0 1 0 10.2 10.2z" />
+        </svg>
+      )}
+    </button>
+  );
+
   return (
     <>
       <header className="wsn" ref={navRef} data-menu={menu ? '' : undefined}>
+        <button type="button" className="wsn-pill-btn wsn-menu-btn" aria-expanded={menu} aria-controls="wsn-menu" onClick={() => setMenu(!menu)}>
+          <span className="ws-menu-ic" aria-hidden><i /><i /></span>
+          <span className="wsn-menu-word">{menu ? 'Close' : 'Menu'}</span>
+        </button>
         <a className="wsn-brand" href={base || '#top'} onClick={() => setMenu(false)}>
           {logo && <Image src={logo} alt="" width={200} height={72} sizes="120px" className="wsn-logo" />}
           <span className="wsn-word">{name}</span>
         </a>
-        <nav className="wsn-links" aria-label="Sections">
-          {top.map(([href, label]) => {
-            const on = href === `#${here}`;
-            return (
-              <a key={href} href={href} aria-current={on ? 'location' : undefined}>
-                {on && <span className="wsn-pill" aria-hidden />}
-                {label}
-              </a>
-            );
-          })}
-        </nav>
-        <button type="button" className="wsn-ic wsn-mode" onClick={flip} aria-label={dark ? 'Switch to light' : 'Switch to dark'} title={dark ? 'Light' : 'Dark'}>
-          {dark ? (
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
-              <circle cx="12" cy="12" r="4.2" />
-              <path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6" />
-            </svg>
-          ) : (
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden>
-              <path d="M20 14.2A8.4 8.4 0 0 1 9.8 4a8.4 8.4 0 1 0 10.2 10.2z" />
-            </svg>
-          )}
-        </button>
         <div className="wsn-actions">
           {icons}
-          <a className="ws-btn wsn-cta" href={cta[0]}>{cta[1]}</a>
+          {modeBtn}
+          <a className="wsn-pill-btn wsn-cta" href={cta[0]}>{cta[1]}</a>
         </div>
-        <button type="button" className="wsn-menu-btn" aria-expanded={menu} aria-controls="wsn-menu" onClick={() => setMenu(!menu)}>
-          <span className="wsn-menu-word">{menu ? 'Close' : 'Menu'}</span>
-          <span className="ws-menu-ic" aria-hidden><i /><i /></span>
-        </button>
       </header>
 
       <AnimatePresence>
-        {menu && <MenuCard name={name} base={base} chapters={chapters} here={here} cta={cta} icons={icons} onClose={() => setMenu(false)} />}
+        {menu && <MenuCard name={name} base={base} chapters={chapters} here={here} cta={cta} icons={<>{icons}{modeBtn}</>} onClose={() => setMenu(false)} />}
       </AnimatePresence>
     </>
   );
 }
 
-/** The bar grown down into one card: every chapter numbered, the main button and the icons at its foot. */
+/** The Menu pill grown into one card: every chapter in large type, the main button and the icons at its foot. */
 function MenuCard({ name, base, chapters, here, cta, icons, onClose }: {
   name: string; base: string; chapters: [string, string][]; here: string; cta: [string, string]; icons: React.ReactNode; onClose: () => void;
 }) {
-  // the card fills the screen less a 10 px margin; it opens from just the bar (mounted only after a tap)
-  const shut = `inset(0px 0px ${Math.max(0, window.innerHeight - 20 - BAR)}px 0px round 22px)`;
-  const full = 'inset(0px 0px 0px 0px round 22px)';
+  // the card fills the screen less a margin; it opens out of the Menu pill at its top left (mounted only after a tap)
+  const shut = `inset(0px ${Math.max(0, window.innerWidth - 24 - 150)}px ${Math.max(0, window.innerHeight - 20 - BAR)}px 0px round 28px)`;
+  const full = 'inset(0px 0px 0px 0px round 28px)';
   return (
     <>
       <motion.div className="wsn-scrim" aria-hidden onClick={onClose}
@@ -174,10 +152,9 @@ function MenuCard({ name, base, chapters, here, cta, icons, onClose }: {
         <span className="wsn-scan" aria-hidden />
         <motion.nav className="wsn-body" aria-label="Sections" variants={list} initial="shut" animate="open">
           <ol className="wsn-chapters">
-            {chapters.map(([id, label], i) => (
+            {chapters.map(([id, label]) => (
               <motion.li key={id} variants={line} className={id === here ? 'is-here' : undefined}>
                 <a href={`${base}#${id}`} onClick={onClose} aria-current={id === here ? 'location' : undefined}>
-                  <span className="wsn-n" aria-hidden>{String(i + 1).padStart(2, '0')}</span>
                   <span className="wsn-t">{label}</span>
                 </a>
               </motion.li>

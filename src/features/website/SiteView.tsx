@@ -2,12 +2,10 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Fragment } from 'react';
 import { API_BASE_URL, photoSize, whatsappHref, type PublicSite, type SiteBooking, type SiteMenu } from '../../lib/api';
-import { fontFamily } from '../../lib/brandFonts';
-import { inkOn } from '../../lib/brandColor';
-import { AskAbout, BookThisHall, BookThisRoom, SiteEnquire, SiteGallery, SiteMap, SiteReveal, SiteTour, ViewIn3D } from './SiteParts';
+import { fontFamily, SCRIPT_FONT } from '../../lib/brandFonts';
+import { AskAbout, BookingDesk, BookThisHall, BookThisRoom, SiteEnquire, SiteGallery, SiteMap, SiteReveal, SiteTour, ViewIn3D } from './SiteParts';
 import { SiteNav } from './SiteNav';
 import { SmoothScroll } from '../marketing/layout/SmoothScroll';
-import { ChapterRail } from '../marketing/layout/ChapterRail';
 import { TableBooking } from '../booking/TableBooking';
 import { RoomBooking } from '../booking/RoomBooking';
 import { EventBooking } from '../booking/EventBooking';
@@ -22,19 +20,16 @@ const pic = (p: string) => {
   return { src: asset(p), width, height };
 };
 const paragraphs = (t: string) => t.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
-const two = (n: number) => String(n).padStart(2, '0');
 
-/** A chapter's head (2026-10-06): its number and label in the margin, its
- *  title large beside them, on a hairline, after lightweight.info and
- *  linear.app; every look and brand wears it. */
-function Head({ n, kicker, title, lead, id }: { n: number; kicker: string; title: string; lead?: string; id?: string }) {
+/** A chapter's head (2026-10-07, after faithibiza.com and vanderhotel.com):
+ *  the title in tall capitals, centred, with a handwritten line written over
+ *  its top (SiteReveal draws it in, left to right). */
+function Head({ kicker, title, lead, id }: { n?: number; kicker: string; title: string; lead?: string; id?: string }) {
   return (
     <header className="ws-head">
-      <p className="ws-head-k"><span className="ws-head-n">{two(n)}</span>{kicker}</p>
-      <div className="ws-head-t">
-        <h2 id={id}>{title}</h2>
-        {lead && <p className="ws-head-lead">{lead}</p>}
-      </div>
+      <p className="ws-script">{kicker}</p>
+      <h2 id={id}>{title}</h2>
+      {lead && <p className="ws-head-lead">{lead}</p>}
     </header>
   );
 }
@@ -119,6 +114,38 @@ export function SiteView({ data, preview = false, review = false }: {
     site.events && ['#events', 'Events', photoOf(site.events.halls.find((h) => h.image)?.image, site.rooms[1]?.image, site.gallery[1])],
     (menu || site.booking || dining.length) && ['#menu', 'Dining', photoOf(site.gallery[2], site.rooms[2]?.image, site.gallery[0])]
   ].filter(Boolean) as [string, string, string][]).filter(([, , img]) => img); // a highlight is its picture: none, no card
+  // With no opening photo, small pictures float round the headline (vanderhotel.com): the site's photos, else the tours' own
+  const floats: { src: string; asset: boolean }[] = hero ? [] : [
+    ...[...site.gallery, ...site.rooms.map((r) => r.image)].filter(Boolean).map((p) => ({ src: p, asset: true })),
+    ...spaces.filter((s) => s.thumb).map((s) => ({ src: `${API_BASE_URL}${s.thumb}`, asset: false }))
+  ].slice(0, 4);
+  // The enquiry band's picture, cut into slices that slide together (white-desert.com)
+  const slicePhoto = site.gallery[1] || site.hero.image || site.gallery[0] || '';
+
+  // What can be booked here, one tab each in the booking desk
+  const deskTabs: { id: string; label: string; node: React.ReactNode }[] = [
+    site.stays && { id: 'stay', label: 'Stay', node: (
+      <section id="stay" className="ws-chap ws-book" data-chapter="Stay">
+        <Head n={0} kicker="Stay with us" title="Book a room" lead={site.stays.note || 'Choose your dates and how many of you, then pick your room.'} />
+        <RoomBooking project={project.id} stays={site.stays} tour={!!tour} preview={preview} />
+      </section>
+    ) },
+    (menu || site.booking) && { id: 'menu', label: dineName, node: (
+      <DineSection n={0} idSuffix="" name={dineName} menu={menu} booking={site.booking} project={project.id}
+        tourSpace={tour?.space ?? null} preview={preview} />
+    ) },
+    ...dining.map((o) => ({ id: `menu-${o.id}`, label: o.name, node: (
+      <DineSection n={0} idSuffix={`-${o.id}`} name={o.name} menu={o.menu.items.length ? o.menu : null}
+        booking={o.booking} project={project.id} tourSpace={tour?.space ?? null} preview={preview} />
+    ) })),
+    site.events && { id: 'events', label: 'Events', node: (
+      <section id="events" className="ws-chap ws-book" data-chapter="Events">
+        <Head n={0} kicker="Celebrate with us" title="Events and gatherings"
+          lead={site.events.note || 'Pick a hall, the day and how many guests. We’ll come back to you about everything else.'} />
+        <EventBooking project={project.id} events={site.events} tour={!!tour} preview={preview} />
+      </section>
+    ) }
+  ].filter(Boolean) as { id: string; label: string; node: React.ReactNode }[];
 
   // The chapters, in page order: numbered here, listed by the rail and the phone's menu.
   const chapters = ([
@@ -136,13 +163,7 @@ export function SiteView({ data, preview = false, review = false }: {
     site.gallery.length && ['gallery', 'Photos'],
     ['contact', 'Contact']
   ].filter(Boolean) as [string, string][]);
-  const num = (id: string) => chapters.findIndex(([c]) => c === id) + 1;
-  // The top bar: the spaces, the photos, contact (and Book now beside them)
-  const top = ([
-    tour && ['#tour', 'Spaces'],
-    site.gallery.length && ['#gallery', 'Gallery'],
-    ['#contact', 'Contact']
-  ].filter(Boolean) as [string, string][]);
+  const [lead, ...rest] = story ? paragraphs(story.body) : [];
 
   // What search engines read: the place, and the FAQ as questions and answers.
   // The reviews stay out: Google ignores a business's own reviews of itself.
@@ -177,14 +198,19 @@ export function SiteView({ data, preview = false, review = false }: {
           <a href={`/studio/${encodeURIComponent(project.id)}/site`}>Back to the editor</a>
         </p>
       )}
-      <SiteNav name={name} logo={logo} top={top} chapters={chapters} cta={cta} reach={navReach} />
+      {cta[1] === 'Book now' && (
+        <p className="ws-note">Book direct with {name}: your request goes straight to our team, and nothing is paid online.</p>
+      )}
+      <SiteNav name={name} logo={logo} chapters={chapters} cta={cta} reach={navReach} />
 
+      {/* The opening (2026-10-07, after faithibiza.com): the headline in tall capitals with a handwritten
+          line over it, and the photo in an arch below that opens to the whole screen as the page scrolls
+          (SiteReveal). With no photo, small pictures float round the headline instead (vanderhotel.com). */}
+      {/* a wrapper React owns: pinning the opening (SiteReveal) wraps it in a spacer, and React must still find its neighbours */}
+      <div>
       <section id="top" className={`ws-hero${hero ? ' has-photo' : ''}`}>
-        {hero && <Image {...hero} alt="" sizes="100vw" preload className="ws-hero-img" />}
-        {/* a scanner's registration targets at the corners: the place was measured */}
-        {['tl', 'tr', 'bl', 'br'].map((c) => <span key={c} className={`ws-cross ws-cross-${c}`} aria-hidden />)}
         <div className="ws-hero-in">
-          {eyebrow && <p className="ws-eyebrow">{eyebrow}</p>}
+          {eyebrow && <p className="ws-script ws-hero-script">{eyebrow}</p>}
           <h1>{site.hero.title || name}</h1>
           {site.hero.lede && <p className="ws-lede">{site.hero.lede}</p>}
           <div className="ws-hero-ctas">
@@ -192,66 +218,86 @@ export function SiteView({ data, preview = false, review = false }: {
             <a className={`ws-btn${tour ? ' ws-btn-ghost' : ''}`} href={cta[0]}>{cta[1]}</a>
           </div>
         </div>
-        {site.facts.length > 0 && (
-          <dl className="ws-facts">
-            {site.facts.map((f, i) => <div key={i}><dd>{f.n}</dd><dt>{f.k}</dt></div>)}
-          </dl>
-        )}
+        {hero && <div className="ws-arch"><Image {...hero} alt="" sizes="100vw" preload className="ws-hero-img" /></div>}
+        {floats.map((f, i) => (
+          <div key={f.src} className={`ws-float ws-float-${i}`} aria-hidden>
+            {f.asset
+              ? <Image {...pic(f.src)} alt="" sizes="220px" />
+              // eslint-disable-next-line @next/next/no-img-element -- a tour's picture, a JPEG from the API
+              : <img src={f.src} alt="" />}
+          </div>
+        ))}
       </section>
+      </div>
+      {site.facts.length > 0 && (
+        <dl className="ws-facts">
+          {site.facts.map((f, i) => <div key={i}><dd>{f.n}</dd><dt>{f.k}</dt></div>)}
+        </dl>
+      )}
 
       {tour && tourSrc && (
-        <section id="tour" className="ws-window" aria-label="Live 3D tour" data-chapter="3D tour">
-          <div className="ws-window-bar">
-            <span className="ws-live">Live 3D</span>
-            <b>{tour.title}</b>
-            {/* a plain <a>: the tour wants a full page load */}
-            <a href={`/t/${encodeURIComponent(project.id)}/${encodeURIComponent(tour.space)}`}>Open full screen ↗</a>
+        <section id="tour" className="ws-tourband" aria-label="Live 3D tour" data-chapter="3D tour">
+          <Head kicker="Live in 3D" title="Walk in before you arrive" />
+          <div className="ws-window">
+            <div className="ws-window-bar">
+              <span className="ws-live">Live</span>
+              <b>{tour.title}</b>
+              {/* a plain <a>: the tour wants a full page load */}
+              <a href={`/t/${encodeURIComponent(project.id)}/${encodeURIComponent(tour.space)}`}>Open full screen ↗</a>
+            </div>
+            <div className={`ws-window-grid${spaces.length > 1 ? ' has-list' : ''}`}>
+              <SiteTour src={tourSrc} title={tour.title} />
+              {spaces.length > 1 && (
+                <nav className="ws-space-list" aria-label="Spaces">
+                  <ol>
+                    {spaces.slice(0, 6).map((sp) => (
+                      <li key={sp.id}><a href={`${home}/${encodeURIComponent(sp.id)}`}>{sp.title}<span aria-hidden>↗</span></a></li>
+                    ))}
+                  </ol>
+                  {site.rooms.length > 0 && <a className="ws-space-all" href="#spaces">View all</a>}
+                </nav>
+              )}
+            </div>
+            <p className="ws-window-hint">Drag to look around. Keys 1 to 4 change how you move.</p>
           </div>
-          <div className={`ws-window-grid${spaces.length > 1 ? ' has-list' : ''}`}>
-            <SiteTour src={tourSrc} title={tour.title} />
-            {spaces.length > 1 && (
-              <nav className="ws-space-list" aria-label="Spaces">
-                <ol>
-                  {spaces.slice(0, 6).map((sp) => (
-                    <li key={sp.id}><a href={`${home}/${encodeURIComponent(sp.id)}`}><span aria-hidden>›</span>{sp.title}</a></li>
-                  ))}
-                </ol>
-                {site.rooms.length > 0 && <a className="ws-space-all" href="#spaces">View all →</a>}
-              </nav>
-            )}
-          </div>
-          <p className="ws-window-hint">Drag to look around. Keys 1 to 4 change how you move.</p>
+        </section>
+      )}
+
+      {story && (
+        <section id="story" className="ws-chap ws-story" data-chapter="Our story">
+          <Head kicker="Our story" title={story.title || `About ${name}`} />
+          {/* the first paragraph large, its words lighting up as the page scrolls (white-desert.com) */}
+          {lead && <p className="ws-statement">{lead}</p>}
+          {rest.length > 0 && <div className="ws-story-body">{rest.map((p, i) => <p key={i}>{p}</p>)}</div>}
         </section>
       )}
 
       {highlights.length > 0 && (
-        <section className="ws-highlights ws-reveal" aria-label="Highlights">
+        <section className="ws-highlights" aria-label="Highlights">
           {highlights.map(([href, label, img]) => (
             <a key={label} href={href} className="ws-hl">
-              {img ? <Image {...pic(img)} alt="" sizes="(max-width: 760px) 100vw, 33vw" /> : <span className="ws-hl-ph" aria-hidden />}
+              <span className="ws-hl-img"><Image {...pic(img)} alt="" sizes="(max-width: 760px) 100vw, 50vw" /></span>
               <b>{label}</b>
             </a>
           ))}
         </section>
       )}
 
-      {story && (
-        <section id="story" className="ws-chap ws-story ws-reveal" data-chapter="Our story">
-          <Head n={num('story')} kicker="Our story" title={story.title || `About ${name}`} />
-          <div className="ws-story-body">{paragraphs(story.body).map((p, i) => <p key={i}>{p}</p>)}</div>
-        </section>
-      )}
+      {/* the name, twice, sliding opposite ways with the scroll (SiteReveal) */}
+      <div className="ws-band" aria-hidden>
+        <p className="ws-band-row">{Array(4).fill(name).join(' · ')}</p>
+        <p className="ws-band-row is-out">{Array(4).fill(info.tagline || site.hero.eyebrow || name).join(' · ')}</p>
+      </div>
 
       {site.rooms.length > 0 && (
         <section id="spaces" className="ws-chap ws-rooms ws-hscroll" data-chapter="The spaces">
-          <Head n={num('spaces')} kicker={`Inside ${name}`} title="The spaces" />
+          <Head kicker={`Inside ${name}`} title="The spaces" />
           {/* scrolled sideways by the page (SiteReveal): a pinned track of cards turning in 3D */}
           <div className="ws-htrack">
           {site.rooms.map((r, i) => (
             <article key={i} className={`ws-room${r.image ? '' : ' is-plain'}`}>
               {r.image && <div className="ws-room-img"><Image {...pic(r.image)} alt={r.title} sizes="(max-width: 760px) 100vw, 58vw" /></div>}
               <div className="ws-room-txt">
-                <p className="ws-num">{two(i + 1)}</p>
                 <h3>{r.title}</h3>
                 {paragraphs(r.body).map((p, j) => <p key={j}>{p}</p>)}
                 {r.features && (
@@ -273,7 +319,7 @@ export function SiteView({ data, preview = false, review = false }: {
 
       {plan && (
         <section id="plan" className="ws-chap ws-plan ws-reveal" data-chapter="Floor plan">
-          <Head n={num('plan')} kicker={tour?.title ?? name} title="Floor plan" />
+          <Head kicker={tour?.title ?? name} title="Floor plan" />
           <figure className="ws-plan-sheet">
             {/* eslint-disable-next-line @next/next/no-img-element -- the space's plan: drawn from its scan (SVG) or uploaded */}
             <img src={asset(plan)} alt={`Floor plan of ${tour?.title ?? name}`} loading="lazy" className={plan.endsWith('.svg') ? 'is-drawn' : undefined} />
@@ -281,35 +327,17 @@ export function SiteView({ data, preview = false, review = false }: {
         </section>
       )}
 
-      {site.stays && (
-        <section id="stay" className="ws-chap ws-book" data-chapter="Stay">
-          <Head n={num('stay')} kicker="Stay with us" title="Book a room" lead={site.stays.note || 'Choose your dates and how many of you, then pick your room.'} />
-          <RoomBooking project={project.id} stays={site.stays} tour={!!tour} preview={preview} />
+      {deskTabs.length > 1 ? (
+        <section className="ws-desk" aria-label="Book" data-chapter="Book">
+          <Head kicker="Book direct" title={site.stays ? 'Book your stay' : 'Book with us'}
+            lead="Send a request and the team confirms it, usually within the hour. Nothing is charged online." />
+          <BookingDesk tabs={deskTabs} />
         </section>
-      )}
-
-      {(menu || site.booking) && (
-        <DineSection n={num('menu')} idSuffix="" name={dineName} menu={menu} booking={site.booking} project={project.id}
-          tourSpace={tour?.space ?? null} preview={preview} />
-      )}
-      {dining.map((o) => (
-        <Fragment key={o.id}>
-          <DineSection n={num(`menu-${o.id}`)} idSuffix={`-${o.id}`} name={o.name} menu={o.menu.items.length ? o.menu : null}
-            booking={o.booking} project={project.id} tourSpace={tour?.space ?? null} preview={preview} />
-        </Fragment>
-      ))}
-
-      {site.events && (
-        <section id="events" className="ws-chap ws-book" data-chapter="Events">
-          <Head n={num('events')} kicker="Celebrate with us" title="Events and gatherings"
-            lead={site.events.note || 'Pick a hall, the day and how many guests. We’ll come back to you about everything else.'} />
-          <EventBooking project={project.id} events={site.events} tour={!!tour} preview={preview} />
-        </section>
-      )}
+      ) : deskTabs.map((t) => <Fragment key={t.id}>{t.node}</Fragment>)}
 
       {offers.length > 0 && (
         <section id="offers" className="ws-chap ws-offers" data-chapter="Offers">
-          <Head n={num('offers')} kicker="Special offers" title="Offers and packages" />
+          <Head kicker="Special offers" title="Offers and packages" />
           <div className="ws-offer-grid">
             {offers.map((o, i) => (
               <article key={i} className={`ws-offer ws-reveal${o.image ? '' : ' is-plain'}`}>
@@ -328,7 +356,7 @@ export function SiteView({ data, preview = false, review = false }: {
 
       {reviews.items.length > 0 && (
         <section id="reviews" className="ws-chap ws-reviews ws-reveal" data-chapter="Guests say">
-          <Head n={num('reviews')} kicker="Guests say" title="In their words" />
+          <Head kicker="Guests say" title="In their words" />
           <div className="ws-quotes">
             {reviews.items.map((r, i) => (
               <figure key={i}>
@@ -345,7 +373,7 @@ export function SiteView({ data, preview = false, review = false }: {
 
       {faq.length > 0 && (
         <section id="faq" className="ws-chap ws-faq ws-reveal" data-chapter="Good to know">
-          <Head n={num('faq')} kicker="Good to know" title="Questions guests ask" />
+          <Head kicker="Good to know" title="Questions guests ask" />
           <div className="ws-faq-list">
             {faq.map((f, i) => (
               <details key={i}>
@@ -359,21 +387,33 @@ export function SiteView({ data, preview = false, review = false }: {
 
       {site.gallery.length > 0 && (
         <section id="gallery" className="ws-chap ws-gallery-wrap ws-reveal" data-chapter="Photos">
-          <Head n={num('gallery')} kicker="Photos" title={`Around ${name}`} />
+          <Head kicker="Photos" title={`Around ${name}`} />
           <SiteGallery photos={site.gallery.map(pic)} name={name} />
         </section>
       )}
 
       {asks && (
-        <section className="ws-strip ws-reveal" aria-label="Enquire">
-          <p>{site.stays || site.events ? 'Planning a stay or event?' : `Questions for ${name}?`}</p>
-          <a className="ws-btn" href="#contact">Send enquiry</a>
+        <section className={`ws-slices${slicePhoto ? ' has-photo' : ''}`} aria-label="Enquire">
+          {slicePhoto && (
+            <div className="ws-slice-set" aria-hidden>
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div key={i} className="ws-slice">
+                  <div className="ws-slice-in" style={{ '--i': i } as React.CSSProperties}><Image {...pic(slicePhoto)} alt="" sizes="100vw" /></div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="ws-slices-words">
+            <p className="ws-script">We would love to host you</p>
+            <h2>{site.stays || site.events ? 'Planning a stay or an event?' : `Questions for ${name}?`}</h2>
+            <a className="ws-btn" href="#contact">Send an enquiry</a>
+          </div>
         </section>
       )}
 
-      <section id="contact" className={`ws-contact ws-reveal${info.address ? ' has-map' : ''}`} data-chapter="Contact">
+      <section id="contact" className={`ws-contact${info.address ? ' has-map' : ''}`} data-chapter="Contact">
         <div className="ws-contact-txt">
-          <p className="ws-head-k"><span className="ws-head-n">{two(num('contact'))}</span>Get in touch</p>
+          <p className="ws-script">Get in touch</p>
           <h2>{site.contact.title || `Visit ${name}`}</h2>
           {site.contact.body && <p className="ws-contact-lead">{site.contact.body}</p>}
           <SiteEnquire project={project.id} name={name} preview={preview} whatsapp={info.whatsapp} enquiries={asks} />
@@ -399,7 +439,6 @@ export function SiteView({ data, preview = false, review = false }: {
           <WhatsAppIcon />
         </a>
       )}
-      <ChapterRail root=".ws" />
       <SiteReveal />
       <SmoothScroll root=".ws" magnetic=".ws-btn, .wsn-ic, .ws-act" />
     </div>
@@ -423,11 +462,10 @@ export function siteBasics(data: PublicSite) {
   ].filter(Boolean) as { label: string; text: string; href: string }[];
   const social = reach.filter((r) => r.label === 'Instagram' || r.label === 'Facebook');
   const logo = project.theme.logo ? asset(project.theme.logo) : null;
-  const accent = project.theme.accent || '#9a7b4f';
+  // black and white only (2026-10-07): the brand's accent no longer colours the website
   const style = {
-    '--ws-accent': accent,
-    '--ws-on-accent': inkOn(accent),
-    '--ws-serif': fontFamily(project.theme.font)
+    '--ws-serif': fontFamily(project.theme.font),
+    '--ws-script': SCRIPT_FONT
   } as React.CSSProperties;
   // A project that takes no enquiries (its features) has no form: its contact details instead.
   const asks = project.features?.enquiries !== false;

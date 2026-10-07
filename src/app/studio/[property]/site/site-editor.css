@@ -100,6 +100,12 @@
 .se .se-look.is-on { border-color: var(--ed-signal); box-shadow: 0 0 0 1px var(--ed-signal); }
 .se-look-swatch { grid-row: span 2; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 8px; border: 1px solid var(--ed-line); font: 400 20px/1 Georgia, serif; }
 .se-look small { color: var(--ed-text-dim); }
+/* the heading fonts, each named in its own face */
+.se-fonts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.se-fonts-label { flex-basis: 100%; font-size: 13px; font-weight: 600; }
+.se-fonts-label small { font-weight: 400; color: var(--ed-text-dim); }
+.se .se-font { padding: 8px 14px; font-size: 17px; }
+.se .se-font.is-on { border-color: var(--ed-signal); box-shadow: 0 0 0 1px var(--ed-signal); }
 
 @media (max-width: 640px) {
   .se-split { grid-template-columns: 1fr; }

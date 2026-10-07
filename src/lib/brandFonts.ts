@@ -4,7 +4,7 @@
  * browser), without preloading, so a page downloads only the face it uses.
  * serif/sans/classic are the system faces older projects chose; they still
  * render, and the pickers show them only to a project that has one. */
-import { DM_Sans, Inter, Lato, Merriweather, Montserrat, Nunito, Open_Sans, Playfair_Display, Poppins, Roboto } from 'next/font/google';
+import { DM_Sans, Inter, Lato, Merriweather, Montserrat, Nunito, Open_Sans, Playfair_Display, Poppins, Roboto, Sacramento } from 'next/font/google';
 import type { BrandFont } from '../@types/config.types';
 
 // next/font wants every option written out in each call (no shared object)
@@ -18,6 +18,8 @@ const nunito = Nunito({ subsets: ['latin'], display: 'swap', preload: false });
 const playfair = Playfair_Display({ subsets: ['latin'], display: 'swap', preload: false });
 const merriweather = Merriweather({ subsets: ['latin'], display: 'swap', preload: false });
 const dmSans = DM_Sans({ subsets: ['latin'], display: 'swap', preload: false });
+// the client website's handwritten accent over its headings (2026-10-07), the same for every brand
+const sacramento = Sacramento({ subsets: ['latin'], display: 'swap', preload: false, weight: '400' });
 
 const SANS = "system-ui, 'Segoe UI', Roboto, sans-serif";
 const SERIF = "Georgia, 'Times New Roman', serif";
@@ -48,3 +50,6 @@ export const fontChoices = (current?: BrandFont): BrandFont[] =>
 
 /** A font key's CSS font-family (an unknown key gets the serif). */
 export const fontFamily = (f: BrandFont | undefined) => BRAND_FONTS[f ?? 'serif']?.[1] ?? BRAND_FONTS.serif[1];
+
+/** The handwritten face client websites set over their headings. */
+export const SCRIPT_FONT = `${sacramento.style.fontFamily}, cursive`;

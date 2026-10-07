@@ -3,21 +3,25 @@
 import { use, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import {
-  API_BASE_URL, cancelSiteSchedule, getProperty, getReviewFeedback, getSiteDraft, publishSite, resolveReviewComment, saveSiteDraft,
+  API_BASE_URL, cancelSiteSchedule, setProjectTheme, getProperty, getReviewFeedback, getSiteDraft, publishSite, resolveReviewComment, saveSiteDraft,
   scheduleSite, shareSiteForReview, stopSiteReview, uploadSiteImage, type ReviewFeedback,
   type DiningPlace, type EventHall, type SiteBooking, type SiteDoc, type SiteEvents, type SiteMenu, type SiteSpace, type SiteStays, type SiteStyle, type SiteTable, type StayRoom
 } from '../../../../lib/api';
-import type { ProjectFeatures } from '../../../../@types/config.types';
+import type { BrandFont, ProjectFeatures } from '../../../../@types/config.types';
+import { BRAND_FONTS, fontChoices } from '../../../../lib/brandFonts';
 import { useStudioSession } from '../../../../features/auth/useStudioSession';
 import '../../../../features/studio/editor.css';
 import './site-editor.css';
 
 const asset = (p: string) => `${API_BASE_URL}/api/assets/${p}`;
-/** The website's looks (website.css [data-style]): key, name, what it is, paper, ink. */
-const LOOKS: [SiteStyle, string, string, string, string][] = [
-  ['heritage', 'Heritage', 'Warm paper, ornaments, framed photos', '#f7f1e7', '#2a1f17'],
-  ['modern', 'Modern', 'White, crisp, square corners', '#fbfbf9', '#151515'],
-  ['night', 'Night', 'Warm dark, your colour glowing', '#11100e', '#f2ece2']
+/** The website's five designs (website.css [data-style]), all black and white (2026-10-07):
+ *  key, name, what it is, paper, ink, how its headings look in the swatch. */
+const LOOKS: [SiteStyle, string, string, string, string, React.CSSProperties][] = [
+  ['heritage', 'Editorial', 'Tall capitals, handwriting over them, the photo in an arch', '#ffffff', '#111111', { textTransform: 'uppercase' }],
+  ['classic', 'Classic', 'Serif headings in sentence case, an italic line above', '#ffffff', '#111111', { fontStyle: 'italic' }],
+  ['modern', 'Modern', 'Bold, tight headings, square corners, no handwriting', '#ffffff', '#111111', { fontWeight: 700, fontFamily: 'system-ui, sans-serif' }],
+  ['minimal', 'Minimal', 'Small spaced capitals, lots of white, no ornament', '#ffffff', '#111111', { fontSize: 13, letterSpacing: '0.2em', textTransform: 'uppercase' }],
+  ['night', 'Night', 'The editorial design, dark', '#0e0e0e', '#f2f2f2', { textTransform: 'uppercase' }]
 ];
 const move = <T,>(list: T[], i: number, by: number) => {
   const j = i + by;
@@ -37,6 +41,7 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
   const { property: id } = use(params);
   const ok = useStudioSession(`/studio/${id}/site`);
   const [title, setTitle] = useState('');
+  const [font, setFont] = useState<BrandFont | undefined>();
   const [doc, setDoc] = useState<SiteDoc | null>(null);
   const [spaces, setSpaces] = useState<SiteSpace[]>([]);
   const [publishedAt, setPublishedAt] = useState<string | null>(null);
@@ -83,6 +88,7 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
       .then(([p, d]) => {
         if (!p || !d) throw new Error('That project doesn’t exist, or you can’t see it.');
         setTitle(p.theme?.brand || p.title);
+        setFont(p.theme?.font);
         setFeatures(p.features ?? null);
         setDoc(d.draft);
         setSpaces(d.spaces);
@@ -242,14 +248,25 @@ export default function SiteEditorPage({ params }: { params: Promise<{ property:
           <p className="se-warn">None of this project’s spaces is published yet. The website shows the live tour of a published space, so publish one in the studio first.</p>
         )}
 
-        <Card title="Look" hint="How the whole website feels. Every look uses your brand colour and heading font.">
-          <div className="se-looks" role="radiogroup" aria-label="Look">
-            {LOOKS.map(([k, label, note, bg, ink]) => (
+        <Card title="Look" hint="How the whole website feels: five designs, all black and white. Visitors can still switch between light and dark.">
+          <div className="se-looks" role="radiogroup" aria-label="Design">
+            {LOOKS.map(([k, label, note, bg, ink, type]) => (
               <button key={k} type="button" role="radio" aria-checked={doc.style === k}
                 className={`se-look${doc.style === k ? ' is-on' : ''}`} onClick={() => change({ style: k })}>
-                <span className="se-look-swatch" style={{ background: bg, color: ink }} aria-hidden>Aa</span>
+                <span className="se-look-swatch" style={{ background: bg, color: ink, fontFamily: font ? BRAND_FONTS[font]?.[1] : undefined, ...type }} aria-hidden>Aa</span>
                 <b>{label}</b>
                 <small>{note}</small>
+              </button>
+            ))}
+          </div>
+          {/* the project's heading font: saved at once, for the website, the tour and the /t/ page alike */}
+          <div className="se-fonts" role="radiogroup" aria-label="Heading font">
+            <span className="se-fonts-label">Heading font <small>(saved at once; the tour uses it too)</small></span>
+            {fontChoices(font).map((f) => (
+              <button key={f} type="button" role="radio" aria-checked={font === f} className={`se-font${font === f ? ' is-on' : ''}`}
+                style={{ fontFamily: BRAND_FONTS[f][1] }}
+                onClick={() => { const was = font; setFont(f); setProjectTheme(id, { font: f }).catch(() => { setFont(was); setError('Couldn’t save the font. Try again.'); }); }}>
+                {BRAND_FONTS[f][0]}
               </button>
             ))}
           </div>

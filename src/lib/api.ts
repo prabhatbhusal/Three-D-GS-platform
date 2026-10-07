@@ -133,7 +133,8 @@ export const getProjectReport = (id: string, month: string) =>
 export interface SiteRoom { title: string; body: string; features: string; image: string; space: string; view: string }
 export interface SiteMenuItem { name: string; desc: string; price: string; tag: string }
 /** The website's look (website.css [data-style]). */
-export type SiteStyle = 'heritage' | 'modern' | 'night';
+/** The website's five designs (website.css [data-style]); heritage is the editorial one, kept under its old key. */
+export type SiteStyle = 'heritage' | 'classic' | 'modern' | 'minimal' | 'night';
 /** A photo's [width, height] from its name (`img-<ts>-<w>x<h>.jpg`, sites.js). Photos from before 2026-09-29 have none. */
 export const photoSize = (path: string): [number, number] | null => {
   const m = /-(\d+)x(\d+)\.\w+$/.exec(path);

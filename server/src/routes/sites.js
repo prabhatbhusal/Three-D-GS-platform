@@ -72,7 +72,7 @@ async function spacePlans(assetId) {
 }
 
 /** The website's looks (website.css [data-style]); the first is the default. */
-const STYLES = ['heritage', 'modern', 'night'];
+const STYLES = ['heritage', 'classic', 'modern', 'minimal', 'night'];
 
 /** Only the fields the page knows, trimmed and capped: the draft is whatever the studio sent. */
 export function cleanSite(d, pid) {
