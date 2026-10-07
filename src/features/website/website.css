@@ -661,3 +661,35 @@
 .ws-ask-err { margin: 0 !important; font-size: 14px; color: #b42318 !important; }
 .ws-ask-done { margin-top: 18px !important; font-size: 16px; color: var(--ink) !important; }
 .ws-hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+
+/* ---- motion (SiteParts SiteReveal, 2026-10-07): the opening curtain, lines rising out of masks,
+ * and pages that slide into each other (cross-document view transitions; the nav stays put) */
+.wsm-curtain {
+  position: fixed; inset: 0; z-index: 60; display: grid; place-items: center;
+  background: var(--ink); color: var(--paper); clip-path: inset(0% 0% 0% 0%);
+}
+.wsm-curtain p {
+  display: flex; flex-wrap: wrap; justify-content: center; margin: 0; padding: 0 6vw; overflow: hidden; white-space: pre;
+  font: 400 clamp(36px, 7vw, 104px)/1.12 var(--ws-serif); letter-spacing: -0.02em;
+}
+.wsm-ch { display: inline-block; }
+/* a line's mask keeps its descenders */
+.wsm-line-mask { padding-bottom: 0.12em; margin-bottom: -0.12em; }
+/* GSAP runs the opening: the CSS entrances step aside */
+.wsm-on .ws-hero-in > *, .wsm-on .ws-window { animation: none; }
+.ws-room-img, .ws-offer-img, .ws-hl, .ws-other { will-change: clip-path; }
+
+@view-transition { navigation: auto; }
+.wsn { view-transition-name: wsn; }
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root) { animation: wsvt-out 0.5s cubic-bezier(0.7, 0, 0.3, 1) both; }
+  ::view-transition-new(root) { animation: wsvt-in 0.9s cubic-bezier(0.77, 0, 0.18, 1) both; }
+}
+@keyframes wsvt-out { to { opacity: 0.35; transform: translateY(-5vh) scale(0.97); } }
+@keyframes wsvt-in { from { clip-path: inset(100% 0 0 0); } to { clip-path: inset(0 0 0 0); } }
+/* the page's cover until the curtain mounts (SiteView's first-paint script); gone by itself after 3 s */
+html[data-ws-intro] .ws::before {
+  content: ''; position: fixed; inset: 0; z-index: 59; background: var(--ink);
+  animation: wsm-uncover 0.3s 3s forwards;
+}
+@keyframes wsm-uncover { to { opacity: 0; visibility: hidden; } }

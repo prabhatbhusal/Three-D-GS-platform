@@ -2,6 +2,7 @@ import Image from 'next/image';
 import { API_BASE_URL, photoSize, type PublicSite } from '../../lib/api';
 import { SiteReveal, SiteTour, SpaceEnquiry } from './SiteParts';
 import { SiteNav } from './SiteNav';
+import { SmoothScroll } from '../marketing/layout/SmoothScroll';
 import { SiteFooter, siteBasics } from './SiteView';
 import '../tour/viewer.css';
 import './website.css';
@@ -112,6 +113,7 @@ export function SpaceView({ data, space }: { data: PublicSite; space: string }) 
         {!book && asks && <a className="ws-btn" href="#enquire">Enquire</a>}
       </div>
       <SiteReveal />
+      <SmoothScroll root=".ws" magnetic=".ws-btn, .wsn-ic, .ws-act" />
     </div>
   );
 }

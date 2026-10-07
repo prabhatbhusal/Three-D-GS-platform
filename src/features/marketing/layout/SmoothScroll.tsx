@@ -27,10 +27,11 @@ function innerScroller(from: Element | null, page: Element, dy: number) {
   return false;
 }
 
-export function SmoothScroll() {
+/** `root`: the scroll container (a client website uses .ws); `magnetic`: what leans towards the pointer. */
+export function SmoothScroll({ root = '.site', magnetic = MAGNETIC }: { root?: string; magnetic?: string } = {}) {
   useEffect(() => {
     if (!matchMedia('(pointer: fine)').matches || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const page = document.querySelector<HTMLElement>('.site');
+    const page = document.querySelector<HTMLElement>(root);
     if (!page) return;
 
     let target = page.scrollTop, set = target, raf = 0;
@@ -60,7 +61,7 @@ export function SmoothScroll() {
     const letGo = () => { if (near) near.style.translate = ''; near = null; };
     const onMove = (e: PointerEvent) => {
       if (e.pointerType !== 'mouse') return;
-      const el = (e.target as Element).closest<HTMLElement>(MAGNETIC);
+      const el = (e.target as Element).closest<HTMLElement>(magnetic);
       if (el !== near) letGo();
       if (!el) return;
       near = el;
@@ -80,6 +81,6 @@ export function SmoothScroll() {
       document.removeEventListener('pointermove', onMove);
       document.removeEventListener('pointerleave', letGo);
     };
-  }, []);
+  }, [root, magnetic]);
   return null;
 }

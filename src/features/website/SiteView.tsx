@@ -6,6 +6,7 @@ import { fontFamily } from '../../lib/brandFonts';
 import { inkOn } from '../../lib/brandColor';
 import { AskAbout, BookThisHall, BookThisRoom, SiteEnquire, SiteGallery, SiteMap, SiteReveal, SiteTour, ViewIn3D } from './SiteParts';
 import { SiteNav } from './SiteNav';
+import { SmoothScroll } from '../marketing/layout/SmoothScroll';
 import { ChapterRail } from '../marketing/layout/ChapterRail';
 import { TableBooking } from '../booking/TableBooking';
 import { RoomBooking } from '../booking/RoomBooking';
@@ -117,7 +118,7 @@ export function SiteView({ data, preview = false, review = false }: {
     (site.stays || site.rooms.length) && ['#' + (site.stays ? 'stay' : 'spaces'), 'Rooms', photoOf(site.stays?.rooms.find((r) => r.image)?.image, site.rooms[0]?.image, site.gallery[0])],
     site.events && ['#events', 'Events', photoOf(site.events.halls.find((h) => h.image)?.image, site.rooms[1]?.image, site.gallery[1])],
     (menu || site.booking || dining.length) && ['#menu', 'Dining', photoOf(site.gallery[2], site.rooms[2]?.image, site.gallery[0])]
-  ].filter(Boolean) as [string, string, string][]);
+  ].filter(Boolean) as [string, string, string][]).filter(([, , img]) => img); // a highlight is its picture: none, no card
 
   // The chapters, in page order: numbered here, listed by the rail and the phone's menu.
   const chapters = ([
@@ -163,6 +164,8 @@ export function SiteView({ data, preview = false, review = false }: {
   };
   return (
     <div className="ws" data-style={site.style ?? 'heritage'} style={style}>
+      {/* before the first paint: cover the page for the opening curtain (SiteReveal), first visit only */}
+      <script dangerouslySetInnerHTML={{ __html: "try{if(!sessionStorage.getItem('ws-intro')&&!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.dataset.wsIntro='1'}catch(e){}" }} />
       {!preview && (
         // <: nothing a client typed can close the script tag
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld).replace(/</g, '\\u003c') }} />
@@ -240,10 +243,12 @@ export function SiteView({ data, preview = false, review = false }: {
       )}
 
       {site.rooms.length > 0 && (
-        <section id="spaces" className="ws-chap ws-rooms" data-chapter="The spaces">
+        <section id="spaces" className="ws-chap ws-rooms ws-hscroll" data-chapter="The spaces">
           <Head n={num('spaces')} kicker={`Inside ${name}`} title="The spaces" />
+          {/* scrolled sideways by the page (SiteReveal): a pinned track of cards turning in 3D */}
+          <div className="ws-htrack">
           {site.rooms.map((r, i) => (
-            <article key={i} className={`ws-room ws-reveal${r.image ? '' : ' is-plain'}`}>
+            <article key={i} className={`ws-room${r.image ? '' : ' is-plain'}`}>
               {r.image && <div className="ws-room-img"><Image {...pic(r.image)} alt={r.title} sizes="(max-width: 760px) 100vw, 58vw" /></div>}
               <div className="ws-room-txt">
                 <p className="ws-num">{two(i + 1)}</p>
@@ -262,6 +267,7 @@ export function SiteView({ data, preview = false, review = false }: {
               </div>
             </article>
           ))}
+          </div>
         </section>
       )}
 
@@ -395,6 +401,7 @@ export function SiteView({ data, preview = false, review = false }: {
       )}
       <ChapterRail root=".ws" />
       <SiteReveal />
+      <SmoothScroll root=".ws" magnetic=".ws-btn, .wsn-ic, .ws-act" />
     </div>
   );
 }

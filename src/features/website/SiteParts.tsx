@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { SplitText } from 'gsap/SplitText';
 import { EnquiryPanel } from '../enquiry/EnquiryPanel';
 import { submitLead } from '../../lib/api';
 
@@ -147,41 +149,99 @@ export function SiteEnquire({ project, name, preview = false, whatsapp, enquirie
 }
 
 /**
- * Sections rise in as they come into view; fades only with reduced motion.
- * The browser's IntersectionObserver says when (it copes with the header's
- * jump links and with photos loading late, where scroll positions measured
- * up front go stale); GSAP does the motion, a few at a time in a stagger.
- * A busy phone reports only now and then, and a fast flick can pass a whole
- * section between reports, so each report reveals everything that is up to
- * the bottom of the screen by now, not just what it names.
+ * How a client's website moves (2026-10-07, replaced the fade-up on every
+ * section). One orchestrated opening, then motion only where it says
+ * something, all on GSAP (ScrollTrigger, SplitText) with .ws as the scroller:
+ *   - opening, once per visit: a curtain in the ink colour with the name,
+ *     which lifts; the headline's lines rise out of masks, then the words
+ *     under it, the buttons and the figures; the photo settles from 1.12;
+ *   - headings rise line by line out of masks as they arrive;
+ *   - photos open from the bottom (clip-path) while the picture inside
+ *     settles from a slight zoom;
+ *   - the live tour's window grows to full size as it scrolls in, and the
+ *     opening photo drifts slower than the page (parallax).
+ * With reduced motion nothing moves: everything is simply there.
+ * Styles: website.css .wsm-.
  */
 export function SiteReveal() {
-  useGSAP((_, contextSafe) => {
-    const root = document.querySelector('.ws');
-    const items = gsap.utils.toArray<HTMLElement>('.ws-reveal');
-    if (!root || !items.length || !contextSafe) return;
-    const full = matchMedia('(prefers-reduced-motion: no-preference)').matches;
-    // opacity, not autoAlpha: a visibility:hidden section never loads its lazy photos
-    gsap.set(items, { opacity: 0, y: full ? 40 : 0 });
-    const show = contextSafe((els: Element[]) =>
-      gsap.to(els, { opacity: 1, y: 0, duration: full ? 0.9 : 0.5, stagger: 0.1, ease: 'power3.out' }));
-    const waiting = new Set<Element>(items);
-    const io = new IntersectionObserver((entries) => {
-      if (!entries.some((e) => e.isIntersecting)) return;
-      const { top, bottom } = root.getBoundingClientRect();
-      const due = [...waiting].filter((el) => el.getBoundingClientRect().top < bottom);
-      due.forEach((el) => { waiting.delete(el); io.unobserve(el); });
-      // Already scrolled past (a jump link): just there. On screen: rises in.
-      const past = due.filter((el) => el.getBoundingClientRect().bottom < top);
-      if (past.length) gsap.set(past, { opacity: 1, y: 0 });
-      const now = due.filter((el) => !past.includes(el));
-      if (now.length) show(now);
-    }, { root, rootMargin: '0px 0px -8% 0px' });
-    items.forEach((el) => io.observe(el));
-    return () => io.disconnect();
+  const [curtain, setCurtain] = useState<string | null>(null);
+  useGSAP(() => {
+    const ws = document.querySelector<HTMLElement>('.ws');
+    if (!ws || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    gsap.registerPlugin(ScrollTrigger, SplitText);
+    ScrollTrigger.defaults({ scroller: ws });
+    ws.classList.add('wsm-on');
+
+    // the opening plays once per visit (this tab), on the hub only
+    let first = false;
+    try { first = !!ws.querySelector('.ws-hero') && !sessionStorage.getItem('ws-intro'); sessionStorage.setItem('ws-intro', '1'); } catch { /* storage off: no curtain */ }
+    const name = ws.querySelector('.wsn-word')?.textContent ?? '';
+    if (first && name) setCurtain(name);
+    else delete document.documentElement.dataset.wsIntro;
+
+    const lines = (el: Element) => SplitText.create(el, { type: 'lines', mask: 'lines', linesClass: 'wsm-line', autoSplit: true,
+      onSplit: (self) => gsap.from(self.lines, { yPercent: 110, duration: 1.1, ease: 'expo.out', stagger: 0.09,
+        scrollTrigger: el.closest('.ws-hero') ? undefined : { trigger: el, start: 'top 88%', once: true },
+        delay: el.closest('.ws-hero') ? (first ? 1.35 : 0.15) : 0 }) });
+
+    document.fonts.ready.then(() => {
+      // the opening
+      const hero = ws.querySelector('.ws-hero');
+      if (hero) {
+        const h1 = hero.querySelector('h1');
+        if (h1) lines(h1);
+        const after = hero.querySelectorAll('.ws-eyebrow, .ws-lede, .ws-hero-ctas, .ws-facts > div');
+        gsap.from(after, { opacity: 0, y: 24, duration: 0.9, ease: 'power3.out', stagger: 0.07, delay: first ? 1.6 : 0.35 });
+        const img = hero.querySelector('.ws-hero-img');
+        if (img) {
+          gsap.fromTo(img, { scale: 1.12 }, { scale: 1, duration: 2.2, ease: 'expo.out', delay: first ? 0.9 : 0 });
+          gsap.to(img, { yPercent: 12, ease: 'none', scrollTrigger: { trigger: hero, start: 'top top', end: 'bottom top', scrub: true } });
+        }
+      }
+
+      // headings, line by line
+      ws.querySelectorAll('.ws-head h2, .ws-space-txt h1, .ws-strip p, .ws-others h2, .ws-contact h2, .ws-room-txt h3').forEach(lines);
+
+      // photos open from the bottom
+      ws.querySelectorAll('.ws-room-img, .ws-offer-img, .ws-hl, .ws-other, .ws-space-photos img, .ws-gallery button').forEach((el) => {
+        const pic = el.matches('img') ? null : el.querySelector('img');
+        const tl = gsap.timeline({ scrollTrigger: { trigger: el, start: 'top 90%', once: true } });
+        tl.fromTo(el, { clipPath: 'inset(100% 0% 0% 0%)' }, { clipPath: 'inset(0% 0% 0% 0%)', duration: 1.3, ease: 'expo.inOut' });
+        if (pic) tl.fromTo(pic, { scale: 1.25 }, { scale: 1, duration: 1.6, ease: 'expo.out' }, 0.1);
+      });
+
+      // the live tour's window grows into place
+      ws.querySelectorAll('.ws-window').forEach((el) => {
+        gsap.fromTo(el, { scale: 0.88, borderRadius: 40 }, { scale: 1, borderRadius: 22, ease: 'none',
+          scrollTrigger: { trigger: el, start: 'top bottom', end: 'top 35%', scrub: 0.6 } });
+      });
+      ScrollTrigger.refresh();
+    });
+    return () => { ws.classList.remove('wsm-on'); ScrollTrigger.defaults({ scroller: window }); };
   });
-  return null;
+
+  return curtain ? <Curtain name={curtain} onDone={() => setCurtain(null)} /> : null;
 }
+
+/** The opening's curtain: the name rises letter by letter, then the ink lifts off the page. */
+function Curtain({ name, onDone }: { name: string; onDone: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useGSAP(() => {
+    const el = ref.current!;
+    delete document.documentElement.dataset.wsIntro; // the curtain itself covers the page now
+    const chars = el.querySelectorAll('.wsm-ch');
+    gsap.timeline({ onComplete: onDone })
+      .from(chars, { yPercent: 120, duration: 0.8, ease: 'expo.out', stagger: 0.025 })
+      .to(chars, { yPercent: -120, duration: 0.55, ease: 'expo.in', stagger: 0.012 }, '+=0.25')
+      .to(el, { clipPath: 'inset(0% 0% 100% 0%)', duration: 0.9, ease: 'expo.inOut' }, '-=0.2');
+  }, { scope: ref });
+  return (
+    <div ref={ref} className="wsm-curtain" aria-hidden>
+      <p>{[...name].map((c, i) => <span key={i} className="wsm-ch">{c === ' ' ? ' ' : c}</span>)}</p>
+    </div>
+  );
+}
+
 
 /**
  * The space page's enquiry, open on the page (2026-10-07, the owner's plan):
