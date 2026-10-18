@@ -2,7 +2,9 @@
 // To change a picture: replace the file at the path shown (same name, any size), or point the slot at a new file.
 // Keys are "<page or component>/<what the picture is>".
 
-export const IMG = {
+import { withBase } from '../../../lib/basePath';
+
+const FILES = {
   'about/a-heritage-courtyard-during-restoration-and-the': '/assets/images/about/a-heritage-courtyard-during-restoration-and-the.webp',
   'about/engineers': '/assets/images/about/engineers.webp',
   'about/game-developers': '/assets/images/about/game-developers.webp',
@@ -123,4 +125,7 @@ export const IMG = {
   'visual-storytelling/showcase-5': '/assets/images/visual-storytelling/showcase-5.webp',
 } as const;
 
-export type ImageSlot = keyof typeof IMG;
+export type ImageSlot = keyof typeof FILES;
+
+// Under a sub-path (the GitHub Pages copy), every file sits under it too.
+export const IMG = Object.fromEntries(Object.entries(FILES).map(([slot, file]) => [slot, withBase(file)])) as Record<ImageSlot, string>;

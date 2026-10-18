@@ -563,7 +563,7 @@ ${h('tests', 13)}
 <li>The API tests start a real server on a free port with a temporary <code>DATA_DIR</code>, and fake mail, SMS, WhatsApp and Anthropic servers that record what was sent. They set <code>DATABASE_URL</code> themselves, so they never touch the database in <code>server/.env</code>; set <code>API_TEST_DATABASE_URL</code> to run them against a throwaway Postgres.</li>
 <li>New pure logic gets one assert-style test in <code>test/client.test.mjs</code>. A new endpoint gets its behaviour, its refusals and its access checked in <code>server/test/api.test.js</code>.</li>
 <li>Every string shown in the tour needs Nepali and Chinese in <code>i18n.ts</code>; a test fails otherwise.</li>
-<li>CI (<code>.github/workflows/ci.yml</code>) runs lint, types, tests and a production build on every push and pull request.</li>
+<li>CI (<code>.github/workflows/nextjs.yml</code>) runs lint, types, tests, the full build and a static one on every push and pull request, and publishes the static one to GitHub Pages from <code>main</code>.</li>
 </ul>
 
 ${h('config', 14)}

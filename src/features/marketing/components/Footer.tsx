@@ -2,6 +2,7 @@ import React from 'react';
 import { RoutePath } from '../types';
 import { SITE_METADATA } from '../data/siteData';
 import { BLOG_LAUNCHED } from '../content/blog';
+import { withBase } from '../../../lib/basePath';
 
 interface FooterProps {
   onNavigate: (path: RoutePath) => void;
@@ -23,7 +24,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenRegister }) =>
               className="flex items-center py-1 text-left"
               aria-label="RCAAS Technology, home"
             >
-              <img src="/logo.png" alt="" width="522" height="106" loading="lazy" decoding="async" className="h-8 w-auto" />
+              <img src={withBase('/logo.png')} alt="" width="522" height="106" loading="lazy" decoding="async" className="h-8 w-auto" />
             </button>
             <p className="mt-4 max-w-sm text-xs leading-relaxed text-zinc-600">
               {SITE_METADATA.boilerplate}

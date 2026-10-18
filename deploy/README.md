@@ -3,7 +3,9 @@
 One Linux VPS runs both halves: Next (`next start`, port 3000) and the API
 (`server/`, port 4000), kept up by pm2, behind nginx with HTTPS. Scans live
 in a Cloudflare R2 bucket (`ASSET_DRIVER=s3`), so the VPS disk only holds
-JSON. Every push to `main` that passes CI deploys itself (`.github/workflows/ci.yml`).
+JSON. A push to `main` can deploy itself (§4), through a GitHub job that is
+parked while hosting is postponed: since 2026-10-18 the repo's workflow is
+`.github/workflows/nextjs.yml` (checks, and a static copy on GitHub Pages).
 
 **Size:** 2 vCPU, 4 GB RAM, 40+ GB disk, Ubuntu 24.04. `next build` needs
 ~2–3 GB of RAM; on 2 GB it gets killed half way — add swap if you go smaller.
@@ -66,7 +68,9 @@ certbot --nginx -d example.com
 
 ## 4. Automatic deploys from GitHub
 
-On your PC: `ssh-keygen -t ed25519 -f rcaas-deploy -N ""`. Append `rcaas-deploy.pub`
+First bring back the deploy job: `git show 9a93085:.github/workflows/ci.yml`
+has it (`deploy:`, after the checks). Add it to `nextjs.yml` as a job with
+`needs: check`. Then, on your PC: `ssh-keygen -t ed25519 -f rcaas-deploy -N ""`. Append `rcaas-deploy.pub`
 to `/home/deploy/.ssh/authorized_keys` on the server. Then in GitHub →
 Settings → Secrets and variables → Actions:
 
@@ -78,8 +82,9 @@ Settings → Secrets and variables → Actions:
 | Variable | `DEPLOY_USER` | `deploy` |
 | Variable | `DEPLOY_PATH` | `/srv/rcaas/app` (optional, that's the default) |
 
-Also: Settings → Pages → set Source to **None**. The old "pages-build-deployment"
-only ever published the repo's files as a static page, never the app.
+GitHub Pages (Settings → Pages → Source: **GitHub Actions**) carries only the
+static copy of the public pages from `nextjs.yml`, never the app. Once the
+site runs here, switch it to **None** so the two don't compete in search.
 
 ## Everyday
 

@@ -46,6 +46,7 @@ import { NotFoundPage } from './pages/NotFoundPage';
 import { GalleryPage } from './pages/GalleryPage';
 import { CookiesPage, SecurityPage } from './pages/PolicyPages';
 import { pageMeta, resolveBlogRoute, isCaseStudy } from './meta';
+import { withBase, withoutBase } from '../../lib/basePath';
 
 const withSlash = (path: string) => (path.endsWith('/') ? path : `${path}/`) as RoutePath;
 
@@ -73,7 +74,7 @@ export default function App() {
   // Sync browser history
   useEffect(() => {
     const handlePopState = () => {
-      const path = window.location.pathname;
+      const path = withoutBase(window.location.pathname);
       setCurrentPath((path.endsWith('/') ? path : `${path}/`) as RoutePath);
     };
 
@@ -82,7 +83,7 @@ export default function App() {
   }, []);
 
   const navigateTo = (path: RoutePath) => {
-    window.history.pushState({}, '', path);
+    window.history.pushState({}, '', withBase(path));
     setCurrentPath(path);
     const hash = path.split('#')[1];
     if (hash) {

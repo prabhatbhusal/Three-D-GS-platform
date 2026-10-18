@@ -8,6 +8,7 @@ import { IMG } from '../data/images';
 import { useSession } from '../../auth/useSession';
 import { useClickOutside } from '../../../hooks/useClickOutside';
 import { AccountMenu } from './AccountMenu';
+import { withBase } from '../../../lib/basePath';
 
 /* The site's nav, in the earlier rcaas.tech site's design (2026-10-05/06)
  * with this site's pages and colours:
@@ -184,7 +185,7 @@ export const Header: React.FC<HeaderProps> = ({ currentPath, onNavigate, onOpenP
       <header ref={navRef} className="snav" data-menu={menu ? '' : undefined}>
         <NavLink to="/" go={go} className="snav-brand" aria-label="RCAAS Technology, home">
           <span className="snav-mark" aria-hidden="true" />
-          <img src="/logo.png" alt="" width={522} height={106} className="snav-logo" />
+          <img src={withBase('/logo.png')} alt="" width={522} height={106} className="snav-logo" />
         </NavLink>
 
         <nav ref={linksRef} className="snav-links" aria-label="Main">

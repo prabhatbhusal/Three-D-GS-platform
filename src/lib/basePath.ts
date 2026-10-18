@@ -6,4 +6,9 @@
  *  through withBase. Empty on a normal deploy, so it changes nothing there. */
 export const BASE_PATH = (process.env.NEXT_PUBLIC_BASE_PATH || '').replace(/\/$/, '');
 
-export const withBase = (path: string) => (path.startsWith('/') && !path.startsWith('//') ? BASE_PATH + path : path);
+export const withBase = (path: string) =>
+  path.startsWith('/') && !path.startsWith('//') && !(BASE_PATH && (path === BASE_PATH || path.startsWith(`${BASE_PATH}/`))) ? BASE_PATH + path : path;
+
+/** A path as the site's own router knows it: the address bar's, without the sub-path. */
+export const withoutBase = (path: string) =>
+  BASE_PATH && (path === BASE_PATH || path.startsWith(`${BASE_PATH}/`)) ? path.slice(BASE_PATH.length) || '/' : path;

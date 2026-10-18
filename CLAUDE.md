@@ -22,11 +22,11 @@ updates §4 in the same change. New work lands in "Working", "Needs fixing" or
 | One client test file | `node --test test/client.test.mjs` (Node 24 runs `.ts` imports directly) |
 | Developer guide PDF | `npm run docs:dev-guide` → `docs/RCAAS-Developer-Guide.pdf` (API, modules, pages, settings and known gaps read from the code; rerun after changing them) |
 
-CI (`.github/workflows/ci.yml`) runs lint, types, tests and build on every
-push and PR. VS Code's "Context access might be invalid: DEPLOY_*" warnings in it
-are expected: those repo variables and secrets don't exist until hosting is set up. **Hosting is postponed (2026-09-29):** everything runs on this PC
-for now. The VPS deploy job in CI stays skipped until the `DEPLOY_*` settings
-exist, and `deploy/` is ready for when hosting is picked up again.
+CI is `.github/workflows/nextjs.yml` (2026-10-18, replaced `ci.yml`): lint, types, tests, the full
+build and a static export on every push and PR; pushes to `main` publish the export to GitHub Pages
+(see "GitHub Pages copy" in §4). **Hosting is postponed (2026-09-29):** everything runs on this PC
+for now. The VPS deploy job is parked in git (`git show 9a93085:.github/workflows/ci.yml`), and
+`deploy/` is ready for when hosting is picked up again (its README says how to bring the job back).
 
 ## 2. Map
 
@@ -215,7 +215,12 @@ Terms: **Property/project** = one client. **Space** = one captured room/scene do
 - **Ten heading fonts (2026-10-07):** Inter, Roboto, Open Sans, Poppins, Montserrat, Lato, Nunito, Playfair Display, Merriweather, DM Sans, in the project's Branding and New project dialogs (each option drawn in its own face). One list, `src/lib/brandFonts.ts`, read by the tour (`uiConfig`), the client website, the `/t/` page and both dialogs; served from this site by next/font without preloading, so a page downloads only the face it uses (no request to Google from visitors). Older projects' Georgia/system/Palatino still render and stay in the picker only for them; the server allows all 13 (`store.js BRAND_FONTS`). New projects start on Playfair Display.
 - **A sample client, Chyasal House (2026-10-06):** `cd server && npm run seed:sample` (`scripts/seed-sample-site.mjs`) makes a complete project from the Office Chyasal scan (shared files, not copied): brand and logo, a published space "The Loft" with table and hall hotspots, and a published website with every section filled (rooms with room booking, a café menu with eight tables on the scan's floor plan, the loft as an event hall, a rooftop menu, offers, reviews, FAQ, gallery). Owner: `SEED_OWNER`, else Office Chyasal's. It says it is a sample (its story and FAQ) and its addresses are on `example.test`. Photos are frames of the scan (`scripts/sample-site/`). Seeded into this PC's data on 2026-10-06: `/s/chyasal-house`, `/studio/chyasal-house`.
 - **Fixed 2026-10-06:** Reservations' selected kind (All / Tables / Rooms) was a blank black box in the light studio theme (`site-editor.css .rs-kinds`).
-- **GitHub Pages copy (paused 2026-10-06):** `src/lib/basePath.ts withBase` puts `NEXT_PUBLIC_BASE_PATH` on paths Next doesn't prefix itself (plain `<a>`, image srcs, fetches, the favicon), so a static export under `/Three-D-GS-platform` works. The export itself was built and checked on 2026-10-06 but not pushed to `gh-pages`; the owner wants that commit authored as himself, without a Claude co-author line.
+- **GitHub Pages copy (2026-10-18, `nextjs.yml`):** every push to `main` publishes a static export of the public rcaas.tech pages and `/login` to `https://<owner>.github.io/Three-D-GS-platform/`. Pages runs no API or Node server, so the workflow deletes `studio/[property]`, `s/`, `t/` and `tour/` from its checkout before building (`NEXT_OUTPUT_EXPORT=1`: `output: 'export'`, unoptimised images), and drops `out/assets/rooms` (the tour's sample scans). The forms and Live tours there can't reach the API. The sub-path:
+  - **`withBase`** (`src/lib/basePath.ts`, now safe to apply twice, plus `withoutBase`) prefixes paths Next doesn't: every marketing picture (`data/images.ts IMG`), the logo, team and blog photos, icons, `og.jpg`, and `navigateTo`'s pushState (popstate strips it).
+  - **Links:** a capture-phase listener in the root layout, emitted only when `NEXT_PUBLIC_BASE_PATH` is set, adds the base to any `href="/…"` as it is clicked, middle-clicked or right-clicked, instead of withBase on ~80 hrefs in the copied pages.
+  - **Every marketing page is listed** for the export: `marketing/types ROUTES` (the `RoutePath` union, now a list) plus blog posts, blog pages and the two moved paths, in the catch-all's `generateStaticParams`. A normal build prerenders them too.
+  - **Checked** on a throwaway copy built as CI builds it, served the way Pages serves a repo: eight pages (title, heading, no broken picture, no console error), in-app navigation then reload, a plain link, the 404 page. Not seen on github.com itself yet.
+  - **Needs, once:** Settings → Pages → Source: **GitHub Actions**.
 - **Policy pages (2026-10-04):** `/terms`, `/privacy`, `/security` (`PolicyPage.tsx`, `.lp-legal` in `landing.css`), linked from every marketing page's footer. Written to match what the code does (no cookies or IPs in stats, the concierge stores nothing, providers named). Drafts: they need a lawyer's review before launch.
 - **Storage:** local disk or S3/R2 (`ASSET_DRIVER=s3`), `npm run assets:push` to migrate. Scan files are served with a 1-year immutable cache.
 
@@ -230,7 +235,8 @@ Terms: **Property/project** = one client. **Space** = one captured room/scene do
 ### Needs fixing
 - **Two saves of one file at once can still lose one** (read, change, write; the last write wins, now whole). Rare with a team this size; moving the stores to Postgres fixes it (see "Only accounts are in Postgres").
 - **The rcaas.tech pages' own gaps (from their repo, shown on the pages):** `[[TBI: …]]`/`[[TBC: …]]` placeholders (phone, address, hours, WhatsApp, map), privacy and terms are drafts (noindex), and `SplatEmbed` is a simulated canvas demo, not a real tour (the real ones are on `/gallery`). `/llms.txt` serves their repo's short version; `/llms-full.txt` went with the old site. Their `robots.txt` blocked AI training crawlers; ours (kept) allows them: a decision for the owner.
-- **GitHub Pages must be switched off** (Settings → Pages → Source: None). It publishes the repo as a static page, never the app. The static-export code was removed on 2026-09-29.
+- **No share picture on the marketing pages:** the catch-all's `generateMetadata` sets its own `openGraph` (title, description, url), which replaces the root layout's, `og.jpg` included (Next merges metadata one key deep). Found 2026-10-18; add `images` there.
+- **The GitHub Pages copy is a second public copy of the site.** Switch Pages to None once rcaas.tech is live, or the two compete in search.
 - **Repo weight:** `.git` is ~760 MB (a 100 MB mp4 and an FBX were committed, now moved to `media-src/`). They remain in history, so shrinking it needs a history rewrite (`git filter-repo`), which is a team decision.
 - **The API proxies every scan byte** from R2 through the VPS. Fine to start. Put Cloudflare in front with a cache rule for `/api/assets/*` before traffic grows.
 - **Collision boxes:** yaw-only rotation (no ramps), a box doesn't follow the model if the model is moved later (same as hotspots).

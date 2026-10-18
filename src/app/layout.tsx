@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { SITE_URL } from '../lib/shareMeta';
-import { withBase } from '../lib/basePath';
+import { BASE_PATH, withBase } from '../lib/basePath';
 
 
 // The one typeface everywhere (2026-10-05, the owner's choice): JetBrains Mono, as --font-ui.
@@ -18,8 +18,8 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true, googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1, 'max-video-preview': -1 } },
   description: 'Walkable 3D virtual tours of hotels, restaurants, venues, colleges and heritage sites, captured with LiDAR in Nepal, with enquiry and booking forms inside the tour.',
   applicationName: 'RCAAS.tech',
-  openGraph: { siteName: 'RCAAS.tech', type: 'website', locale: 'en_US', images: [{ url: '/og.jpg', width: 1200, height: 630, alt: 'RCAAS.tech: a stupa drawn as a point cloud' }] },
-  twitter: { card: 'summary_large_image', images: ['/og.jpg'] },
+  openGraph: { siteName: 'RCAAS.tech', type: 'website', locale: 'en_US', images: [{ url: withBase('/og.jpg'), width: 1200, height: 630, alt: 'RCAAS.tech: a stupa drawn as a point cloud' }] },
+  twitter: { card: 'summary_large_image', images: [withBase('/og.jpg')] },
   icons: { icon: withBase('/favicon.svg') }
 };
 
@@ -42,6 +42,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: `(function(){var d=document.documentElement;d.classList.add("gs");var p=location.pathname,t=null;try{t=localStorage.getItem("threedview-theme")}catch(e){}d.dataset.theme=p.indexOf("/studio")===0?(t||(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark")):["tour","t","s"].indexOf(p.split("/")[1])>=0?"dark":(t||"light")})()`
           }}
         />
+        {BASE_PATH && (
+          <script
+            dangerouslySetInnerHTML={{
+              // ponytail: the sub-path copy (GitHub Pages) puts its base on a site link as it is
+              // clicked, opened in a new tab or right-clicked, instead of withBase on ~80 hrefs in
+              // the marketing pages. Links those pages handle themselves still go through navigateTo.
+              __html: `(function(b){function f(e){var a=e.target&&e.target.closest&&e.target.closest('a[href^="/"]'),h=a&&a.getAttribute("href");if(h&&h[1]!=="/"&&h!==b&&h.indexOf(b+"/")!==0)a.setAttribute("href",b+h)}["click","auxclick","contextmenu"].forEach(function(n){addEventListener(n,f,true)})})(${JSON.stringify(BASE_PATH)})`
+            }}
+          />
+        )}
       </head>
       <body>
         <div id="root">{children}</div>

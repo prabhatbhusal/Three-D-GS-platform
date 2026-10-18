@@ -7,9 +7,13 @@ import type { NextConfig } from 'next';
 // root — Next does not rewrite hand-written `/public` asset paths itself.
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 const api = new URL(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000');
+// The GitHub Pages copy (.github/workflows/nextjs.yml): plain files in out/,
+// the public pages only, since Pages can't run the API or a Node server.
+const staticExport = !!process.env.NEXT_OUTPUT_EXPORT;
 
 const nextConfig: NextConfig = {
   basePath,
+  ...(staticExport ? { output: 'export' as const } : {}),
 
   // Pin the workspace root to this repo — a lockfile in a parent folder on
   // this machine otherwise makes Next guess (and warn about) the wrong one.
@@ -23,7 +27,9 @@ const nextConfig: NextConfig = {
     qualities: [80],
     // In development the API is on localhost, which Next 16 won't fetch from
     // by default (an SSRF guard). Production points at the public domain.
-    dangerouslyAllowLocalIP: process.env.NODE_ENV !== 'production'
+    dangerouslyAllowLocalIP: process.env.NODE_ENV !== 'production',
+    // A static host has no image optimiser: photos go out as uploaded.
+    unoptimized: staticExport
   },
 
   // deploy/deploy.sh builds into .next-new while the live site keeps serving

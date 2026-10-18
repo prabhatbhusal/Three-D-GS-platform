@@ -29,6 +29,7 @@ import type { TeamMember } from '../content/team';
 import { Placeholder } from '../components/Placeholder';
 import { SpotlightCard } from '../components/SpotlightCard';
 import { buttonClass, eyebrowClass } from '../components/ui';
+import { withBase } from '../../../lib/basePath';
 import {
   SectionHeading,
   fadeUp,
@@ -186,7 +187,7 @@ const TeamCard: React.FC<{ member: TeamMember }> = ({ member }) => {
       <div className="relative aspect-4/5 overflow-hidden bg-surface-sunken">
         {member.photo && (
           <img loading="lazy" decoding="async"
-            src={member.photo}
+            src={withBase(member.photo)}
             alt={member.photoIsPlaceholder ? '' : member.name ?? 'Team member'}
             className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
           />

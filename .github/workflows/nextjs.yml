@@ -1,0 +1,84 @@
+# Every push and PR: lint, types, tests, the full build and the static one. Pushes to main
+# then publish that build to GitHub Pages: the public rcaas.tech pages and the
+# sign-in page, at https://<owner>.github.io/<repo>/.
+# Pages serves files only, with no API and no Node server, so the parts that
+# need them are left out of this copy: project pages in the studio, tours
+# (/tour, /t/) and client websites (/s/). They run where the API runs
+# (deploy/README.md). Pages must be set to Settings → Pages → Source: GitHub Actions.
+name: Next.js
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nextjs-${{ github.ref }}
+  # Superseded PR runs stop; a publish from main is never cut off half way.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+      - run: npm ci
+      - run: npm ci --prefix server
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm test
+      # The whole app, studio and tours included, as a Node host would run it.
+      - run: npm run build
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # A static export can't build routes that need a request or the API.
+      - name: Leave out what needs the API
+        run: rm -rf 'src/app/studio/[property]' src/app/s src/app/t src/app/tour
+      - name: Build the static copy
+        run: npm run build
+        env:
+          NEXT_OUTPUT_EXPORT: 1
+          # Pages serves this repo under /<repo>. With a custom domain, set both to the domain's root.
+          NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
+          NEXT_PUBLIC_SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+      # The sample scans (176 MB) are for the tour, which isn't in this copy.
+      - run: rm -rf out/assets/rooms
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: out
+
+  deploy:
+    needs: [check, build]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
